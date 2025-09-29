@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* warna logo kamu */
+:root{
+  --navy:#0d2b52;
+  --teal:#1b6a5a;
+  --gold:#c9a84a;
+}
