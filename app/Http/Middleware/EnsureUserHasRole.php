@@ -9,28 +9,67 @@ use Illuminate\Support\Facades\Auth;
 class EnsureUserHasRole
 {
     /**
-     * Handle an incoming request.
-     *
-     * Pemakaian di route:
-     *   ->middleware('role:gm,manager')
-     *
-     * Bisa lebih dari satu role, dipisah koma.
+     * Pakai di route: ->middleware('role:gm,manager')
      */
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        $user = Auth::user();
-
-        // Kalau belum login → lempar ke login
-        if (!$user) {
-            return redirect()->route('login');
+        // Belum login → arahkan ke login + simpan intended URL
+        if (!Auth::check()) {
+            return redirect()->guest(route('login'));
         }
 
-        // Kalau user punya salah satu role → lanjut
-        if ($user->role && in_array($user->role->key, $roles)) {
+        $user = Auth::user();
+
+        // Normalisasi allowed roles: trim + lowercase
+        $allowed = collect($roles)
+            ->flatMap(fn ($r) => explode(',', $r))   // jaga-jaga kalau ada "role:gm,manager" dikirim jadi 1 arg
+            ->map(fn ($r) => strtolower(trim($r)))
+            ->filter()
+            ->unique()
+            ->values();
+
+        // Kumpulkan role user dalam bentuk array lowercase
+        $userRoles = collect();
+
+        // 1) Kalau ada field string langsung: $user->role = 'gm'
+        if (isset($user->role) && is_string($user->role)) {
+            $userRoles->push(strtolower($user->role));
+        }
+
+        // 2) Kalau relasi tunggal: $user->role->key|slug|name
+        if (isset($user->role) && is_object($user->role)) {
+            foreach (['key', 'slug', 'name'] as $col) {
+                if (!empty($user->role->{$col})) {
+                    $userRoles->push(strtolower($user->role->{$col}));
+                    break;
+                }
+            }
+        }
+
+        // 3) Kalau many-to-many: $user->roles()
+        if (method_exists($user, 'roles')) {
+            // coba urutan kolom umum
+            foreach (['key', 'slug', 'name'] as $col) {
+                try {
+                    $vals = $user->roles()->pluck($col)->filter()->map(fn ($v) => strtolower($v));
+                    if ($vals->isNotEmpty()) {
+                        $userRoles = $userRoles->merge($vals);
+                        break;
+                    }
+                } catch (\Throwable $e) {
+                    // kolomnya nggak ada—lanjut coba kolom berikut
+                }
+            }
+        }
+
+        $userRoles = $userRoles->unique()->values();
+
+        // Jika user memiliki salah satu role yang diizinkan → lanjut
+        if ($allowed->intersect($userRoles)->isNotEmpty()) {
             return $next($request);
         }
 
-        // Kalau tidak sesuai → 403 Forbidden
+        // Tidak sesuai → 403
         abort(403, 'Unauthorized — role tidak diizinkan.');
     }
 }
