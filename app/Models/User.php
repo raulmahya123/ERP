@@ -43,4 +43,17 @@ class User extends Authenticatable
     {
         return $this->role && in_array($this->role->key, $keys);
     }
+
+    // === Accessors ===
+    public function getRoleKeyAttribute(): ?string
+    {
+        $this->loadMissing('role'); // biar aman dari lazy loading
+        return optional($this->role)->key;
+    }
+
+    public function getRoleNameAttribute(): ?string
+    {
+        $this->loadMissing('role');
+        return optional($this->role)->name;
+    }
 }
