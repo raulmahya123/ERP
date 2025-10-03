@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Division; // ⬅️ tambahkan
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -17,12 +18,11 @@ class UserController extends Controller
         $q = trim((string) $request->get('q', ''));
 
         $users = User::query()
-            ->with('role')
-            ->when($q, fn($qq) => $qq->where(
-                fn($w) =>
+            ->with(['role','division']) // ⬅️ load division
+            ->when($q, fn($qq) => $qq->where(function ($w) use ($q) {
                 $w->where('name', 'like', "%$q%")
-                    ->orWhere('email', 'like', "%$q%")
-            ))
+                  ->orWhere('email', 'like', "%$q%");
+            }))
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
@@ -32,17 +32,19 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = Role::orderBy('name')->get();
-        return view('admin.users.create', compact('roles'));
+        $roles     = Role::orderBy('name')->get();
+        $divisions = Division::orderBy('name')->get(); // ⬅️ kirim divisions
+        return view('admin.users.create', compact('roles','divisions'));
     }
 
     public function store(Request $req)
     {
         $data = $req->validate([
-            'name'     => ['required', 'string', 'max:100'],
-            'email'    => ['required', 'email', 'max:190', Rule::unique('users', 'email')],
-            'password' => ['required', 'min:6', 'confirmed'],
-            'role_id'  => ['nullable', Rule::exists('roles', 'id')],
+            'name'         => ['required', 'string', 'max:100'],
+            'email'        => ['required', 'email', 'max:190', Rule::unique('users', 'email')],
+            'password'     => ['required', 'min:6', 'confirmed'],
+            'role_id'      => ['nullable', Rule::exists('roles', 'id')],
+            'division_id'  => ['nullable', Rule::exists('divisions', 'id')], // ⬅️ validasi division
         ]);
 
         $data['password'] = Hash::make($data['password']);
@@ -59,17 +61,19 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        $roles = Role::orderBy('name')->get();
-        return view('admin.users.edit', compact('user', 'roles'));
+        $roles     = Role::orderBy('name')->get();
+        $divisions = Division::orderBy('name')->get(); // ⬅️ kirim divisions
+        return view('admin.users.edit', compact('user', 'roles','divisions'));
     }
 
     public function update(Request $req, User $user)
     {
         $data = $req->validate([
-            'name'     => ['required', 'string', 'max:100'],
-            'email'    => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
-            'password' => ['nullable', 'min:6', 'confirmed'],
-            'role_id'  => ['nullable', Rule::exists('roles', 'id')],
+            'name'         => ['required', 'string', 'max:100'],
+            'email'        => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
+            'password'     => ['nullable', 'min:6', 'confirmed'],
+            'role_id'      => ['nullable', Rule::exists('roles', 'id')],
+            'division_id'  => ['nullable', Rule::exists('divisions', 'id')], // ⬅️ validasi division
         ]);
 
         if (auth()->id() === $user->id && array_key_exists('role_id', $data) && is_null($data['role_id'])) {

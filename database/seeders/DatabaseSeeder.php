@@ -14,8 +14,8 @@ class DatabaseSeeder extends Seeder
         // Panggil seeder yang sudah dibuat
         $this->call([
             RoleSeeder::class,
-            UserSeeder::class,
             DivisionSeeder::class,
+            UserSeeder::class,
         ]);
     }
 }

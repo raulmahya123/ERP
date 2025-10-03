@@ -16,38 +16,39 @@ class DivisionSeeder extends Seeder
             [
                 'key' => 'hr',
                 'name' => 'Human Resources',
-                'description' => 'Mengelola SDM, rekrutmen, dan pengembangan karyawan'
+                'description' => 'Mengelola SDM, rekrutmen, dan pengembangan karyawan',
             ],
             [
                 'key' => 'finance',
                 'name' => 'Finance',
-                'description' => 'Mengelola akuntansi, budgeting, dan laporan keuangan'
+                'description' => 'Mengelola akuntansi, budgeting, dan laporan keuangan',
             ],
             [
-                'key' => 'she',
+                // ganti 'she' -> 'hse' supaya match dengan UserSeeder (division_key = 'hse')
+                'key' => 'hse',
                 'name' => 'Safety, Health & Environment',
-                'description' => 'Keselamatan kerja, kesehatan, dan lingkungan'
+                'description' => 'Keselamatan kerja, kesehatan, dan lingkungan',
             ],
             [
                 'key' => 'scm',
                 'name' => 'Supply Chain Management',
-                'description' => 'Logistik, pengadaan, dan manajemen rantai pasok'
+                'description' => 'Logistik, pengadaan, dan manajemen rantai pasok',
             ],
             [
                 'key' => 'plant',
                 'name' => 'Plant Department',
-                'description' => 'Operasional pabrik dan pemeliharaan'
+                'description' => 'Operasional pabrik dan pemeliharaan',
             ],
             [
                 'key' => 'it',
                 'name' => 'Information Technology',
-                'description' => 'Sistem informasi, infrastruktur, dan digitalisasi'
+                'description' => 'Sistem informasi, infrastruktur, dan digitalisasi',
             ],
         ];
 
         foreach ($divisions as $d) {
             Division::updateOrCreate(
-                ['key' => $d['key']], // supaya tidak double kalau seed ulang
+                ['key' => $d['key']], // idempotent by key
                 $d
             );
         }

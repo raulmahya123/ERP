@@ -20,6 +20,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
+        'division_id',   // tambahkan field ini
     ];
 
     protected $hidden = [
@@ -27,13 +28,18 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    // relationship
+    // === Relationships ===
     public function role()
     {
         return $this->belongsTo(Role::class);
     }
 
-    // helper: check role by key (e.g. 'manager')
+    public function division()
+    {
+        return $this->belongsTo(Division::class);
+    }
+
+    // === Helpers ===
     public function hasRole(string $roleKey): bool
     {
         return $this->role && $this->role->key === $roleKey;
@@ -47,7 +53,7 @@ class User extends Authenticatable
     // === Accessors ===
     public function getRoleKeyAttribute(): ?string
     {
-        $this->loadMissing('role'); // biar aman dari lazy loading
+        $this->loadMissing('role');
         return optional($this->role)->key;
     }
 
@@ -55,5 +61,11 @@ class User extends Authenticatable
     {
         $this->loadMissing('role');
         return optional($this->role)->name;
+    }
+
+    public function getDivisionNameAttribute(): ?string
+    {
+        $this->loadMissing('division');
+        return optional($this->division)->name;
     }
 }
