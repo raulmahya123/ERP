@@ -12,9 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Daftarkan alias middleware "role"
+        // Alias middleware kustom kita → "hasrole"
+        // (Hindari menimpa alias "role" milik Spatie, jika kamu pakai Spatie.)
         $middleware->alias([
-            'role' => EnsureUserHasRole::class,
+            'hasrole' => EnsureUserHasRole::class,
+
+            // Jika juga pakai Spatie (opsional), aktifkan baris di bawah:
+            // 'role' => \Spatie\Permission\Middlewares\RoleMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

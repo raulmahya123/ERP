@@ -14,19 +14,20 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $q = trim((string) $request->get('q',''));
+        $q = trim((string) $request->get('q', ''));
 
         $users = User::query()
             ->with('role')
-            ->when($q, fn($qq) => $qq->where(fn($w) =>
-                $w->where('name','like',"%$q%")
-                  ->orWhere('email','like',"%$q%")
+            ->when($q, fn($qq) => $qq->where(
+                fn($w) =>
+                $w->where('name', 'like', "%$q%")
+                    ->orWhere('email', 'like', "%$q%")
             ))
             ->orderBy('name')
             ->paginate(15)
             ->withQueryString();
 
-        return view('admin.users.index', compact('users','q'));
+        return view('admin.users.index', compact('users', 'q'));
     }
 
     public function create()
@@ -38,63 +39,72 @@ class UserController extends Controller
     public function store(Request $req)
     {
         $data = $req->validate([
-            'name'     => ['required','string','max:100'],
-            'email'    => ['required','email','max:190', Rule::unique('users','email')],
-            'password' => ['required','min:6','confirmed'],
-            'role_id'  => ['nullable', Rule::exists('roles','id')],
+            'name'     => ['required', 'string', 'max:100'],
+            'email'    => ['required', 'email', 'max:190', Rule::unique('users', 'email')],
+            'password' => ['required', 'min:6', 'confirmed'],
+            'role_id'  => ['nullable', Rule::exists('roles', 'id')],
         ]);
 
         $data['password'] = Hash::make($data['password']);
 
-        return DB::transaction(function () use ($data) {
-            User::create($data);
-            return redirect()->route('admin.users.index')->with('success','User dibuat.');
-        });
+        try {
+            DB::transaction(function () use ($data) {
+                User::create($data);
+            });
+            return redirect()->route('admin.users.index')->with('success', 'User dibuat.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal membuat user.')->withInput();
+        }
     }
 
     public function edit(User $user)
     {
         $roles = Role::orderBy('name')->get();
-        return view('admin.users.edit', compact('user','roles'));
+        return view('admin.users.edit', compact('user', 'roles'));
     }
 
     public function update(Request $req, User $user)
     {
         $data = $req->validate([
-            'name'     => ['required','string','max:100'],
-            'email'    => ['required','email','max:190', Rule::unique('users','email')->ignore($user->id)],
-            'password' => ['nullable','min:6','confirmed'],
-            'role_id'  => ['nullable', Rule::exists('roles','id')],
+            'name'     => ['required', 'string', 'max:100'],
+            'email'    => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
+            'password' => ['nullable', 'min:6', 'confirmed'],
+            'role_id'  => ['nullable', Rule::exists('roles', 'id')],
         ]);
 
-        // Cegah menjatuhkan peran admin pada diri sendiri sehingga kehilangan akses admin
-        if (auth()->id() === $user->id) {
-            // contoh: larang ganti role menjadi null
-            if (array_key_exists('role_id', $data) && is_null($data['role_id'])) {
-                return back()->withErrors(['role_id' => 'Tidak bisa mengosongkan role akun sendiri.'])->withInput();
-            }
+        if (auth()->id() === $user->id && array_key_exists('role_id', $data) && is_null($data['role_id'])) {
+            return back()
+                ->with('error', 'Tidak bisa mengosongkan role akun sendiri.')
+                ->withErrors(['role_id' => 'Tidak bisa mengosongkan role akun sendiri.'])
+                ->withInput();
         }
 
-        if (!empty($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
-        } else {
-            unset($data['password']);
-        }
+        if (!empty($data['password'])) $data['password'] = Hash::make($data['password']);
+        else unset($data['password']);
 
-        return DB::transaction(function () use ($user, $data) {
-            $user->update($data);
-            return redirect()->route('admin.users.index')->with('success','User diperbarui.');
-        });
+        try {
+            DB::transaction(function () use ($user, $data) {
+                $user->update($data);
+            });
+            return redirect()->route('admin.users.index')->with('success', 'User diperbarui.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal memperbarui user.')->withInput();
+        }
     }
 
     public function destroy(User $user)
     {
-        // Cegah hapus diri sendiri
         if (auth()->id() === $user->id) {
-            return back()->withErrors(['user' => 'Tidak boleh menghapus akun sendiri.']);
+            return back()
+                ->with('error', 'Tidak boleh menghapus akun sendiri.')
+                ->withErrors(['user' => 'Tidak boleh menghapus akun sendiri.']);
         }
 
-        $user->delete();
-        return redirect()->route('admin.users.index')->with('success','User dihapus.');
+        try {
+            $user->delete();
+            return redirect()->route('admin.users.index')->with('success', 'User dihapus.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal menghapus user.');
+        }
     }
 }

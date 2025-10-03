@@ -3,27 +3,16 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\DivisionController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-*/
+// Root
+Route::get('/', fn () => redirect()->route('login'));
 
-// Root → langsung ke login
-Route::get('/', function () {
-    return redirect()->route('login');
-});
+// Dashboard umum
+Route::middleware('auth')->get('/dashboard', fn () => view('dashboard'))->name('dashboard');
 
-// Dashboard umum (semua role)
-Route::middleware('auth')->get('/dashboard', function () {
-    return view('dashboard');
-})->name('dashboard');
-
-// ----------------------
-// Profile (default Breeze)
-// ----------------------
+// Profile (Breeze)
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -31,53 +20,49 @@ Route::middleware('auth')->group(function () {
 });
 
 // =====================
-// ADMIN AREA — Hanya GM & Manager
-// NOTE: Spatie pakai delimiter OR = "|" (pipe), bukan koma.
+// ADMIN AREA — Manager saja di route, tapi GM ikut lolos via bypass
 // =====================
-Route::middleware(['auth', 'role:gm|manager'])
+Route::middleware(['auth', 'hasrole:manager'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
         Route::resource('roles', RoleController::class)->except(['show']);
         Route::resource('users', UserController::class);
+        Route::resource('divisions', DivisionController::class); // tambahan
     });
 
 // =====================
 // DASHBOARD PER ROLE
 // =====================
 
-// GM khusus
-Route::middleware(['auth', 'role:gm'])
+// GM only
+Route::middleware(['auth', 'hasrole:gm'])
     ->get('/gm', fn () => view('roles.gm'))
     ->name('gm.dashboard');
 
-// Manager khusus
-Route::middleware(['auth', 'role:manager'])
+// Yang lain: cukup role utamanya,
+// GM tetap bisa akses karena bypass di middleware
+Route::middleware(['auth', 'hasrole:manager'])
     ->get('/manager', fn () => view('roles.manager'))
     ->name('manager.dashboard');
 
-// Foreman khusus
-Route::middleware(['auth', 'role:foreman'])
+Route::middleware(['auth', 'hasrole:foreman'])
     ->get('/foreman', fn () => view('roles.foreman'))
     ->name('foreman.dashboard');
 
-// Operator khusus
-Route::middleware(['auth', 'role:operator'])
+Route::middleware(['auth', 'hasrole:operator'])
     ->get('/operator', fn () => view('roles.operator'))
     ->name('operator.dashboard');
 
-// HSE Officer khusus
-Route::middleware(['auth', 'role:hse_officer'])
+Route::middleware(['auth', 'hasrole:hse_officer'])
     ->get('/hse', fn () => view('roles.hse'))
     ->name('hse.dashboard');
 
-// HR khusus
-Route::middleware(['auth', 'role:hr'])
+Route::middleware(['auth', 'hasrole:hr'])
     ->get('/hr', fn () => view('roles.hr'))
     ->name('hr.dashboard');
 
-// Finance khusus
-Route::middleware(['auth', 'role:finance'])
+Route::middleware(['auth', 'hasrole:finance'])
     ->get('/finance', fn () => view('roles.finance'))
     ->name('finance.dashboard');
 

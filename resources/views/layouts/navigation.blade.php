@@ -62,7 +62,7 @@
         <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M5 8h14"/>
         </svg>
-        <span>Dashboard {{ strtoupper($roleKey) }}</span>
+        <span>Akses Role,User & Division</span>
       </a>
     @endif
   </nav>
