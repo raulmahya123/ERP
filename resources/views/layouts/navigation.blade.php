@@ -3,7 +3,7 @@
   use Illuminate\Support\Str;
 
   $user = Auth::user();
-  $user?->loadMissing('role');;
+  $user?->loadMissing('role');
 
   // Kumpulkan semua role user → lowercase
   $roles = collect();
@@ -55,7 +55,7 @@
     default       => 'bg-gray-100 text-gray-600 ring-1 ring-gray-300',
   };
 
-  // Daftar link dashboard per role
+  // Daftar link dashboard per role (kecuali GM; GM punya link khusus di atas & akses semua di bawah)
   $roleLinks = [
     'manager'     => ['label'=>'Dashboard Manager', 'route'=>'manager.dashboard', 'emoji'=>'📊'],
     'foreman'     => ['label'=>'Dashboard Foreman', 'route'=>'foreman.dashboard', 'emoji'=>'🛠'],
@@ -103,6 +103,18 @@
       <span>Profil</span>
     </a>
 
+    {{-- === Tambahan: GM Dashboard tepat di bawah Profile (hanya untuk GM) === --}}
+    @if ($isGM && Route::has('gm.dashboard'))
+      <a href="{{ route('gm.dashboard') }}"
+         class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('gm.dashboard')) }}">
+        <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('gm.dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M5 8h14"/>
+        </svg>
+        <span>GM Dashboard</span>
+      </a>
+    @endif
+    {{-- === /Tambahan === --}}
+
     {{-- Menu Admin (Roles, Users, Divisions) → terlihat jika GM atau Manager --}}
     @if ($canAdmin)
       <div class="mt-3 px-5">
@@ -138,7 +150,7 @@
     <div class="mt-3 px-5">
       <div class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Role Dashboards</div>
 
-      {{-- Jika GM → tampilkan semua --}}
+      {{-- Jika GM → tampilkan semua dashboard role (selain GM, karena GM sudah di atas) --}}
       @if ($isGM)
         @foreach($roleLinks as $key => $link)
           @if (Route::has($link['route']))

@@ -21,14 +21,28 @@ Route::middleware('auth')->group(function () {
 
 // =====================
 // ADMIN AREA — Manager saja di route, tapi GM ikut lolos via bypass
+// (bypass di-handle oleh middleware hasrole)
 // =====================
 Route::middleware(['auth', 'hasrole:manager'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
+        // Roles
         Route::resource('roles', RoleController::class)->except(['show']);
+
+        // Users (show sudah otomatis dari resource)
         Route::resource('users', UserController::class);
-        Route::resource('divisions', DivisionController::class); // tambahan
+
+        // Tambahan: Reset Password (opsional tombol di tabel)
+        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])
+            ->name('users.reset-password');
+
+        // Tambahan: Export (opsional; implement action di controller)
+        Route::get('users-export', [UserController::class, 'export'])
+            ->name('users.export');
+
+        // Divisions
+        Route::resource('divisions', DivisionController::class);
     });
 
 // =====================

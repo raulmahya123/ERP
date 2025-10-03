@@ -11,23 +11,41 @@
 
 @section('content')
 @php
+use App\Models\User;
+use App\Models\Division;
+
 $icoChart = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3v18M6 8v13M16 13v8M21 6v15" />
 </svg>';
 $icoUsers = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m8-6a4 4 0 11-8 0 4 4 0 018 0" />
+  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1
+           m8-6a4 4 0 11-8 0 4 4 0 018 0" />
 </svg>';
 $icoMoney = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-  <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.343-4 3s1.79 3 4 3 4 1.343 4 3-1.79 3-4 3m0-12V4m0 16v-2M4 8h16v8H4z" />
+  <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        d="M12 8c-2.21 0-4 1.343-4 3s1.79 3 4 3 4 1.343 4 3-1.79 3-4 3m0-12V4m0 16v-2M4 8h16v8H4z" />
 </svg>';
+$icoLayers = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+  <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z" />
+</svg>';
+
+/** Safeguard count (hindari error saat seeder/belum ada tabel) */
+try {
+  $totalUsers = User::count();
+} catch (\Throwable $e) { $totalUsers = 0; }
+try {
+  $totalDivisions = Division::count();
+} catch (\Throwable $e) { $totalDivisions = 0; }
 @endphp
 
-{{-- ===== KPI Hijau + Quick Action ===== --}}
+{{-- ===== KPI Cards (5 kolom) ===== --}}
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
 
   {{-- Production --}}
   <a href="#"
-    class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-500 to-teal-700 text-white">
+     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-500 to-teal-700 text-white">
     <div class="flex items-start justify-between">
       <div>
         <div class="text-xs/5 opacity-90">Production (MT)</div>
@@ -48,7 +66,7 @@ $icoMoney = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="curren
 
   {{-- Revenue --}}
   <a href="#"
-    class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-400 to-emerald-600 text-white">
+     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-400 to-emerald-600 text-white">
     <div class="flex items-start justify-between">
       <div>
         <div class="text-xs/5 opacity-90">Revenue</div>
@@ -69,7 +87,7 @@ $icoMoney = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="curren
 
   {{-- Cash --}}
   <a href="#"
-    class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-500 to-teal-700 text-white">
+     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-500 to-teal-700 text-white">
     <div class="flex items-start justify-between">
       <div>
         <div class="text-xs/5 opacity-90">Cash Position</div>
@@ -88,82 +106,92 @@ $icoMoney = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="curren
     </div>
   </a>
 
-  {{-- Headcount --}}
-  <a href="#"
-    class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-400 to-emerald-600 text-white">
+  {{-- Total Users --}}
+  @php $usersHref = Route::has('admin.users.index') ? route('admin.users.index') : '#'; @endphp
+  <a href="{{ $usersHref }}"
+     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-sky-500 to-sky-700 text-white">
     <div class="flex items-start justify-between">
       <div>
-        <div class="text-xs/5 opacity-90">Headcount</div>
+        <div class="text-xs/5 opacity-90">Total Users</div>
         <div class="flex items-center gap-2">
-          <div class="text-3xl font-black tracking-tight">284</div>
-          <span class="inline-flex items-center gap-1 rounded-full bg-white text-emerald-700 text-[11px] font-bold px-2 py-0.5 shadow">
-            ▲ 0.7%
-          </span>
+          <div class="text-3xl font-black tracking-tight">{{ $totalUsers }}</div>
         </div>
-        <div class="text-xs/5 opacity-90">Active employees</div>
+        <div class="text-xs/5 opacity-90">
+          {{ Route::has('admin.users.index') ? 'Go to Users' : 'Registered accounts' }}
+        </div>
       </div>
       <div class="grid place-items-center w-10 h-10 rounded-full bg-white/20 ring-1 ring-white/30">{!! $icoUsers !!}</div>
     </div>
     <div class="mt-3 h-1.5 rounded-full bg-white/20 overflow-hidden">
-      <i class="block h-full w-[64%] bg-gradient-to-r from-emerald-200 to-teal-200"></i>
+      <i class="block h-full w-[100%] bg-gradient-to-r from-sky-200 to-cyan-200"></i>
     </div>
   </a>
 
-  {{-- Quick Action (navy) --}}
-  <div class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition 
-            bg-gradient-to-r from-[#0d2b52] to-[#143a6e] text-white">
+  {{-- Total Divisions --}}
+  @php $divHref = Route::has('admin.divisions.index') ? route('admin.divisions.index') : '#'; @endphp
+  <a href="{{ $divHref }}"
+     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-purple-500 to-indigo-700 text-white">
     <div class="flex items-start justify-between">
       <div>
-        <div class="text-xs/5 opacity-80">Quick Action</div>
-        <div class="text-xl font-extrabold">Create New</div>
-        <div class="text-xs opacity-80 mt-1">Add user, role, division, or daily report</div>
+        <div class="text-xs/5 opacity-90">Total Divisions</div>
+        <div class="flex items-center gap-2">
+          <div class="text-3xl font-black tracking-tight">{{ $totalDivisions }}</div>
+        </div>
+        <div class="text-xs/5 opacity-90">
+          {{ Route::has('admin.divisions.index') ? 'Go to Divisions' : 'Active divisions' }}
+        </div>
       </div>
-      <div class="grid place-items-center w-10 h-10 rounded-full bg-white/10 ring-1 ring-white/20">
-        {!! $icoChart !!}
-      </div>
+      <div class="grid place-items-center w-10 h-10 rounded-full bg-white/20 ring-1 ring-white/30">{!! $icoLayers !!}</div>
     </div>
+    <div class="mt-3 h-1.5 rounded-full bg-white/20 overflow-hidden">
+      <i class="block h-full w-[100%] bg-gradient-to-r from-fuchsia-200 to-indigo-200"></i>
+    </div>
+  </a>
 
-    <div class="mt-3 flex flex-wrap gap-2">
+</div>
 
-      {{-- User --}}
-      @if (Route::has('admin.users.index'))
-      <a href="{{ route('admin.users.index') }}"
-        class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm 
-                bg-white text-[#0d2b52] shadow hover:bg-slate-50">
-        + User
-      </a>
-      @endif
-
-      {{-- Role --}}
-      @if (Route::has('admin.roles.index'))
-      <a href="{{ route('admin.roles.index') }}"
-        class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm 
-                bg-emerald-500 text-white shadow hover:bg-emerald-600">
-        + Role
-      </a>
-      @endif
-
-      {{-- Division --}}
-      @if (Route::has('admin.divisions.index'))
-      <a href="{{ route('admin.divisions.index') }}"
-        class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm 
-                bg-sky-500 text-white shadow hover:bg-sky-600">
-        + Division
-      </a>
-      @endif
-
-      {{-- Report --}}
-      @if (Route::has('admin.reports.create'))
-      <a href="{{ route('admin.reports.create') }}"
-        class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm 
-                bg-yellow-400 text-slate-900 shadow hover:bg-yellow-500">
-        + Report
-      </a>
-      @endif
-
+{{-- ===== Quick Action (dipindah ke baris bawah, full width) ===== --}}
+<div class="mt-4 p-4 rounded-2xl shadow-xl bg-gradient-to-r from-[#0d2b52] to-[#143a6e] text-white">
+  <div class="flex items-start justify-between">
+    <div>
+      <div class="text-xs/5 opacity-80">Quick Action</div>
+      <div class="text-xl font-extrabold">Create New</div>
+      <div class="text-xs opacity-80 mt-1">Add user, role, division, or daily report</div>
+    </div>
+    <div class="grid place-items-center w-10 h-10 rounded-full bg-white/10 ring-1 ring-white/20">
+      {!! $icoChart !!}
     </div>
   </div>
 
+  <div class="mt-3 flex flex-wrap gap-2">
+    @if (Route::has('admin.users.index'))
+      <a href="{{ route('admin.users.index') }}"
+         class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm bg-white text-[#0d2b52] shadow hover:bg-slate-50">
+        + User
+      </a>
+    @endif
+
+    @if (Route::has('admin.roles.index'))
+      <a href="{{ route('admin.roles.index') }}"
+         class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm bg-emerald-500 text-white shadow hover:bg-emerald-600">
+        + Role
+      </a>
+    @endif
+
+    @if (Route::has('admin.divisions.index'))
+      <a href="{{ route('admin.divisions.index') }}"
+         class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm bg-sky-500 text-white shadow hover:bg-sky-600">
+        + Division
+      </a>
+    @endif
+
+    @if (Route::has('admin.reports.create'))
+      <a href="{{ route('admin.reports.create') }}"
+         class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm bg-yellow-400 text-slate-900 shadow hover:bg-yellow-500">
+        + Report
+      </a>
+    @endif
+  </div>
 </div>
 
 {{-- ===== Content cards (putih) ===== --}}
