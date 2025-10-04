@@ -3,6 +3,7 @@
   use Illuminate\Support\Str;
   use Illuminate\Support\Facades\Gate;
   use Illuminate\Support\Facades\DB;
+  use Illuminate\Support\Facades\Auth;
 
   $user = Auth::user();
   $user?->loadMissing('role');
@@ -81,6 +82,38 @@
     </svg>
     <span class="font-bold text-lg text-green-700 tracking-wide">{{ config('app.name','BISA') }}</span>
   </div>
+
+  {{-- === Site Switcher (GM only) / Site badge (non-GM) === --}}
+  @php
+    $currentSiteId = session('site_id');
+    $sites = $isGM ? \App\Models\Site::orderBy('code')->get(['id','code','name']) : collect();
+  @endphp
+
+  @if($isGM)
+    <div class="px-5 pt-3 pb-2 border-b bg-white/60">
+      <form action="{{ route('admin.site.switch') }}" method="POST" class="flex items-center gap-2">
+        @csrf
+        <select name="site"
+                class="w-full rounded-md border px-2 py-1 text-sm focus:outline-none focus:ring focus:border-slate-400">
+          @foreach($sites as $s)
+            <option value="{{ $s->id }}" @selected($s->id === $currentSiteId)>
+              {{ $s->code }} — {{ $s->name }}
+            </option>
+          @endforeach
+        </select>
+        <button class="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-sm hover:bg-indigo-700">
+          Switch
+        </button>
+      </form>
+    </div>
+  @elseif($currentSiteId)
+    @php $s = \App\Models\Site::find($currentSiteId); @endphp
+    <div class="px-5 pt-3 pb-2 border-b bg-white/60">
+      <span class="text-[11px] px-2 py-1 rounded bg-slate-100 border">
+        Site: <strong>{{ $s?->code ?? '—' }}</strong>
+      </span>
+    </div>
+  @endif
 
   {{-- NOTE: selalu collapsed di awal (tidak auto-open berdasarkan route) --}}
   <nav class="flex-1 overflow-y-auto py-3"
@@ -223,6 +256,25 @@
              class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.divisions.*')) }}">
             Divisions
           </a>
+
+          {{-- Sites (GM only) --}}
+          @if ($isGM)
+            <a href="{{ route('admin.sites.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
+                      {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">
+              Sites
+            </a>
+          @endif
+
+          {{-- Konfigurasi Site (GM only) --}}
+          @if ($isGM)
+            <a href="{{ route('admin.site_config.edit') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
+                      {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
+              Konfigurasi Site
+            </a>
+          @endif
+
           @if ($isGM && $canGrantAccess)
             <a href="{{ route('admin.access.users.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
@@ -235,6 +287,13 @@
 
     {{-- ===== Role dashboards ===== --}}
     <div class="mt-3 px-5">
+      @php $siteBadge = \App\Models\Site::find(session('site_id')); @endphp
+      @if($siteBadge)
+        <div class="px-3 py-2 mb-2 rounded-lg bg-slate-50 border text-[11px] text-slate-600">
+          Site aktif: <span class="font-semibold">{{ $siteBadge->code }}</span>
+        </div>
+      @endif
+
       <div class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Role Dashboards</div>
 
       @php $roleRoute = $roleLinks[$roleKey]['route'] ?? null; @endphp

@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureSiteSelected; // ⬅️ tambahkan import ini
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,10 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Alias middleware kustom kita → "hasrole"
-        // (Hindari menimpa alias "role" milik Spatie, jika kamu pakai Spatie.)
+        // Alias middleware kustom kita
         $middleware->alias([
-            'hasrole' => EnsureUserHasRole::class,
+            'hasrole'       => EnsureUserHasRole::class,
+            'site.selected' => EnsureSiteSelected::class, // ⬅️ tambahkan alias ini
 
             // Jika juga pakai Spatie (opsional), aktifkan baris di bawah:
             // 'role' => \Spatie\Permission\Middlewares\RoleMiddleware::class,

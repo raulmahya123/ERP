@@ -2,20 +2,22 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Controllers
+// Controllers (Pages & Auth)
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 
+// Admin Controllers
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\Admin\UserAccessController;
-
-use App\Http\Controllers\MasterDataController;
-
 use App\Http\Controllers\Admin\SiteContextController;
 use App\Http\Controllers\Admin\SiteConfigController;
+use App\Http\Controllers\Admin\SiteController; // CRUD daftar site
+
+// Master Data Controller (generic handler per-entity)
+use App\Http\Controllers\MasterDataController;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,12 +49,31 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| Pilih Site (dipanggil oleh middleware EnsureSiteSelected)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'hasrole:gm'])
+    ->get('/sites/select', function () {
+        $sites = \App\Models\Site::orderBy('name')->get();
+        if (request()->expectsJson()) {
+            return response()->json([
+                'message' => 'Pilih site terlebih dahulu.',
+                'sites'   => $sites->map(fn($s) => ['id' => $s->id, 'name' => $s->name]),
+            ]);
+        }
+        return view('admin.sites.select', compact('sites'));
+    })
+    ->name('sites.select');
+
+/*
+|--------------------------------------------------------------------------
 | Admin Area (GM & Manager)
-| - Kalau middleware hasrole kamu belum hierarkis, pakai gm|manager (aman).
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm|manager'])
-    ->prefix('admin')->as('admin.')->group(function () {
+    ->prefix('admin')
+    ->as('admin.')
+    ->group(function () {
         Route::resource('roles', RoleController::class)->except(['show']);
         Route::resource('users', UserController::class);
         Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])
@@ -67,9 +88,10 @@ Route::middleware(['auth', 'hasrole:gm|manager'])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm'])
-    ->prefix('admin/master')->as('admin.master.')->group(function () {
-
-        // Permissions
+    ->prefix('admin/master')
+    ->as('admin.master.')
+    ->group(function () {
+        // Permissions per record
         Route::get('{entity}/{record}/permissions', [MasterDataController::class, 'permissions'])
             ->whereUuid('record')->name('permissions');
         Route::post('{entity}/{record}/permissions', [MasterDataController::class, 'permissionsUpdate'])
@@ -104,7 +126,9 @@ Route::middleware(['auth', 'hasrole:gm'])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm'])
-    ->prefix('admin/access')->as('admin.access.')->group(function () {
+    ->prefix('admin/access')
+    ->as('admin.access.')
+    ->group(function () {
         Route::get('users', [UserAccessController::class, 'index'])->name('users.index');
         Route::get('users/{user}/role', [UserAccessController::class, 'editRole'])->name('users.role.edit');
         Route::post('users/{user}/role', [UserAccessController::class, 'updateRole'])->name('users.role');
@@ -141,17 +165,32 @@ Route::middleware(['auth', 'hasrole:finance'])
 | GM: Site Switcher & Site Config
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'hasrole:gm'])->group(function () {
-    // Ganti konteks site aktif (dropdown switcher)
-    Route::post('/admin/site/switch', [SiteContextController::class, 'switch'])
-        ->name('admin.site.switch');
+// Ganti konteks site aktif
+Route::middleware(['auth', 'hasrole:gm'])
+    ->post('/admin/site/switch', [SiteContextController::class, 'switch'])
+    ->name('admin.site.switch');
 
-    // Form konfigurasi per-site (HBA/grade/assay/shift)
-    Route::get('/admin/site-config',  [SiteConfigController::class, 'edit'])
-        ->name('admin.site_config.edit');
-    Route::post('/admin/site-config', [SiteConfigController::class, 'update'])
-        ->name('admin.site_config.update');
-});
+// Konfigurasi per-site (butuh site.selected)
+Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
+    ->group(function () {
+        Route::get('/admin/site-config',  [SiteConfigController::class, 'edit'])
+            ->name('admin.site_config.edit');
+        Route::post('/admin/site-config', [SiteConfigController::class, 'update'])
+            ->name('admin.site_config.update');
+    });
+
+// CRUD daftar site
+Route::middleware(['auth', 'hasrole:gm'])
+    ->prefix('admin/sites')
+    ->as('admin.sites.')
+    ->group(function () {
+        Route::get('/',            [SiteController::class, 'index'])->name('index');
+        Route::get('/create',      [SiteController::class, 'create'])->name('create');
+        Route::post('/',           [SiteController::class, 'store'])->name('store');
+        Route::get('/{site}/edit', [SiteController::class, 'edit'])->name('edit');
+        Route::put('/{site}',      [SiteController::class, 'update'])->name('update');
+        Route::delete('/{site}',   [SiteController::class, 'destroy'])->name('destroy');
+    });
 
 /*
 |--------------------------------------------------------------------------
