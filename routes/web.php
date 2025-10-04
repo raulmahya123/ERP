@@ -17,7 +17,7 @@ use App\Http\Controllers\Admin\SiteContextController;
 use App\Http\Controllers\Admin\SiteConfigController;
 use App\Http\Controllers\Admin\SiteController;
 use App\Http\Controllers\Admin\MasterEntityController;
-use App\Http\Controllers\CommodityController;// CRUD daftar site
+use App\Http\Controllers\CommodityController; // CRUD commodities
 
 // Master Data Controller (generic handler per-entity)
 use App\Http\Controllers\MasterDataController;
@@ -27,7 +27,6 @@ use App\Http\Controllers\MasterDataController;
 | Route Patterns
 |--------------------------------------------------------------------------
 */
-
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
 
@@ -97,12 +96,12 @@ Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/master-entities')
     ->as('admin.master_entities.')
     ->group(function () {
-        Route::get('/',            [MasterEntityController::class, 'index'])->name('index');
-        Route::get('/create',      [MasterEntityController::class, 'create'])->name('create');
-        Route::post('/',           [MasterEntityController::class, 'store'])->name('store');
-        Route::get('/{master_entity}/edit', [MasterEntityController::class, 'edit'])->name('edit');
-        Route::put('/{master_entity}',      [MasterEntityController::class, 'update'])->name('update');
-        Route::delete('/{master_entity}',   [MasterEntityController::class, 'destroy'])->name('destroy');
+        Route::get('/',                          [MasterEntityController::class, 'index'])->name('index');
+        Route::get('/create',                    [MasterEntityController::class, 'create'])->name('create');
+        Route::post('/',                         [MasterEntityController::class, 'store'])->name('store');
+        Route::get('/{master_entity}/edit',      [MasterEntityController::class, 'edit'])->name('edit');
+        Route::put('/{master_entity}',           [MasterEntityController::class, 'update'])->name('update');
+        Route::delete('/{master_entity}',        [MasterEntityController::class, 'destroy'])->name('destroy');
     });
 
 /* Master Data (CRUD per-entity, generic handler) */
@@ -116,32 +115,32 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::post('{entity}/{record}/permissions', [MasterDataController::class, 'permissionsUpdate'])
             ->whereUuid('record')->name('permissions.update');
 
-        // /admin/master  → redirect ke Overview (aman kalau ada yang klik root master)
+        // /admin/master → redirect ke Overview
         Route::get('/', fn() => redirect()->route('admin.master.overview'))->name('home');
 
         // Overview (cards)
         Route::get('overview', [MasterDataController::class, 'overview'])->name('overview');
 
         // Utilities
-        Route::get('{entity}/lookup', [MasterDataController::class, 'lookup'])->name('lookup');
-        Route::get('{entity}/export', [MasterDataController::class, 'export'])->name('export');
-        Route::post('{entity}/import', [MasterDataController::class, 'import'])->name('import');
-        Route::get('{entity}/import-template', [MasterDataController::class, 'importTemplate'])->name('import.template');
+        Route::get('{entity}/lookup',         [MasterDataController::class, 'lookup'])->name('lookup');
+        Route::get('{entity}/export',         [MasterDataController::class, 'export'])->name('export');
+        Route::post('{entity}/import',        [MasterDataController::class, 'import'])->name('import');
+        Route::get('{entity}/import-template',[MasterDataController::class, 'importTemplate'])->name('import.template');
         Route::delete('{entity}/bulk-delete', [MasterDataController::class, 'bulkDelete'])->name('bulk-delete');
         Route::post('{entity}/{record}/duplicate', [MasterDataController::class, 'duplicate'])
             ->whereUuid('record')->name('duplicate');
 
         // CRUD utama
-        Route::get('{entity}',               [MasterDataController::class, 'index'])->name('index');
-        Route::get('{entity}/create',        [MasterDataController::class, 'create'])->name('create');
-        Route::post('{entity}',              [MasterDataController::class, 'store'])->name('store');
-        Route::get('{entity}/{record}',      [MasterDataController::class, 'show'])
+        Route::get('{entity}',                    [MasterDataController::class, 'index'])->name('index');
+        Route::get('{entity}/create',             [MasterDataController::class, 'create'])->name('create');
+        Route::post('{entity}',                   [MasterDataController::class, 'store'])->name('store');
+        Route::get('{entity}/{record}',           [MasterDataController::class, 'show'])
             ->where('record', '[0-9a-fA-F-]{36}')->name('show');
-        Route::get('{entity}/{record}/edit', [MasterDataController::class, 'edit'])
+        Route::get('{entity}/{record}/edit',      [MasterDataController::class, 'edit'])
             ->where('record', '[0-9a-fA-F-]{36}')->name('edit');
-        Route::put('{entity}/{record}',      [MasterDataController::class, 'update'])
+        Route::put('{entity}/{record}',           [MasterDataController::class, 'update'])
             ->where('record', '[0-9a-fA-F-]{36}')->name('update');
-        Route::delete('{entity}/{record}',   [MasterDataController::class, 'destroy'])
+        Route::delete('{entity}/{record}',        [MasterDataController::class, 'destroy'])
             ->where('record', '[0-9a-fA-F-]{36}')->name('destroy');
     });
 
@@ -154,9 +153,9 @@ Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/access')
     ->as('admin.access.')
     ->group(function () {
-        Route::get('users', [UserAccessController::class, 'index'])->name('users.index');
-        Route::get('users/{user}/role', [UserAccessController::class, 'editRole'])->name('users.role.edit');
-        Route::post('users/{user}/role', [UserAccessController::class, 'updateRole'])->name('users.role');
+        Route::get('users',                [UserAccessController::class, 'index'])->name('users.index');
+        Route::get('users/{user}/role',    [UserAccessController::class, 'editRole'])->name('users.role.edit');
+        Route::post('users/{user}/role',   [UserAccessController::class, 'updateRole'])->name('users.role');
     });
 
 /*
@@ -190,21 +189,11 @@ Route::middleware(['auth', 'hasrole:finance'])
 | GM: Site Switcher & Site Config
 |--------------------------------------------------------------------------
 */
-// Ganti konteks site aktif
+
+// Ganti konteks site aktif (dipakai di sidenav)
 Route::middleware(['auth', 'hasrole:gm'])
     ->post('/admin/site/switch', [SiteContextController::class, 'switch'])
     ->name('admin.site.switch');
-
-// Konfigurasi per-site (butuh site.selected)
-Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
-    ->group(function () {
-        Route::get('/admin/site-config',  [SiteConfigController::class, 'edit'])
-            ->name('admin.site_config.edit');
-        Route::post('/admin/site-config', [SiteConfigController::class, 'update'])
-            ->name('admin.site_config.update');
-    });
-
-
 
 // ===== Sites CRUD (GM only) =====
 Route::middleware(['auth', 'hasrole:gm'])
@@ -219,17 +208,18 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::delete('/{site}',   [SiteController::class, 'destroy'])->name('destroy');
     });
 
+/*
+|--------------------------------------------------------------------------
+| Konfigurasi Site (CRUD lengkap, GM only)
+| NOTE: Tidak ada lagi "single page" /admin/site-config tanpa parameter
+|       sehingga TIDAK bentrok dengan admin.site_config.edit (yang butuh param).
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin')
     ->as('admin.')
     ->group(function () {
-
-        // ===== Site Switcher (dipakai di sidenav) =====
-        Route::post('/site-switch', [SiteController::class, 'switch'])
-            ->name('site.switch');
-
-        // ===== Konfigurasi Site (GM only) =====
-        // sidenav pakai: route('admin.site_config.edit')
+        // Sidenav/menu sebaiknya mengarah ke admin.site_config.index
         Route::prefix('site-config')
             ->as('site_config.')
             ->group(function () {
@@ -242,6 +232,11 @@ Route::middleware(['auth', 'hasrole:gm'])
             });
     });
 
+/*
+|--------------------------------------------------------------------------
+| Commodities (auth)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth'])
     ->prefix('admin/commodities')
     ->as('admin.commodities.')

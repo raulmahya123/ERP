@@ -9,15 +9,53 @@ use Illuminate\Validation\Rule;
 
 class SiteConfigController extends Controller
 {
+    /**
+     * List Konfigurasi Site — filter manual (Apply)
+     * - Filter Site via text search: cocokkan ke code/name site (LIKE)
+     * - Filter Komoditas tetap via dropdown
+     * - Tidak auto-filter setelah create/update/destroy
+     */
     public function index(Request $request)
     {
-        $siteId      = $request->query('site');
-        $commodityId = $request->query('commodity');
+        // Apakah user benar-benar klik "Terapkan"?
+        $manual = $request->boolean('apply');
 
-        $configs = SiteConfig::with(['site','commodity'])
-            ->when($siteId, fn($q) => $q->where('site_id', $siteId))
-            ->when($commodityId, fn($q) => $q->where('commodity_id', $commodityId))
-            // Urutkan rapi berdasarkan code site & commodity (tanpa join berat)
+        // Ambil query pencarian site (text)
+        $siteSearch = $request->query('site_q'); // ganti dari 'site' => 'site_q'
+
+        // Preselect / Prefill nilai UI (tidak memaksa filter)
+        // - Jika datang dari submit (apply=1), tampilkan kembali nilai yang diketik user
+        // - Jika dari redirect store/update/destroy, gunakan flash session('ui_site_id') hanya untuk "Create" nanti
+        $uiSiteSearch  = $request->query('apply') ? $siteSearch : null;
+        $uiCommodityId = $request->query('apply') ? $request->query('commodity') : null;
+
+        // Query utama
+        $configsQ = SiteConfig::with(['site','commodity']);
+
+        // Terapkan filter HANYA saat manual apply
+        if ($manual) {
+            // Filter Site via LIKE ke code/name
+            if (filled($siteSearch)) {
+                $matchIds = Site::query()
+                    ->where(function ($qq) use ($siteSearch) {
+                        $term = '%' . trim($siteSearch) . '%';
+                        $qq->where('code', 'like', $term)
+                           ->orWhere('name', 'like', $term);
+                    })
+                    ->pluck('id');
+
+                // Jika tidak ada yang cocok, pastikan hasil kosong
+                $configsQ->whereIn('site_id', $matchIds ?: [-1]);
+            }
+
+            // Filter Komoditas (ID dropdown)
+            if ($request->filled('commodity')) {
+                $configsQ->where('commodity_id', $request->query('commodity'));
+            }
+        }
+
+        $configs = $configsQ
+            // Urutkan rapi tanpa join berat
             ->orderByRaw('(SELECT code FROM sites WHERE sites.id = site_configs.site_id) asc')
             ->orderByRaw('(SELECT code FROM commodities WHERE commodities.id = site_configs.commodity_id) asc')
             ->paginate(15)
@@ -25,23 +63,33 @@ class SiteConfigController extends Controller
 
         return view('admin.site_configs.index', [
             'configs'              => $configs,
-            'sites'                => Site::orderBy('code')->get(['id','code','name']),
+            'sites'                => Site::orderBy('code')->get(['id','code','name']),  // masih dipakai untuk create/form
             'commodities'          => Commodity::orderBy('code')->get(['id','code','name']),
-            'selectedSiteId'       => $siteId,
-            'selectedCommodityId'  => $commodityId,
+            'uiSiteSearch'         => $uiSiteSearch,      // untuk isian teks filter site
+            'selectedCommodityId'  => $uiCommodityId,     // untuk preselect komoditas saat apply
+            'uiSiteIdForCreateBtn' => session('ui_site_id') ?? session('site_id') ?? $request->user()?->default_site_id,
         ]);
     }
 
+    /**
+     * Form Create — boleh preselect site untuk kenyamanan (tidak memicu filter index)
+     */
     public function create(Request $request)
     {
         return view('admin.site_configs.form', [
             'config'         => new SiteConfig(),
             'sites'          => Site::orderBy('code')->get(['id','code','name']),
             'commodities'    => Commodity::orderBy('code')->get(['id','code','name']),
-            'selectedSiteId' => $request->query('site'),
+            'selectedSiteId' => $request->query('site')
+                ?? session('ui_site_id')
+                ?? session('site_id')
+                ?? $request->user()?->default_site_id,
         ]);
     }
 
+    /**
+     * Simpan
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -70,11 +118,17 @@ class SiteConfigController extends Controller
             'params'       => $params,
         ]);
 
+        // Redirect TANPA query supaya index tidak auto-filter
+        // Kirim flash 'ui_site_id' agar tombol "+ Tambah Konfigurasi" tetap nyaman
         return redirect()
-            ->route('admin.site_config.index', ['site' => $request->site_id])
+            ->route('admin.site_config.index')
+            ->with('ui_site_id', $request->site_id)
             ->with('success', 'Konfigurasi site berhasil dibuat.');
     }
 
+    /**
+     * Form Edit
+     */
     public function edit(SiteConfig $site_config)
     {
         return view('admin.site_configs.form', [
@@ -85,6 +139,9 @@ class SiteConfigController extends Controller
         ]);
     }
 
+    /**
+     * Update
+     */
     public function update(Request $request, SiteConfig $site_config)
     {
         $request->validate([
@@ -116,17 +173,22 @@ class SiteConfigController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.site_config.index', ['site' => $request->site_id])
+            ->route('admin.site_config.index')
+            ->with('ui_site_id', $request->site_id)
             ->with('success', 'Konfigurasi site berhasil diperbarui.');
     }
 
+    /**
+     * Hapus
+     */
     public function destroy(SiteConfig $site_config)
     {
         $siteId = $site_config->site_id;
         $site_config->delete();
 
         return redirect()
-            ->route('admin.site_config.index', ['site' => $siteId])
+            ->route('admin.site_config.index')
+            ->with('ui_site_id', $siteId)
             ->with('success', 'Konfigurasi site berhasil dihapus.');
     }
 }
