@@ -14,7 +14,14 @@ class GateServiceProvider extends ServiceProvider
 
         // Gate custom kamu tetap jalan
         Gate::define('manage-master-data', fn($user) => $this->isGm($user));
-        Gate::define('grant-access',        fn($user) => $this->isGm($user));
+        Gate::define('grant-access',       fn($user) => $this->isGm($user));
+
+        // === NEW (khusus GM) ===
+        Gate::define('switch-site', fn($user) => $this->isGm($user));
+        Gate::define('manage-site-config', fn($user) => $this->isGm($user));
+
+        // Opsional: GM boleh lihat semua site (kalau mau dipakai di query builder)
+        Gate::define('view-all-sites', fn($user) => $this->isGm($user));
 
         Gate::before(function ($user, $ability) {
             return (method_exists($user, 'hasRole') && $user->hasRole('super-admin')) ? true : null;
