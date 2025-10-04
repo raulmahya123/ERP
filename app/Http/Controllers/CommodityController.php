@@ -8,7 +8,7 @@ use Illuminate\Validation\Rule;
 
 class CommodityController extends Controller
 {
-   public function __construct()
+  public function __construct()
     {
         $this->middleware('auth');
     }
@@ -41,8 +41,9 @@ class CommodityController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'code' => ['required', 'max:50', 'alpha_dash', 'unique:commodities,code'],
-            'name' => ['required', 'max:100'],
+            // enum di-validate pakai Rule::in; tidak pakai unique, jadi bisa duplikat
+            'code' => ['required', Rule::in(Commodity::CODES)],
+            'name' => ['required', 'string', 'max:100'],
         ]);
 
         Commodity::create($data);
@@ -63,11 +64,8 @@ class CommodityController extends Controller
     public function update(Request $request, Commodity $commodity)
     {
         $data = $request->validate([
-            'code' => [
-                'required', 'max:50', 'alpha_dash',
-                Rule::unique('commodities', 'code')->ignore($commodity->id, 'id'),
-            ],
-            'name' => ['required', 'max:100'],
+            'code' => ['required', Rule::in(Commodity::CODES)],
+            'name' => ['required', 'string', 'max:100'],
         ]);
 
         $commodity->update($data);

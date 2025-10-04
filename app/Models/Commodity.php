@@ -10,22 +10,17 @@ class Commodity extends Model
     use HasUuids;
 
     protected $table = 'commodities';
-
-    // primary key pakai uuid string, non-increment
     protected $keyType = 'string';
     public $incrementing = false;
 
-    protected $fillable = [
-        'code',
-        'name',
-    ];
+    protected $fillable = ['code', 'name'];
 
-    protected $casts = [
-        'id' => 'string',
-    ];
-    
-    public function configs()
+    // Daftar enum yang sama persis dengan kolom DB
+    public const CODES = ['Batubara','Nikel','Emas'];
+
+    public static function codeOptions(): array
     {
-        return $this->hasMany(SiteConfig::class);
+        // ['Batubara'=>'Batubara', ...] untuk select option
+        return array_combine(self::CODES, self::CODES);
     }
 }

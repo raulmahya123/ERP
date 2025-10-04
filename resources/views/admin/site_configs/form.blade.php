@@ -1,4 +1,3 @@
-{{-- resources/views/admin/site_configs/form.blade.php --}}
 @extends('layouts.app')
 @section('title', $config->exists ? 'Edit Konfigurasi Site' : 'Tambah Konfigurasi Site')
 
@@ -14,6 +13,37 @@
     `;
     wrap.appendChild(div);
   }
+
+  // Toggle field khusus komoditas berdasar code
+  function toggleCommodityParamFields(code) {
+    const groups = {
+      'Batubara': document.getElementById('field-hba'),
+      'Nikel':    document.getElementById('field-ni'),
+      'Emas':     document.getElementById('field-assay'),
+    };
+
+    Object.values(groups).forEach(g => {
+      if (!g) return;
+      g.classList.add('hidden');
+      g.querySelectorAll('input,select,textarea').forEach(el => el.disabled = true);
+    });
+
+    if (groups[code]) {
+      groups[code].classList.remove('hidden');
+      groups[code].querySelectorAll('input,select,textarea').forEach(el => el.disabled = false);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const sel = document.querySelector('select[name="commodity_id"]');
+    const apply = () => {
+      const opt = sel.options[sel.selectedIndex];
+      const code = opt?.dataset?.code || '';
+      toggleCommodityParamFields(code);
+    };
+    sel?.addEventListener('change', apply);
+    apply(); // initial
+  });
 </script>
 @endpush
 
@@ -29,9 +59,7 @@
   @endif
 
   <form method="POST"
-        action="{{ $config->exists
-                    ? route('admin.site_config.update', $config)
-                    : route('admin.site_config.store') }}"
+        action="{{ $config->exists ? route('admin.site_config.update', $config) : route('admin.site_config.store') }}"
         class="space-y-6">
     @csrf
     @if ($config->exists) @method('PUT') @endif
@@ -42,8 +70,7 @@
         <select name="site_id" class="w-full border rounded px-2 py-1.5" required>
           <option value="">— Pilih Site —</option>
           @foreach ($sites as $s)
-            <option value="{{ $s->id }}"
-              @selected(old('site_id', $selectedSiteId ?? $config->site_id) === $s->id)>
+            <option value="{{ $s->id }}" @selected(old('site_id', $selectedSiteId ?? $config->site_id) === $s->id)>
               {{ $s->code }} — {{ $s->name }}
             </option>
           @endforeach
@@ -55,7 +82,9 @@
         <select name="commodity_id" class="w-full border rounded px-2 py-1.5" required>
           <option value="">— Pilih Komoditas —</option>
           @foreach ($commodities as $c)
-            <option value="{{ $c->id }}" @selected(old('commodity_id', $config->commodity_id) === $c->id)>
+            <option value="{{ $c->id }}"
+                    data-code="{{ $c->code }}"
+                    @selected(old('commodity_id', $config->commodity_id) === $c->id)>
               {{ $c->code }} — {{ $c->name }}
             </option>
           @endforeach
@@ -63,21 +92,27 @@
       </div>
     </div>
 
+    {{-- Field khusus komoditas --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div>
+      {{-- Batubara --}}
+      <div id="field-hba" class="hidden">
         <label class="block text-xs text-slate-500 mb-1">HBA (batubara)</label>
         <input type="number" step="0.01" name="hba" class="w-full border rounded px-2 py-1.5"
-               value="{{ old('hba', data_get($config->params,'hba')) }}" placeholder="cth: 120.50">
+               value="{{ old('hba', data_get($config->params,'hba')) }}" placeholder="cth: 120.50" disabled>
       </div>
-      <div>
+
+      {{-- Nikel --}}
+      <div id="field-ni" class="hidden">
         <label class="block text-xs text-slate-500 mb-1">Ni Grade Min (nikel)</label>
         <input type="number" step="0.01" name="ni_grade_min" class="w-full border rounded px-2 py-1.5"
-               value="{{ old('ni_grade_min', data_get($config->params,'ni_grade_min')) }}" placeholder="cth: 1.70">
+               value="{{ old('ni_grade_min', data_get($config->params,'ni_grade_min')) }}" placeholder="cth: 1.70" disabled>
       </div>
-      <div>
+
+      {{-- Emas --}}
+      <div id="field-assay" class="hidden">
         <label class="block text-xs text-slate-500 mb-1">Assay Method (emas)</label>
         <input type="text" name="assay_method" class="w-full border rounded px-2 py-1.5"
-               value="{{ old('assay_method', data_get($config->params,'assay_method')) }}" placeholder="cth: Fire Assay">
+               value="{{ old('assay_method', data_get($config->params,'assay_method')) }}" placeholder="cth: Fire Assay" disabled>
       </div>
     </div>
 
@@ -111,7 +146,7 @@
       <button class="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">
         {{ $config->exists ? 'Update' : 'Simpan' }}
       </button>
-      <a href="{{ route('admin.site_config.index', ['site' => old('site_id', $config->site_id)]) }}"
+      <a href="{{ route('admin.site_config.index') }}"
          class="px-4 py-2 rounded border">Batal</a>
     </div>
   </form>

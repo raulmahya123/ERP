@@ -86,8 +86,6 @@
     <span class="font-bold text-lg text-green-700 tracking-wide">{{ config('app.name','BISA') }}</span>
   </div>
 
-  {{-- (Opsional) Site Switcher bisa diaktifkan lagi kalau diperlukan --}}
-
   {{-- Nav --}}
   <nav class="flex-1 overflow-y-auto py-3"
        x-data="{ openAdmin:false }"
@@ -194,8 +192,8 @@
           @endif
 
           {{-- Konfigurasi Site (GM only) --}}
-          @if ($isGM && Route::has('admin.site_config.edit'))
-            <a href="{{ route('admin.site_config.edit') }}"
+          @if ($isGM && Route::has('admin.site_config.index'))
+            <a href="{{ route('admin.site_config.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
               Konfigurasi Site
             </a>
