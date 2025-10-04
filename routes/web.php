@@ -15,7 +15,9 @@ use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\Admin\SiteContextController;
 use App\Http\Controllers\Admin\SiteConfigController;
-use App\Http\Controllers\Admin\SiteController; // CRUD daftar site
+use App\Http\Controllers\Admin\SiteController;
+use App\Http\Controllers\Admin\MasterEntityController;
+use App\Http\Controllers\CommodityController;// CRUD daftar site
 
 // Master Data Controller (generic handler per-entity)
 use App\Http\Controllers\MasterDataController;
@@ -244,12 +246,12 @@ Route::middleware(['auth'])
     ->prefix('admin/commodities')
     ->as('admin.commodities.')
     ->group(function () {
-        Route::get('/',                 [ControllersCommodityController::class, 'index'])->name('index');
-        Route::get('/create',           [ControllersCommodityController::class, 'create'])->name('create');
-        Route::post('/',                [ControllersCommodityController::class, 'store'])->name('store');
-        Route::get('/{commodity}/edit', [ControllersCommodityController::class, 'edit'])->name('edit');
-        Route::put('/{commodity}',      [ControllersCommodityController::class, 'update'])->name('update');
-        Route::delete('/{commodity}',   [ControllersCommodityController::class, 'destroy'])->name('destroy');
+        Route::get('/',                 [CommodityController::class, 'index'])->name('index');
+        Route::get('/create',           [CommodityController::class, 'create'])->name('create');
+        Route::post('/',                [CommodityController::class, 'store'])->name('store');
+        Route::get('/{commodity}/edit', [CommodityController::class, 'edit'])->name('edit');
+        Route::put('/{commodity}',      [CommodityController::class, 'update'])->name('update');
+        Route::delete('/{commodity}',   [CommodityController::class, 'destroy'])->name('destroy');
     });
 
 /*
