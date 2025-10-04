@@ -9,9 +9,23 @@ class Commodity extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['code','name'];
+    protected $table = 'commodities';
 
-    public function siteConfigs() {
+    // primary key pakai uuid string, non-increment
+    protected $keyType = 'string';
+    public $incrementing = false;
+
+    protected $fillable = [
+        'code',
+        'name',
+    ];
+
+    protected $casts = [
+        'id' => 'string',
+    ];
+    
+    public function configs()
+    {
         return $this->hasMany(SiteConfig::class);
     }
 }

@@ -15,8 +15,7 @@ use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\Admin\SiteContextController;
 use App\Http\Controllers\Admin\SiteConfigController;
-use App\Http\Controllers\Admin\SiteController;
-use App\Http\Controllers\Admin\MasterEntityController;
+use App\Http\Controllers\Admin\SiteController; // CRUD daftar site
 
 // Master Data Controller (generic handler per-entity)
 use App\Http\Controllers\MasterDataController;
@@ -203,7 +202,9 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
             ->name('admin.site_config.update');
     });
 
-// CRUD daftar site
+
+
+// ===== Sites CRUD (GM only) =====
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/sites')
     ->as('admin.sites.')
@@ -214,6 +215,41 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::get('/{site}/edit', [SiteController::class, 'edit'])->name('edit');
         Route::put('/{site}',      [SiteController::class, 'update'])->name('update');
         Route::delete('/{site}',   [SiteController::class, 'destroy'])->name('destroy');
+    });
+
+Route::middleware(['auth', 'hasrole:gm'])
+    ->prefix('admin')
+    ->as('admin.')
+    ->group(function () {
+
+        // ===== Site Switcher (dipakai di sidenav) =====
+        Route::post('/site-switch', [SiteController::class, 'switch'])
+            ->name('site.switch');
+
+        // ===== Konfigurasi Site (GM only) =====
+        // sidenav pakai: route('admin.site_config.edit')
+        Route::prefix('site-config')
+            ->as('site_config.')
+            ->group(function () {
+                Route::get('/',                   [SiteConfigController::class, 'index'])->name('index');
+                Route::get('/create',             [SiteConfigController::class, 'create'])->name('create');
+                Route::post('/',                  [SiteConfigController::class, 'store'])->name('store');
+                Route::get('/{site_config}/edit', [SiteConfigController::class, 'edit'])->name('edit');
+                Route::put('/{site_config}',      [SiteConfigController::class, 'update'])->name('update');
+                Route::delete('/{site_config}',   [SiteConfigController::class, 'destroy'])->name('destroy');
+            });
+    });
+
+Route::middleware(['auth'])
+    ->prefix('admin/commodities')
+    ->as('admin.commodities.')
+    ->group(function () {
+        Route::get('/',                 [ControllersCommodityController::class, 'index'])->name('index');
+        Route::get('/create',           [ControllersCommodityController::class, 'create'])->name('create');
+        Route::post('/',                [ControllersCommodityController::class, 'store'])->name('store');
+        Route::get('/{commodity}/edit', [ControllersCommodityController::class, 'edit'])->name('edit');
+        Route::put('/{commodity}',      [ControllersCommodityController::class, 'update'])->name('update');
+        Route::delete('/{commodity}',   [ControllersCommodityController::class, 'destroy'])->name('destroy');
     });
 
 /*

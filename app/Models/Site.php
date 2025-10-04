@@ -3,15 +3,28 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class Site extends Model
 {
-    use HasUuids;
+    use HasFactory, HasUuids;
 
-    protected $fillable = ['code','name'];
+    protected $table = 'sites';
+    protected $fillable = ['code', 'name'];
 
-    public function configs() {
+    // Laravel akan pakai UUID
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    public function configs()
+    {
         return $this->hasMany(SiteConfig::class);
+    }
+
+    // Relasi ke user default_site_id
+    public function users()
+    {
+        return $this->hasMany(User::class, 'default_site_id');
     }
 }
