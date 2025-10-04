@@ -4,6 +4,7 @@
   use Illuminate\Support\Facades\Gate;
   use Illuminate\Support\Facades\DB;
   use Illuminate\Support\Facades\Auth;
+  use Illuminate\Support\Facades\Route; // <— tambahkan
 
   $user = Auth::user();
   $user?->loadMissing('role');
@@ -72,6 +73,9 @@
     'finance'     => 'bg-cyan-100 text-cyan-700 ring-1 ring-cyan-300',
     default       => 'bg-gray-100 text-gray-600 ring-1 ring-gray-300',
   };
+
+  // ===== Audit visibility (menu muncul jika GM & route tersedia) =====
+  $canViewAudit = $isGM && Route::has('admin.audit.index');
 @endphp
 
 <aside class="bg-gradient-to-b from-white to-blue-50 border-r border-gray-200 h-screen sticky top-0 flex flex-col w-64 shrink-0 shadow-sm">
@@ -133,7 +137,7 @@
     <a href="{{ route('profile.edit') }}"
        class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('profile.edit')) }}">
       <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('profile.edit') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.485 0 4.779.658 6.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.485 0 4.779.658 6.879 1.804M15 11a3 3 0 11-6 0 3 0 016 0z"/>
       </svg>
       <span>Profil</span>
     </a>
@@ -272,6 +276,15 @@
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
                       {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
               Konfigurasi Site
+            </a>
+          @endif>
+
+          {{-- Audit Logs (GM only) --}}
+          @if ($canViewAudit)
+            <a href="{{ route('admin.audit.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
+                      {{ $activeClasses(request()->routeIs('admin.audit.*')) }}">
+              Audit Logs
             </a>
           @endif
 

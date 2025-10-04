@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Division;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Services\AuditLogger;
 
 class DivisionController extends Controller
 {
@@ -13,14 +15,25 @@ class DivisionController extends Controller
      */
     public function index(Request $request)
     {
-        $q = $request->get('q');
+        $q = trim((string) $request->get('q', ''));
 
         $divisions = Division::when($q, function ($query, $q) {
-                $query->where('name', 'like', "%$q%")
-                      ->orWhere('key', 'like', "%$q%");
+                $query->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                      ->orWhere('key', 'like', "%{$q}%");
+                });
             })
             ->orderBy('name')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
+
+        // Log hanya ketika ada pencarian agar tidak bising
+        if ($q !== '') {
+            AuditLogger::log('division_search', 'Division', [
+                'q' => $q,
+                'result_count' => $divisions->total(),
+            ]);
+        }
 
         return view('admin.divisions.index', compact('divisions', 'q'));
     }
@@ -39,15 +52,22 @@ class DivisionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'key' => 'required|string|max:50|unique:divisions,key',
-            'name' => 'required|string|max:100',
+            'key'         => 'required|string|max:50|unique:divisions,key',
+            'name'        => 'required|string|max:100',
             'description' => 'nullable|string',
         ]);
 
-        Division::create($validated);
+        return DB::transaction(function () use ($validated) {
+            $division = Division::create($validated);
 
-        return redirect()->route('admin.divisions.index')
-                         ->with('success', 'Divisi berhasil ditambahkan.');
+            AuditLogger::log('division_created', $division, [
+                'after' => $division->toArray(),
+            ]);
+
+            return redirect()
+                ->route('admin.divisions.index')
+                ->with('success', 'Divisi berhasil ditambahkan.');
+        });
     }
 
     /**
@@ -64,15 +84,26 @@ class DivisionController extends Controller
     public function update(Request $request, Division $division)
     {
         $validated = $request->validate([
-            'key' => 'required|string|max:50|unique:divisions,key,' . $division->id,
-            'name' => 'required|string|max:100',
+            'key'         => 'required|string|max:50|unique:divisions,key,' . $division->id,
+            'name'        => 'required|string|max:100',
             'description' => 'nullable|string',
         ]);
 
-        $division->update($validated);
+        $before = $division->toArray();
 
-        return redirect()->route('admin.divisions.index')
-                         ->with('success', 'Divisi berhasil diperbarui.');
+        return DB::transaction(function () use ($division, $validated, $before) {
+            $division->update($validated);
+            $after = $division->fresh()->toArray();
+
+            AuditLogger::log('division_updated', $division, [
+                'before' => $before,
+                'after'  => $after,
+            ]);
+
+            return redirect()
+                ->route('admin.divisions.index')
+                ->with('success', 'Divisi berhasil diperbarui.');
+        });
     }
 
     /**
@@ -80,9 +111,18 @@ class DivisionController extends Controller
      */
     public function destroy(Division $division)
     {
-        $division->delete();
+        $before = $division->toArray();
 
-        return redirect()->route('admin.divisions.index')
-                         ->with('success', 'Divisi berhasil dihapus.');
+        return DB::transaction(function () use ($division, $before) {
+            $division->delete();
+
+            AuditLogger::log('division_deleted', $division, [
+                'before' => $before,
+            ]);
+
+            return redirect()
+                ->route('admin.divisions.index')
+                ->with('success', 'Divisi berhasil dihapus.');
+        });
     }
 }

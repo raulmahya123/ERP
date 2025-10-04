@@ -16,6 +16,8 @@ use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\Admin\SiteContextController;
 use App\Http\Controllers\Admin\SiteConfigController;
 use App\Http\Controllers\Admin\SiteController; // CRUD daftar site
+use App\Http\Controllers\Admin\AuditLogController;
+
 
 // Master Data Controller (generic handler per-entity)
 use App\Http\Controllers\MasterDataController;
@@ -191,6 +193,26 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::get('/{site}/edit', [SiteController::class, 'edit'])->name('edit');
         Route::put('/{site}',      [SiteController::class, 'update'])->name('update');
         Route::delete('/{site}',   [SiteController::class, 'destroy'])->name('destroy');
+    });
+
+
+Route::middleware(['auth', 'hasrole:gm'])
+    ->prefix('admin/audit-logs')
+    ->as('admin.audit.')
+    ->group(function () {
+        // Daftar log
+        Route::get('/', [AuditLogController::class, 'index'])->name('index');
+
+        // Detail satu log
+        Route::get('/{log}', [AuditLogController::class, 'show'])
+            ->whereUuid('log')
+            ->name('show');
+
+        // Export CSV
+        Route::get('/export', [AuditLogController::class, 'export'])->name('export');
+
+        // Feed JSON
+        Route::get('/feed/json', [AuditLogController::class, 'feed'])->name('feed');
     });
 
 /*
