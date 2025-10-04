@@ -122,16 +122,18 @@
       </a>
     @endif
 
-    {{-- ===== Master Data (link ke LIST/index entity default) ===== --}}
-    @if ($isGM && $canManageMaster && Route::has('admin.master.index'))
-      <a href="{{ route('admin.master.index', $defaultEntity) }}"
-         class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($isMasterListActive) }}">
-        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 7h18M3 12h18M3 17h18" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span>Master Data</span>
-      </a>
-    @endif
+{{-- ===== Master Data (kelola daftar entities) ===== --}}
+@if ($isGM && $canManageMaster && Route::has('admin.master_entities.index'))
+  <a href="{{ route('admin.master_entities.index') }}"
+     class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition
+            {{ $activeClasses(request()->routeIs('admin.master_entities.*')) }}">
+    <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M5 7h14M5 12h14M5 17h14" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Master Data</span>
+  </a>
+@endif
+
 
     {{-- ===== Master Data Overview (card grid) ===== --}}
     @if ($isGM && $canManageMaster && Route::has('admin.master.overview'))
@@ -194,8 +196,8 @@
           @endif
 
           {{-- Konfigurasi Site (GM only) --}}
-          @if ($isGM && Route::has('admin.site_config.edit'))
-            <a href="{{ route('admin.site_config.edit') }}"
+          @if ($isGM && Route::has('admin.site_config.form'))
+            <a href="{{ route('admin.site_config.form') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
               Konfigurasi Site
             </a>
