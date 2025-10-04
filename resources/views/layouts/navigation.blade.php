@@ -25,19 +25,13 @@
   $canGrantAccess  = Gate::check('grant-access');       // biasanya hanya GM
 
   // ===== MASTER ENTITIES: dari database (tanpa default) =====
-  $entitiesQuery = DB::table('master_records')
+  $entities = DB::table('master_records')
       ->select('entity')
+      ->whereNotNull('entity')
       ->distinct()
-      ->orderBy('entity');
-
-  // (opsional) filter by permission user:
-  // if ($user) {
-  //   $entitiesQuery->join('master_record_permissions as mrp', 'mrp.master_record_id', '=', 'master_records.id')
-  //                 ->where('mrp.user_id', $user->id)
-  //                 ->where('mrp.can_view', true);
-  // }
-
-  $entities = $entitiesQuery->pluck('entity')->all();
+      ->orderBy('entity')
+      ->pluck('entity')
+      ->all();
 
   // key => label (humanize)
   $masterEntities = [];
@@ -45,15 +39,16 @@
       $masterEntities[$e] = Str::headline(str_replace('-', ' ', (string)$e));
   }
 
+  // Active states (untuk highlight saja)
+  $isMasterRoute   = request()->routeIs('admin.master.*');
+  $currentEntity   = (string) request()->route('entity');
+  $currentRecordId = (string) request()->route('record');
+
   // Helper kelas aktif
   $activeClasses = fn($isActive) =>
       $isActive
         ? 'bg-green-50 text-green-700 border-l-4 border-yellow-500'
         : 'text-gray-600 hover:bg-blue-50 hover:text-green-700';
-
-  // Active states
-  $isMasterRoute = request()->routeIs('admin.master.*');
-  $currentEntity = (string) request()->route('entity');
 
   // Role dashboards
   $roleLinks = [
@@ -87,7 +82,11 @@
     <span class="font-bold text-lg text-green-700 tracking-wide">{{ config('app.name','BISA') }}</span>
   </div>
 
-  <nav class="flex-1 overflow-y-auto py-3">
+  {{-- NOTE: selalu collapsed di awal (tidak auto-open berdasarkan route) --}}
+  <nav class="flex-1 overflow-y-auto py-3"
+       x-data="{ openMaster:false, openAdmin:false }"
+       x-init="openMaster=false; openAdmin=false">
+
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
        class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard')) }}">
@@ -119,7 +118,7 @@
 
     {{-- ===== MASTER DATA (khusus GM + Gate) ===== --}}
     @if ($isGM && $canManageMaster && !empty($masterEntities))
-      <div class="mt-3 px-5" x-data="{openMaster:true}">
+      <div class="mt-3 px-5">
         <button type="button" @click="openMaster = !openMaster"
                 class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:bg-blue-50">
           <span class="flex items-center gap-2">
@@ -137,7 +136,8 @@
           @foreach($masterEntities as $ekey => $elabel)
             @php $entityActive = $isMasterRoute && $currentEntity === $ekey; @endphp
 
-            <div class="ml-2" x-data="{openEntity: {{ $entityActive ? 'true' : 'false' }}}">
+            <div class="ml-2" x-data="{ openEntity:false }" x-init="openEntity=false">
+              {{-- baris entity --}}
               <button type="button" @click="openEntity=!openEntity"
                       class="w-full flex items-center justify-between pl-7 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($entityActive) }}">
                 <span class="truncate">{{ $elabel }}</span>
@@ -146,54 +146,46 @@
                 </svg>
               </button>
 
+              {{-- submenu per entity --}}
               <div x-show="openEntity" x-transition.origin.top class="mt-1 space-y-1">
-                {{-- List --}}
                 <a href="{{ route('admin.master.index', $ekey) }}"
                    class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
                           {{ $activeClasses($entityActive && request()->routeIs('admin.master.index')) }}">
                   List {{ $elabel }}
                 </a>
 
-                {{-- Create --}}
                 <a href="{{ route('admin.master.create', $ekey) }}"
                    class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
                           {{ $activeClasses($entityActive && request()->routeIs('admin.master.create')) }}">
                   Create {{ $elabel }}
                 </a>
 
-                {{-- === Tambahan utilitas per entity === --}}
-                {{-- Export CSV --}}
-                <a href="{{ route('admin.master.export', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                  Export CSV
-                </a>
+                @if (Route::has('admin.master.export'))
+                  <a href="{{ route('admin.master.export', $ekey) }}"
+                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
+                    Export CSV
+                  </a>
+                @endif
 
-                {{-- Download Template Import --}}
-                <a href="{{ route('admin.master.import.template', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                  Download Template
-                </a>
+                @if (Route::has('admin.master.import.template'))
+                  <a href="{{ route('admin.master.import.template', $ekey) }}"
+                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
+                    Download Template
+                  </a>
+                @endif
 
-                {{-- Import (buka halaman list dengan flag untuk munculin modal import di index) --}}
                 <a href="{{ route('admin.master.index', $ekey) }}?import=1"
                    class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
                   Import CSV
                 </a>
 
-                {{-- Indikasi jika sedang edit/permissions --}}
-                @php
-                  $isEditLike = $entityActive && (
-                      request()->routeIs('admin.master.edit') ||
-                      request()->routeIs('admin.master.update') ||
-                      request()->routeIs('admin.master.destroy') ||
-                      request()->routeIs('admin.master.permissions') ||
-                      request()->routeIs('admin.master.permissions.update')
-                  );
-                @endphp
-                @if ($isEditLike)
-                  <div class="pl-10 pr-3 py-2 text-xs rounded-lg {{ $activeClasses(true) }}">
-                    <span class="opacity-70">• Sedang membuka detail / permissions</span>
-                  </div>
+                {{-- Link Permissions hanya terlihat kalau kamu lagi di halaman permissions entity tsb --}}
+                @if ($entityActive && $currentRecordId && Route::has('admin.master.permissions'))
+                  <a href="{{ route('admin.master.permissions', ['entity'=>$ekey, 'record'=>$currentRecordId]) }}"
+                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
+                            {{ $activeClasses(request()->routeIs('admin.master.permissions') || request()->routeIs('admin.master.permissions.update')) }}">
+                    Permissions
+                  </a>
                 @endif
               </div>
             </div>
@@ -204,7 +196,7 @@
 
     {{-- ===== ADMIN (Roles/Users/Divisions) — GM & Manager ===== --}}
     @if ($showAdminMenu)
-      <div class="mt-3 px-5" x-data="{openAdmin:true}">
+      <div class="mt-3 px-5">
         <button type="button" @click="openAdmin=!openAdmin"
                 class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:bg-blue-50">
           <span class="flex items-center gap-2">
