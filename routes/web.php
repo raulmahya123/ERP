@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\Admin\UserAccessController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 
@@ -99,4 +100,10 @@ Route::middleware(['auth', 'hasrole:hr'])
 Route::middleware(['auth', 'hasrole:finance'])
     ->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
 
+    // Location
+Route::middleware('auth')->group(function () {
+    Route::resource('locations', LocationController::class)->except('show');
+    Route::get('locations/{location}/share',  [LocationController::class, 'shareForm'])->name('locations.share');
+    Route::post('locations/{location}/share', [LocationController::class, 'shareSave'])->name('locations.share.save');
+});
 require __DIR__ . '/auth.php';
