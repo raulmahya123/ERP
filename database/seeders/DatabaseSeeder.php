@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\MasterRecord;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -16,6 +17,8 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             DivisionSeeder::class,
             UserSeeder::class,
+            MasterDataSeeder::class,
+            MasterRecordAccessSeeder::class,
         ]);
     }
 }

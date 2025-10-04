@@ -13,86 +13,101 @@ class EnsureUserHasRole
      */
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        // Belum login → arahkan ke login
+        // 0) Guest handling
         if (!Auth::check()) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
             return redirect()->guest(route('login'));
         }
 
         $user = Auth::user();
 
-        // ===== 1) Normalisasi daftar role yang diizinkan (dukung koma & pipe) =====
+        // 1) Normalisasi daftar role yang diizinkan (dukung koma & pipe), lowercase
         $allowed = collect($roles)
-            ->flatMap(fn ($r) => preg_split('/[,\|]/', (string) $r)) // "gm|manager" atau "gm,manager"
-            ->map(fn ($r) => strtolower(trim($r)))
+            ->flatMap(fn ($r) => preg_split('/[,\|]/', (string) $r) ?: [])
+            ->map(fn ($r) => mb_strtolower(trim($r)))
             ->filter()
             ->unique()
             ->values();
 
-        // Kalau tidak ada role yang dipassing, izinkan saja (opsional, tapi praktis)
         if ($allowed->isEmpty()) {
-            return $next($request);
+            return $next($request); // tanpa parameter = izinkan
         }
 
-        // ===== 2) Ambil semua role user (serba bisa) → lowercase =====
+        // 2) Eager load relasi yang BENAR-BENAR ada
+        $relations = ['role']; // single-role
+        if (method_exists($user, 'roles')) {
+            // hanya kalau model mendefinisikan relasi many-to-many roles()
+            $relations[] = 'roles:id,key,slug,name,title';
+        }
+        $user->loadMissing($relations);
+
+        // 3) Kumpulkan semua role user (lowercase multibyte)
         $userRoles = collect();
 
-        // 2a) Spatie (jika ada)
+        // 3a) Spatie (kalau trait HasRoles dipakai)
         try {
             if (method_exists($user, 'getRoleNames')) {
                 $userRoles = $userRoles->merge(
-                    $user->getRoleNames()->map(fn ($v) => strtolower($v))
+                    $user->getRoleNames()->map(fn ($v) => mb_strtolower($v))
                 );
             }
-        } catch (\Throwable $e) {}
-
-        // 2b) Field string langsung: $user->role = 'gm'
-        if (isset($user->role) && is_string($user->role)) {
-            $userRoles->push(strtolower($user->role));
+        } catch (\Throwable $e) {
+            // ignore
         }
 
-        // 2c) Relasi tunggal: $user->role->(key|slug|name|title)
+        // 3b) Field string langsung (kalau kolom 'role' berupa string)
+        if (isset($user->role) && is_string($user->role)) {
+            $userRoles->push(mb_strtolower($user->role));
+        }
+
+        // 3c) Relasi tunggal role()
         if (isset($user->role) && is_object($user->role)) {
-            foreach (['key','slug','name','title'] as $col) {
-                if (!empty($user->role->{$col})) {
-                    $userRoles->push(strtolower($user->role->{$col}));
+            foreach (['key', 'slug', 'name', 'title'] as $col) {
+                $val = $user->role->{$col} ?? null;
+                if (is_string($val) && $val !== '') {
+                    $userRoles->push(mb_strtolower($val));
                     break;
                 }
             }
         }
 
-        // 2d) Many-to-many: $user->roles()->pluck(...)
-        if (method_exists($user, 'roles')) {
-            foreach (['key','slug','name','title'] as $col) {
-                try {
-                    $vals = $user->roles()->pluck($col)->filter()->map(fn ($v) => strtolower($v));
-                    if ($vals->isNotEmpty()) {
-                        $userRoles = $userRoles->merge($vals);
-                        break;
+        // 3d) Many-to-many roles() (hanya jika relasinya ada & sudah diload)
+        if (method_exists($user, 'roles') && $user->relationLoaded('roles')) {
+            $mm = $user->roles->map(function ($r) {
+                foreach (['key', 'slug', 'name', 'title'] as $col) {
+                    $val = $r->{$col} ?? null;
+                    if (is_string($val) && $val !== '') {
+                        return mb_strtolower($val);
                     }
-                } catch (\Throwable $e) { /* lanjut kolom berikut */ }
-            }
+                }
+                return null;
+            })->filter();
+            $userRoles = $userRoles->merge($mm);
         }
 
         $userRoles = $userRoles->filter()->unique()->values();
 
-        // ===== 3) BYPASS: jika user adalah GM → selalu boleh =====
+        // 4) BYPASS: GM selalu boleh
         if ($userRoles->contains('gm')) {
             return $next($request);
         }
 
-        // ===== 4) Jika pakai Spatie, manfaatkan shortcut-nya =====
-        if (method_exists($user, 'hasAnyRole')) {
-            if ($user->hasAnyRole($allowed->all())) {
-                return $next($request);
-            }
+        // 5) Spatie shortcut (kalau ada)
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole($allowed->all())) {
+            return $next($request);
         }
 
-        // ===== 5) Cek manual =====
+        // 6) Cek manual
         if ($allowed->intersect($userRoles)->isNotEmpty()) {
             return $next($request);
         }
 
-        // ===== 6) Tolak =====
+        // 7) Tolak — format JSON vs web
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Forbidden — role tidak diizinkan.'], 403);
+        }
         abort(403, 'Unauthorized — role tidak diizinkan.');
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -20,7 +19,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
-        'division_id',   // tambahkan field ini
+        'division_id',
     ];
 
     protected $hidden = [
@@ -47,7 +46,7 @@ class User extends Authenticatable
 
     public function hasAnyRole(array $keys): bool
     {
-        return $this->role && in_array($this->role->key, $keys);
+        return $this->role && in_array($this->role->key, $keys, true);
     }
 
     // === Accessors ===
