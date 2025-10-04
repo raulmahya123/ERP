@@ -149,83 +149,50 @@
       </a>
     @endif
 
-    {{-- ===== MASTER DATA (khusus GM + Gate) ===== --}}
-    @if ($isGM && $canManageMaster && !empty($masterEntities))
-      <div class="mt-3 px-5">
-        <button type="button" @click="openMaster = !openMaster"
-                class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:bg-blue-50">
-          <span class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
-            </svg>
-            Master Data
-          </span>
-          <svg class="w-4 h-4 text-gray-500 transform transition" :class="openMaster ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </button>
 
-        <div x-show="openMaster" x-transition.origin.top class="mt-2 space-y-1">
-          @foreach($masterEntities as $ekey => $elabel)
-            @php $entityActive = $isMasterRoute && $currentEntity === $ekey; @endphp
 
-            <div class="ml-2" x-data="{ openEntity:false }" x-init="openEntity=false">
-              {{-- baris entity --}}
-              <button type="button" @click="openEntity=!openEntity"
-                      class="w-full flex items-center justify-between pl-7 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($entityActive) }}">
-                <span class="truncate">{{ $elabel }}</span>
-                <svg class="w-4 h-4 text-gray-500 transform transition" :class="openEntity ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                </svg>
-              </button>
+{{-- ===== Master Data (list) & Overview ===== --}}
+@php
+  // default entity untuk link "Master Data" (list)
+  // pakai entity pertama dari DB (master_records), fallback ke 'units'
+  $defaultEntity = array_key_exists(0, $entities ?? []) ? ($entities[0] ?? 'units')
+                   : (array_key_first($masterEntities ?? []) ?? 'units');
 
-              {{-- submenu per entity --}}
-              <div x-show="openEntity" x-transition.origin.top class="mt-1 space-y-1">
-                <a href="{{ route('admin.master.index', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
-                          {{ $activeClasses($entityActive && request()->routeIs('admin.master.index')) }}">
-                  List {{ $elabel }}
-                </a>
+  // active state: semua halaman master KECUALI overview
+  $isMasterListActive = request()->routeIs('admin.master.*') && !request()->routeIs('admin.master.overview');
+@endphp
 
-                <a href="{{ route('admin.master.create', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
-                          {{ $activeClasses($entityActive && request()->routeIs('admin.master.create')) }}">
-                  Create {{ $elabel }}
-                </a>
+{{-- ===== Master Data (kelola daftar entities) ===== --}}
+@if ($isGM && $canManageMaster && Route::has('admin.master_entities.index'))
+  <a href="{{ route('admin.master_entities.index') }}"
+     class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition
+            {{ $activeClasses(request()->routeIs('admin.master_entities.*')) }}">
+    <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M5 7h14M5 12h14M5 17h14" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Master Data</span>
+  </a>
+@endif
 
-                @if (Route::has('admin.master.export'))
-                  <a href="{{ route('admin.master.export', $ekey) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                    Export CSV
-                  </a>
-                @endif
 
-                @if (Route::has('admin.master.import.template'))
-                  <a href="{{ route('admin.master.import.template', $ekey) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                    Download Template
-                  </a>
-                @endif
+  {{-- Master Data Overview → overview cards --}}
+  @if (Route::has('admin.master.overview'))
+    <a href="{{ route('admin.master.overview') }}"
+       class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition
+              {{ $activeClasses(request()->routeIs('admin.master.overview')) }}">
+      <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7" rx="2"></rect>
+        <rect x="14" y="3" width="7" height="7" rx="2"></rect>
+        <rect x="3" y="14" width="7" height="7" rx="2"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="2"></rect>
+      </svg>
+      <span>Master Data Overview</span>
+    </a>
+  @endif
 
-                <a href="{{ route('admin.master.index', $ekey) }}?import=1"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                  Import CSV
-                </a>
 
-                {{-- Link Permissions hanya terlihat kalau kamu lagi di halaman permissions entity tsb --}}
-                @if ($entityActive && $currentRecordId && Route::has('admin.master.permissions'))
-                  <a href="{{ route('admin.master.permissions', ['entity'=>$ekey, 'record'=>$currentRecordId]) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
-                            {{ $activeClasses(request()->routeIs('admin.master.permissions') || request()->routeIs('admin.master.permissions.update')) }}">
-                    Permissions
-                  </a>
-                @endif
-              </div>
-            </div>
-          @endforeach
-        </div>
-      </div>
-    @endif
+
+
 
     {{-- ===== ADMIN (Roles/Users/Divisions) — GM & Manager ===== --}}
     @if ($showAdminMenu)

@@ -218,4 +218,145 @@ try {
     </div>
   </div>
 </div>
+
+{{-- ===== Master Data Overview (enhanced, glossy) ===== --}}
+@php
+  use Illuminate\Support\Str;
+  use Illuminate\Support\Facades\DB;
+  use Illuminate\Support\Facades\Gate;
+  use Illuminate\Support\Facades\Schema;
+
+  $canManageMaster  = Gate::check('manage-master-data'); // biasanya khusus GM
+  $currentSiteId    = session('site_id');
+
+  // Daftar entity yang diizinkan oleh Route::pattern('entity', ...)
+  $allowedEntities = ['units','pits','stockpiles','cost_centers','accounts','employees','asset_categories'];
+
+  // Label human-readable
+  $labels = [];
+  foreach ($allowedEntities as $e) {
+      $labels[$e] = Str::headline(str_replace('-', ' ', $e));
+  }
+
+  // Warna gradient per entity (selaras kartu KPI)
+  $colors = [
+    'units'            => 'from-emerald-500 to-teal-700',
+    'pits'             => 'from-amber-500 to-orange-700',
+    'stockpiles'       => 'from-sky-500 to-indigo-700',
+    'cost_centers'     => 'from-purple-500 to-fuchsia-700',
+    'accounts'         => 'from-cyan-500 to-blue-700',
+    'employees'        => 'from-rose-500 to-pink-600',
+    'asset_categories' => 'from-lime-500 to-green-700',
+  ];
+
+  // Ikon per entity (pakai ikon yang sudah ada, fallback ke SVG sederhana)
+  $icons = [
+    'units'            => $icoLayers ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z"/></svg>',
+    'pits'             => $icoChart  ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M11 3v18M6 8v13M16 13v8M21 6v15"/></svg>',
+    'stockpiles'       => $icoLayers ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z"/></svg>',
+    'cost_centers'     => $icoMoney  ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.343-4 3s1.79 3 4 3 4 1.343 4 3-1.79 3-4 3m0-12V4m0 16v-2M4 8h16v8H4z"/></svg>',
+    'accounts'         => $icoMoney  ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 8c-2.21 0-4 1.343-4 3s1.79 3 4 3 4 1.343 4 3-1.79 3-4 3m0-12V4m0 16v-2M4 8h16v8H4z"/></svg>',
+    'employees'        => $icoUsers  ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m8-6a4 4 0 11-8 0 4 4 0 018 0"/></svg>',
+    'asset_categories' => $icoLayers ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z"/></svg>',
+  ];
+
+  // Hitung total per entity dari master_records (fallback 0)
+  $masterTotals = [];
+  try {
+      $q = DB::table('master_records')
+            ->select('entity', DB::raw('COUNT(*) as total'))
+            ->groupBy('entity');
+
+      if ($currentSiteId && Schema::hasColumn('master_records', 'site_id')) {
+          $q->where('site_id', $currentSiteId);
+      }
+
+      $rows = $q->get();
+      $counts = [];
+      foreach ($rows as $r) {
+          $counts[$r->entity] = (int) $r->total;
+      }
+
+      foreach ($allowedEntities as $e) {
+          $masterTotals[$e] = $counts[$e] ?? 0;
+      }
+  } catch (\Throwable $e) {
+      foreach ($allowedEntities as $e) { $masterTotals[$e] = 0; }
+  }
+
+  $totalSum = array_sum($masterTotals) ?: 1;
+@endphp
+
+@if($canManageMaster && !empty($masterTotals))
+  <div class="mt-8">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-[#0d2b52] font-extrabold tracking-wide">Master Data Overview</h3>
+      <div class="text-xs text-slate-500">Klik kartu untuk membuka daftar</div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      @foreach($masterTotals as $ekey => $count)
+        @php
+          $pct = max(8, min(100, (int) round(($count / max(1,$totalSum)) * 100)));
+          $grad = $colors[$ekey] ?? 'from-emerald-500 to-teal-700';
+          $ico  = $icons[$ekey]  ?? $icons['units'];
+          $label = $labels[$ekey] ?? Str::headline($ekey);
+        @endphp
+
+        <a href="{{ route('admin.master.index', $ekey) }}"
+           class="group relative overflow-hidden rounded-2xl shadow-xl ring-1 ring-slate-200 bg-gradient-to-r {{ $grad }} text-white p-4 transition hover:-translate-y-0.5 hover:shadow-2xl"
+           aria-label="Buka {{ $label }}"
+           title="Buka {{ $label }}">
+          {{-- subtle glassy pattern --}}
+          <div class="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/60 via-transparent to-transparent"></div>
+
+          <div class="relative flex items-start justify-between">
+            <div>
+              <div class="text-xs/5 opacity-90">{{ $label }}</div>
+              <div class="mt-1 flex items-end gap-2">
+                <div class="text-3xl font-black tracking-tight">{{ number_format($count) }}</div>
+                <span class="inline-flex items-center gap-1 rounded-full bg-white text-emerald-700 text-[11px] font-bold px-2 py-0.5 shadow opacity-0 group-hover:opacity-100 transition">
+                  Open →
+                </span>
+              </div>
+              <div class="text-xs/5 opacity-90">
+                {{ $currentSiteId ? 'Site scoped' : 'Global' }}
+              </div>
+            </div>
+            <div class="grid place-items-center w-10 h-10 rounded-full bg-white/20 ring-1 ring-white/30">
+              {!! $ico !!}
+            </div>
+          </div>
+
+          {{-- glossy progress --}}
+          <div class="relative mt-3 h-1.5 rounded-full bg-white/20 overflow-hidden">
+            <i class="block h-full" style="width: {{ $pct }}%; background: linear-gradient(90deg, rgba(255,255,255,.65), rgba(255,255,255,.35));"></i>
+          </div>
+
+          {{-- quick actions (muncul saat hover) --}}
+          <div class="relative mt-3 flex flex-wrap items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+            @if (Route::has('admin.master.create'))
+              <a href="{{ route('admin.master.create', $ekey) }}"
+                 class="text-[11px] font-semibold px-2 py-1 rounded-md bg-white/90 text-slate-900 hover:bg-white">
+                + Create
+              </a>
+            @endif
+            @if (Route::has('admin.master.export'))
+              <a href="{{ route('admin.master.export', $ekey) }}"
+                 class="text-[11px] font-semibold px-2 py-1 rounded-md bg-white/20 hover:bg-white/30">
+                Export
+              </a>
+            @endif
+            @if (Route::has('admin.master.import.template'))
+              <a href="{{ route('admin.master.import.template', $ekey) }}"
+                 class="text-[11px] font-semibold px-2 py-1 rounded-md bg-white/20 hover:bg-white/30">
+                Template
+              </a>
+            @endif
+          </div>
+        </a>
+      @endforeach
+    </div>
+  </div>
+@endif
 @endsection
