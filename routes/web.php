@@ -4,11 +4,6 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers (Pages & Auth)
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\DivisionController;
-use App\Http\Controllers\MasterDataController;
-use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
@@ -20,8 +15,9 @@ use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\Admin\SiteContextController;
 use App\Http\Controllers\Admin\SiteConfigController;
+use App\Http\Controllers\Admin\CommodityController;
 use App\Http\Controllers\Admin\SiteController; // CRUD daftar site
-
+use App\Http\Controllers\CommodityController as ControllersCommodityController;
 // Master Data Controller (generic handler per-entity)
 use App\Http\Controllers\MasterDataController;
 
@@ -30,6 +26,7 @@ use App\Http\Controllers\MasterDataController;
 | Route Patterns
 |--------------------------------------------------------------------------
 */
+
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '(units|pits|stockpiles|cost_centers|accounts|employees|asset_categories)');
 
@@ -185,7 +182,9 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
             ->name('admin.site_config.update');
     });
 
-// CRUD daftar site
+
+
+// ===== Sites CRUD (GM only) =====
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/sites')
     ->as('admin.sites.')
@@ -196,6 +195,41 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::get('/{site}/edit', [SiteController::class, 'edit'])->name('edit');
         Route::put('/{site}',      [SiteController::class, 'update'])->name('update');
         Route::delete('/{site}',   [SiteController::class, 'destroy'])->name('destroy');
+    });
+
+Route::middleware(['auth', 'hasrole:gm'])
+    ->prefix('admin')
+    ->as('admin.')
+    ->group(function () {
+
+        // ===== Site Switcher (dipakai di sidenav) =====
+        Route::post('/site-switch', [SiteController::class, 'switch'])
+            ->name('site.switch');
+
+        // ===== Konfigurasi Site (GM only) =====
+        // sidenav pakai: route('admin.site_config.edit')
+        Route::prefix('site-config')
+            ->as('site_config.')
+            ->group(function () {
+                Route::get('/',                   [SiteConfigController::class, 'index'])->name('index');
+                Route::get('/create',             [SiteConfigController::class, 'create'])->name('create');
+                Route::post('/',                  [SiteConfigController::class, 'store'])->name('store');
+                Route::get('/{site_config}/edit', [SiteConfigController::class, 'edit'])->name('edit');
+                Route::put('/{site_config}',      [SiteConfigController::class, 'update'])->name('update');
+                Route::delete('/{site_config}',   [SiteConfigController::class, 'destroy'])->name('destroy');
+            });
+    });
+
+Route::middleware(['auth'])
+    ->prefix('admin/commodities')
+    ->as('admin.commodities.')
+    ->group(function () {
+        Route::get('/',                 [ControllersCommodityController::class, 'index'])->name('index');
+        Route::get('/create',           [ControllersCommodityController::class, 'create'])->name('create');
+        Route::post('/',                [ControllersCommodityController::class, 'store'])->name('store');
+        Route::get('/{commodity}/edit', [ControllersCommodityController::class, 'edit'])->name('edit');
+        Route::put('/{commodity}',      [ControllersCommodityController::class, 'update'])->name('update');
+        Route::delete('/{commodity}',   [ControllersCommodityController::class, 'destroy'])->name('destroy');
     });
 
 /*

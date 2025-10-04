@@ -89,6 +89,7 @@
     $sites = $isGM ? \App\Models\Site::orderBy('code')->get(['id','code','name']) : collect();
   @endphp
 
+  {{--
   @if($isGM)
     <div class="px-5 pt-3 pb-2 border-b bg-white/60">
       <form action="{{ route('admin.site.switch') }}" method="POST" class="flex items-center gap-2">
@@ -114,15 +115,16 @@
       </span>
     </div>
   @endif
+  --}}
 
   {{-- NOTE: selalu collapsed di awal (tidak auto-open berdasarkan route) --}}
   <nav class="flex-1 overflow-y-auto py-3"
-       x-data="{ openMaster:false, openAdmin:false }"
-       x-init="openMaster=false; openAdmin=false">
+      x-data="{ openMaster:false, openAdmin:false }"
+      x-init="openMaster=false; openAdmin=false">
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
-       class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard')) }}">
+      class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard')) }}">
       <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10"/>
       </svg>
@@ -131,7 +133,7 @@
 
     {{-- Profil --}}
     <a href="{{ route('profile.edit') }}"
-       class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('profile.edit')) }}">
+      class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('profile.edit')) }}">
       <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('profile.edit') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.485 0 4.779.658 6.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
       </svg>
@@ -141,7 +143,7 @@
     {{-- GM Dashboard (opsional) --}}
     @if ($isGM && Route::has('gm.dashboard'))
       <a href="{{ route('gm.dashboard') }}"
-         class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('gm.dashboard')) }}">
+        class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('gm.dashboard')) }}">
         <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('gm.dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M5 8h14"/>
         </svg>
@@ -182,40 +184,40 @@
               {{-- submenu per entity --}}
               <div x-show="openEntity" x-transition.origin.top class="mt-1 space-y-1">
                 <a href="{{ route('admin.master.index', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
+                  class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
                           {{ $activeClasses($entityActive && request()->routeIs('admin.master.index')) }}">
                   List {{ $elabel }}
                 </a>
 
                 <a href="{{ route('admin.master.create', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
+                  class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
                           {{ $activeClasses($entityActive && request()->routeIs('admin.master.create')) }}">
                   Create {{ $elabel }}
                 </a>
 
                 @if (Route::has('admin.master.export'))
                   <a href="{{ route('admin.master.export', $ekey) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
+                    class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
                     Export CSV
                   </a>
                 @endif
 
                 @if (Route::has('admin.master.import.template'))
                   <a href="{{ route('admin.master.import.template', $ekey) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
+                    class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
                     Download Template
                   </a>
                 @endif
 
                 <a href="{{ route('admin.master.index', $ekey) }}?import=1"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
+                  class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
                   Import CSV
                 </a>
 
                 {{-- Link Permissions hanya terlihat kalau kamu lagi di halaman permissions entity tsb --}}
                 @if ($entityActive && $currentRecordId && Route::has('admin.master.permissions'))
                   <a href="{{ route('admin.master.permissions', ['entity'=>$ekey, 'record'=>$currentRecordId]) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
+                    class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
                             {{ $activeClasses(request()->routeIs('admin.master.permissions') || request()->routeIs('admin.master.permissions.update')) }}">
                     Permissions
                   </a>
@@ -245,22 +247,31 @@
 
         <div x-show="openAdmin" x-transition.origin.top class="mt-2 space-y-1">
           <a href="{{ route('admin.roles.index') }}"
-             class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.roles.*')) }}">
+            class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.roles.*')) }}">
             Roles
           </a>
           <a href="{{ route('admin.users.index') }}"
-             class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.users.*')) }}">
+            class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.users.*')) }}">
             Users
           </a>
           <a href="{{ route('admin.divisions.index') }}"
-             class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.divisions.*')) }}">
+            class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.divisions.*')) }}">
             Divisions
           </a>
+
+          {{-- ===== Commodities (BARU) ===== --}}
+          @if (Route::has('admin.commodities.index'))
+            <a href="{{ route('admin.commodities.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
+                      {{ $activeClasses(request()->routeIs('admin.commodities.*')) }}">
+              Commodities
+            </a>
+          @endif
 
           {{-- Sites (GM only) --}}
           @if ($isGM)
             <a href="{{ route('admin.sites.index') }}"
-               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
+              class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
                       {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">
               Sites
             </a>
@@ -268,16 +279,19 @@
 
           {{-- Konfigurasi Site (GM only) --}}
           @if ($isGM)
-            <a href="{{ route('admin.site_config.edit') }}"
-               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
-                      {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
-              Konfigurasi Site
-            </a>
+            <div class="ml-2">
+              <a href="{{ route('admin.site_config.index') }}"
+                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
+                        {{ $activeClasses(request()->routeIs('admin.site_config.index')) }}">
+                Konfigurasi Site
+              </a>
+              {{-- <a href="{{ route('admin.site_config.create') }}" ...>Tambah Konfigurasi</a> --}}
+            </div>
           @endif
 
           @if ($isGM && $canGrantAccess)
             <a href="{{ route('admin.access.users.index') }}"
-               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
+              class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
               Kelola Akses (GM)
             </a>
           @endif
@@ -285,37 +299,30 @@
       </div>
     @endif
 
-    {{-- ===== Role dashboards ===== --}}
-    <div class="mt-3 px-5">
-      @php $siteBadge = \App\Models\Site::find(session('site_id')); @endphp
-      @if($siteBadge)
-        <div class="px-3 py-2 mb-2 rounded-lg bg-slate-50 border text-[11px] text-slate-600">
-          Site aktif: <span class="font-semibold">{{ $siteBadge->code }}</span>
-        </div>
-      @endif
+      {{-- ===== Role dashboards ===== --}}
+      <div class="mt-3 px-5">
+        <div class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Role Dashboards</div>
 
-      <div class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Role Dashboards</div>
+        @php $roleRoute = $roleLinks[$roleKey]['route'] ?? null; @endphp
 
-      @php $roleRoute = $roleLinks[$roleKey]['route'] ?? null; @endphp
-
-      @if ($isGM)
-        @foreach($roleLinks as $link)
-          <a href="{{ route($link['route']) }}"
-             class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($link['route'])) }}">
-            <span class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">{{ $link['emoji'] }}</span>
-            <span>{{ $link['label'] }}</span>
+        @if ($isGM)
+          @foreach($roleLinks as $link)
+            <a href="{{ route($link['route']) }}"
+              class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($link['route'])) }}">
+              <span class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">{{ $link['emoji'] }}</span>
+              <span>{{ $link['label'] }}</span>
+            </a>
+          @endforeach
+        @elseif ($roleRoute)
+          <a href="{{ route($roleRoute) }}"
+            class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($roleRoute)) }}">
+            <span class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">
+              {{ $roleLinks[$roleKey]['emoji'] ?? '📌' }}
+            </span>
+            <span>{{ $roleLinks[$roleKey]['label'] ?? Str::headline($roleKey) }}</span>
           </a>
-        @endforeach
-      @elseif ($roleRoute)
-        <a href="{{ route($roleRoute) }}"
-           class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($roleRoute)) }}">
-          <span class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">
-            {{ $roleLinks[$roleKey]['emoji'] ?? '📌' }}
-          </span>
-          <span>{{ $roleLinks[$roleKey]['label'] ?? Str::headline($roleKey) }}</span>
-        </a>
-      @endif
-    </div>
+        @endif
+      </div>
   </nav>
 
   {{-- User info + Logout --}}
