@@ -1,23 +1,42 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+// Controllers
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Admin\RoleController;
-use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\DivisionController;
-use App\Http\Controllers\MasterDataController;
-use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 
-// Patterns
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\DivisionController;
+use App\Http\Controllers\Admin\UserAccessController;
+
+use App\Http\Controllers\MasterDataController;
+
+use App\Http\Controllers\Admin\SiteContextController;
+use App\Http\Controllers\Admin\SiteConfigController;
+
+/*
+|--------------------------------------------------------------------------
+| Route Patterns
+|--------------------------------------------------------------------------
+*/
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '(units|pits|stockpiles|cost_centers|accounts|employees|asset_categories)');
 
-// Root
+/*
+|--------------------------------------------------------------------------
+| Root
+|--------------------------------------------------------------------------
+*/
 Route::redirect('/', '/login')->name('root');
 
-// Dashboard + Profile
+/*
+|--------------------------------------------------------------------------
+| Dashboard + Profile (auth)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [StaticPageController::class, 'dashboard'])->name('dashboard');
 
@@ -26,25 +45,37 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Admin area (manager; GM bypass via middleware kamu)
-Route::middleware(['auth', 'hasrole:manager'])
+/*
+|--------------------------------------------------------------------------
+| Admin Area (GM & Manager)
+| - Kalau middleware hasrole kamu belum hierarkis, pakai gm|manager (aman).
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'hasrole:gm|manager'])
     ->prefix('admin')->as('admin.')->group(function () {
         Route::resource('roles', RoleController::class)->except(['show']);
         Route::resource('users', UserController::class);
-        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])
+            ->name('users.reset-password');
         Route::get('users-export', [UserController::class, 'export'])->name('users.export');
         Route::resource('divisions', DivisionController::class);
     });
-// Master data (GM only)
+
+/*
+|--------------------------------------------------------------------------
+| Master Data (GM only)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/master')->as('admin.master.')->group(function () {
-        // === Permissions ===
+
+        // Permissions
         Route::get('{entity}/{record}/permissions', [MasterDataController::class, 'permissions'])
             ->whereUuid('record')->name('permissions');
         Route::post('{entity}/{record}/permissions', [MasterDataController::class, 'permissionsUpdate'])
             ->whereUuid('record')->name('permissions.update');
 
-        // === Utility umum ===
+        // Utilities
         Route::get('{entity}/lookup', [MasterDataController::class, 'lookup'])->name('lookup');
         Route::get('{entity}/export', [MasterDataController::class, 'export'])->name('export');
         Route::post('{entity}/import', [MasterDataController::class, 'import'])->name('import');
@@ -53,7 +84,7 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::post('{entity}/{record}/duplicate', [MasterDataController::class, 'duplicate'])
             ->whereUuid('record')->name('duplicate');
 
-        // === CRUD utama ===
+        // CRUD utama
         Route::get('{entity}', [MasterDataController::class, 'index'])->name('index');
         Route::get('{entity}/create', [MasterDataController::class, 'create'])->name('create');
         Route::post('{entity}', [MasterDataController::class, 'store'])->name('store');
@@ -67,9 +98,11 @@ Route::middleware(['auth', 'hasrole:gm'])
             ->whereUuid('record')->name('destroy');
     });
 
-
-
-// Kelola akses user (GM only)
+/*
+|--------------------------------------------------------------------------
+| Kelola Akses User (GM only)
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/access')->as('admin.access.')->group(function () {
         Route::get('users', [UserAccessController::class, 'index'])->name('users.index');
@@ -77,7 +110,11 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::post('users/{user}/role', [UserAccessController::class, 'updateRole'])->name('users.role');
     });
 
-// Dashboards per role (pakai controller)
+/*
+|--------------------------------------------------------------------------
+| Dashboards per Role
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->get('/gm', [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
 
@@ -99,4 +136,26 @@ Route::middleware(['auth', 'hasrole:hr'])
 Route::middleware(['auth', 'hasrole:finance'])
     ->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
 
+/*
+|--------------------------------------------------------------------------
+| GM: Site Switcher & Site Config
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'hasrole:gm'])->group(function () {
+    // Ganti konteks site aktif (dropdown switcher)
+    Route::post('/admin/site/switch', [SiteContextController::class, 'switch'])
+        ->name('admin.site.switch');
+
+    // Form konfigurasi per-site (HBA/grade/assay/shift)
+    Route::get('/admin/site-config',  [SiteConfigController::class, 'edit'])
+        ->name('admin.site_config.edit');
+    Route::post('/admin/site-config', [SiteConfigController::class, 'update'])
+        ->name('admin.site_config.update');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Auth Routes
+|--------------------------------------------------------------------------
+*/
 require __DIR__ . '/auth.php';
