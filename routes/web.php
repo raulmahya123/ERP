@@ -4,6 +4,12 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers (Pages & Auth)
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\DivisionController;
+use App\Http\Controllers\MasterDataController;
+use App\Http\Controllers\Admin\UserAccessController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 

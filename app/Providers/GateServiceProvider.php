@@ -9,7 +9,10 @@ class GateServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // === EXISTING ===
+        // === REGISTRASI POLICY UNTUK LARAVEL 12 ===
+        Gate::policy(\App\Models\Location::class, \App\Policies\LocationPolicy::class);
+
+        // Gate custom kamu tetap jalan
         Gate::define('manage-master-data', fn($user) => $this->isGm($user));
         Gate::define('grant-access',       fn($user) => $this->isGm($user));
 
@@ -20,7 +23,6 @@ class GateServiceProvider extends ServiceProvider
         // Opsional: GM boleh lihat semua site (kalau mau dipakai di query builder)
         Gate::define('view-all-sites', fn($user) => $this->isGm($user));
 
-        // Opsional: super-admin tembus semua
         Gate::before(function ($user, $ability) {
             return (method_exists($user, 'hasRole') && $user->hasRole('super-admin')) ? true : null;
         });
@@ -28,12 +30,8 @@ class GateServiceProvider extends ServiceProvider
 
     private function isGm($user): bool
     {
-        // Field string langsung di kolom users.role
-        if (isset($user->role) && is_string($user->role) && mb_strtolower($user->role) === 'gm') {
-            return true;
-        }
+        if (isset($user->role) && is_string($user->role) && mb_strtolower($user->role) === 'gm') return true;
 
-        // Relasi tunggal role()
         if (method_exists($user, 'role')) {
             try { $user->loadMissing('role'); } catch (\Throwable $e) {}
             $vals = [
@@ -45,10 +43,7 @@ class GateServiceProvider extends ServiceProvider
             if (in_array('gm', $vals, true)) return true;
         }
 
-        // Spatie (jika dipakai)
-        if (method_exists($user, 'hasRole') && $user->hasRole('gm')) {
-            return true;
-        }
+        if (method_exists($user, 'hasRole') && $user->hasRole('gm')) return true;
 
         return false;
     }
