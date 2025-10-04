@@ -8,14 +8,13 @@ use Illuminate\Http\Request;
 
 class SiteContextController extends Controller
 {
-    // POST /admin/site/switch  (middleware: auth + hasrole:gm)
-    public function switch(Request $request)
+ public function switch(Request $request)
     {
-        $request->validate([
-            'site' => ['required','uuid','exists:sites,id'],
+        $data = $request->validate([
+            'site_id' => ['required','uuid','exists:sites,id'], 
         ]);
 
-        $site = Site::findOrFail($request->string('site')->toString());
+        $site = Site::findOrFail($data['site_id']);
 
         // ganti konteks
         session(['site_id' => $site->id]);

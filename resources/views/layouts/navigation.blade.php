@@ -26,8 +26,15 @@
   $canManageMaster = Gate::check('manage-master-data'); // biasanya hanya GM
   $canGrantAccess  = Gate::check('grant-access');       // biasanya hanya GM
 
-  // ===== MASTER ENTITIES: dari database (tanpa default) =====
-  $entities = DB::table('master_records')
+  // ===== Ambil entity default untuk link "Master Data" (prioritas master_entities) =====
+  $entitiesFromME = DB::table('master_entities')
+      ->where('enabled', 1)
+      ->orderBy('sort')
+      ->orderBy('label')
+      ->pluck('key')
+      ->all();
+
+  $entitiesFromMR = DB::table('master_records')
       ->select('entity')
       ->whereNotNull('entity')
       ->distinct()
@@ -35,16 +42,11 @@
       ->pluck('entity')
       ->all();
 
-  // key => label (humanize)
-  $masterEntities = [];
-  foreach ($entities as $e) {
-      $masterEntities[$e] = Str::headline(str_replace('-', ' ', (string)$e));
-  }
+  $defaultEntity = $entitiesFromME[0] ?? ($entitiesFromMR[0] ?? 'units');
 
-  // Active states (untuk highlight saja)
-  $isMasterRoute   = request()->routeIs('admin.master.*');
-  $currentEntity   = (string) request()->route('entity');
-  $currentRecordId = (string) request()->route('record');
+  // Active states
+  $isMasterOverviewActive = request()->routeIs('admin.master.overview');
+  $isMasterListActive     = request()->routeIs('admin.master.*') && ! $isMasterOverviewActive;
 
   // Helper kelas aktif
   $activeClasses = fn($isActive) =>
@@ -87,42 +89,12 @@
     <span class="font-bold text-lg text-green-700 tracking-wide">{{ config('app.name','BISA') }}</span>
   </div>
 
-  {{-- === Site Switcher (GM only) / Site badge (non-GM) === --}}
-  @php
-    $currentSiteId = session('site_id');
-    $sites = $isGM ? \App\Models\Site::orderBy('code')->get(['id','code','name']) : collect();
-  @endphp
+  {{-- (Opsional) Site Switcher bisa diaktifkan lagi kalau diperlukan --}}
 
-  @if($isGM)
-    <div class="px-5 pt-3 pb-2 border-b bg-white/60">
-      <form action="{{ route('admin.site.switch') }}" method="POST" class="flex items-center gap-2">
-        @csrf
-        <select name="site"
-                class="w-full rounded-md border px-2 py-1 text-sm focus:outline-none focus:ring focus:border-slate-400">
-          @foreach($sites as $s)
-            <option value="{{ $s->id }}" @selected($s->id === $currentSiteId)>
-              {{ $s->code }} — {{ $s->name }}
-            </option>
-          @endforeach
-        </select>
-        <button class="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-sm hover:bg-indigo-700">
-          Switch
-        </button>
-      </form>
-    </div>
-  @elseif($currentSiteId)
-    @php $s = \App\Models\Site::find($currentSiteId); @endphp
-    <div class="px-5 pt-3 pb-2 border-b bg-white/60">
-      <span class="text-[11px] px-2 py-1 rounded bg-slate-100 border">
-        Site: <strong>{{ $s?->code ?? '—' }}</strong>
-      </span>
-    </div>
-  @endif
-
-  {{-- NOTE: selalu collapsed di awal (tidak auto-open berdasarkan route) --}}
+  {{-- Nav --}}
   <nav class="flex-1 overflow-y-auto py-3"
-       x-data="{ openMaster:false, openAdmin:false }"
-       x-init="openMaster=false; openAdmin=false">
+       x-data="{ openAdmin:false }"
+       x-init="openAdmin=false">
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
@@ -153,82 +125,29 @@
       </a>
     @endif
 
-    {{-- ===== MASTER DATA (khusus GM + Gate) ===== --}}
-    @if ($isGM && $canManageMaster && !empty($masterEntities))
-      <div class="mt-3 px-5">
-        <button type="button" @click="openMaster = !openMaster"
-                class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:bg-blue-50">
-          <span class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
-            </svg>
-            Master Data
-          </span>
-          <svg class="w-4 h-4 text-gray-500 transform transition" :class="openMaster ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </button>
+    {{-- ===== Master Data (link ke LIST/index entity default) ===== --}}
+    @if ($isGM && $canManageMaster && Route::has('admin.master.index'))
+      <a href="{{ route('admin.master.index', $defaultEntity) }}"
+         class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($isMasterListActive) }}">
+        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7h18M3 12h18M3 17h18" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Master Data</span>
+      </a>
+    @endif
 
-        <div x-show="openMaster" x-transition.origin.top class="mt-2 space-y-1">
-          @foreach($masterEntities as $ekey => $elabel)
-            @php $entityActive = $isMasterRoute && $currentEntity === $ekey; @endphp
-
-            <div class="ml-2" x-data="{ openEntity:false }" x-init="openEntity=false">
-              {{-- baris entity --}}
-              <button type="button" @click="openEntity=!openEntity"
-                      class="w-full flex items-center justify-between pl-7 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($entityActive) }}">
-                <span class="truncate">{{ $elabel }}</span>
-                <svg class="w-4 h-4 text-gray-500 transform transition" :class="openEntity ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-                </svg>
-              </button>
-
-              {{-- submenu per entity --}}
-              <div x-show="openEntity" x-transition.origin.top class="mt-1 space-y-1">
-                <a href="{{ route('admin.master.index', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
-                          {{ $activeClasses($entityActive && request()->routeIs('admin.master.index')) }}">
-                  List {{ $elabel }}
-                </a>
-
-                <a href="{{ route('admin.master.create', $ekey) }}"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
-                          {{ $activeClasses($entityActive && request()->routeIs('admin.master.create')) }}">
-                  Create {{ $elabel }}
-                </a>
-
-                @if (Route::has('admin.master.export'))
-                  <a href="{{ route('admin.master.export', $ekey) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                    Export CSV
-                  </a>
-                @endif
-
-                @if (Route::has('admin.master.import.template'))
-                  <a href="{{ route('admin.master.import.template', $ekey) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                    Download Template
-                  </a>
-                @endif
-
-                <a href="{{ route('admin.master.index', $ekey) }}?import=1"
-                   class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-green-700 hover:bg-blue-50">
-                  Import CSV
-                </a>
-
-                {{-- Link Permissions hanya terlihat kalau kamu lagi di halaman permissions entity tsb --}}
-                @if ($entityActive && $currentRecordId && Route::has('admin.master.permissions'))
-                  <a href="{{ route('admin.master.permissions', ['entity'=>$ekey, 'record'=>$currentRecordId]) }}"
-                     class="block pl-10 pr-3 py-2 rounded-lg text-sm font-medium transition
-                            {{ $activeClasses(request()->routeIs('admin.master.permissions') || request()->routeIs('admin.master.permissions.update')) }}">
-                    Permissions
-                  </a>
-                @endif
-              </div>
-            </div>
-          @endforeach
-        </div>
-      </div>
+    {{-- ===== Master Data Overview (card grid) ===== --}}
+    @if ($isGM && $canManageMaster && Route::has('admin.master.overview'))
+      <a href="{{ route('admin.master.overview') }}"
+         class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($isMasterOverviewActive) }}">
+        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="2"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="2"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="2"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="2"></rect>
+        </svg>
+        <span>Master Data Overview</span>
+      </a>
     @endif
 
     {{-- ===== ADMIN (Roles/Users/Divisions) — GM & Manager ===== --}}
@@ -261,20 +180,26 @@
             Divisions
           </a>
 
+          {{-- Commodities (opsional) --}}
+          @if (Route::has('admin.commodities.index'))
+            <a href="{{ route('admin.commodities.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.commodities.*')) }}">
+              Commodities
+            </a>
+          @endif
+
           {{-- Sites (GM only) --}}
-          @if ($isGM)
+          @if ($isGM && Route::has('admin.sites.index'))
             <a href="{{ route('admin.sites.index') }}"
-               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
-                      {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">
               Sites
             </a>
           @endif
 
           {{-- Konfigurasi Site (GM only) --}}
-          @if ($isGM)
+          @if ($isGM && Route::has('admin.site_config.edit'))
             <a href="{{ route('admin.site_config.edit') }}"
-               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
-                      {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
               Konfigurasi Site
             </a>
           @endif>
@@ -288,7 +213,7 @@
             </a>
           @endif
 
-          @if ($isGM && $canGrantAccess)
+          @if ($isGM && $canGrantAccess && Route::has('admin.access.users.index'))
             <a href="{{ route('admin.access.users.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
               Kelola Akses (GM)
@@ -300,13 +225,6 @@
 
     {{-- ===== Role dashboards ===== --}}
     <div class="mt-3 px-5">
-      @php $siteBadge = \App\Models\Site::find(session('site_id')); @endphp
-      @if($siteBadge)
-        <div class="px-3 py-2 mb-2 rounded-lg bg-slate-50 border text-[11px] text-slate-600">
-          Site aktif: <span class="font-semibold">{{ $siteBadge->code }}</span>
-        </div>
-      @endif
-
       <div class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Role Dashboards</div>
 
       @php $roleRoute = $roleLinks[$roleKey]['route'] ?? null; @endphp

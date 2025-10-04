@@ -67,9 +67,13 @@ class User extends Authenticatable
         $this->loadMissing('division');
         return optional($this->division)->name;
     }
-    
+
     public function isGM(): bool
     {
         return optional($this->role)->key === 'gm';
+    }
+    public function defaultSite()
+    {
+        return $this->belongsTo(\App\Models\Site::class, 'default_site_id');
     }
 }
