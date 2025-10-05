@@ -14,9 +14,10 @@ class AssetController extends Controller
     /* ==========================
      |  Helpers (DRY)
      |==========================*/
+
     /**
-     * Ambil options master_records untuk entity tertentu, scoped ke site aktif
-     * dengan fallback global (site_id NULL).
+     * Ambil options dari master_records untuk entity tertentu,
+     * diskop ke site aktif + fallback global (site_id NULL).
      */
     protected function masterOptions(string $entity, ?string $sid)
     {
@@ -32,8 +33,8 @@ class AssetController extends Controller
     }
 
     /**
-     * Buat Rule::exists untuk entity master tertentu
-     * yang mengizinkan kepemilikan site aktif ATAU global (NULL).
+     * Rule::exists untuk memastikan nilai ada di master_records
+     * milik site aktif ATAU global (site_id NULL).
      */
     protected function existsInMaster(string $entity, ?string $sid)
     {
@@ -51,14 +52,31 @@ class AssetController extends Controller
     /* ==========================
      |  Actions
      |==========================*/
+
+    /**
+     * INDEX — Strict per-site, semua status. Pencarian + filter status.
+     */
     public function index(Request $r)
     {
-        $sid = SiteContext::currentSiteId($r->user());
+        $sid         = SiteContext::currentSiteId($r->user());
+        $currentSite = method_exists(SiteContext::class, 'currentSite')
+            ? SiteContext::currentSite($r->user())
+            : null;
 
         $q = Asset::query()
-            ->with(['site','category','costCenter']) // ⬅️ include site utk tabel
+            ->with([
+                'site',
+                'category',
+                'costCenter',
+                // Eager load untuk tabel (hindari N+1)
+                'latestAssignment.toSite',
+                'latestAssignment.fromSite',
+                'latestAssignment.toUser',
+            ])
+            // STRICT PER-SITE: hanya aset milik site aktif
             ->when($sid, fn ($qq) => $qq->where('site_id', $sid));
 
+        // Pencarian bebas
         if ($s = trim((string) $r->get('q', ''))) {
             $q->where(function ($w) use ($s) {
                 $w->where('name', 'like', "%{$s}%")
@@ -68,22 +86,40 @@ class AssetController extends Controller
             });
         }
 
+        // Filter status (opsional)
+        if ($st = (string) $r->get('status', '')) {
+            $q->where('status', $st);
+        }
+
         $assets = $q->orderBy('name')->paginate(20)->withQueryString();
 
-        return view('admin.assets.index', compact('assets'));
+        return view('admin.assets.index', [
+            'assets'      => $assets,
+            'currentSite' => $currentSite,
+        ]);
     }
 
+    /**
+     * CREATE
+     */
     public function create(Request $r)
     {
-        $sid = SiteContext::currentSiteId($r->user());
+        $sid         = SiteContext::currentSiteId($r->user());
+        $currentSite = method_exists(SiteContext::class, 'currentSite')
+            ? SiteContext::currentSite($r->user())
+            : null;
 
         return view('admin.assets.form', [
             'asset'       => new Asset(),
             'categories'  => $this->masterOptions('asset_categories', $sid),
             'costCenters' => $this->masterOptions('cost_centers', $sid),
+            'currentSite' => $currentSite,
         ]);
     }
 
+    /**
+     * STORE
+     */
     public function store(Request $r)
     {
         $sid = SiteContext::currentSiteId($r->user());
@@ -111,15 +147,20 @@ class AssetController extends Controller
         ]);
 
         $payload = $data + [
-            'site_id'    => $sid,                         // enforced by middleware
+            'site_id'    => $sid, // strict per-site
             'created_by' => optional($r->user())->id,
         ];
 
-        // Normalisasi extra (boleh JSON/string)
+        // Normalisasi extra: izinkan JSON string
         if (is_string($payload['extra'] ?? null)) {
             try {
-                $payload['extra'] = json_decode($payload['extra'], true, 512, JSON_THROW_ON_ERROR);
-            } catch (\Throwable $e) { /* keep as string */ }
+                $decoded = json_decode($payload['extra'], true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $payload['extra'] = $decoded;
+                }
+            } catch (\Throwable $e) {
+                // biarkan sebagai string
+            }
         }
 
         $asset = Asset::create($payload);
@@ -127,22 +168,40 @@ class AssetController extends Controller
         return redirect()->route('admin.assets.edit', $asset)->with('status', 'Asset created.');
     }
 
+    /**
+     * EDIT
+     */
     public function edit(Request $r, Asset $asset)
     {
-        $sid = SiteContext::currentSiteId($r->user());
-        if ($sid && $asset->site_id !== $sid) abort(404);
+        $sid         = SiteContext::currentSiteId($r->user());
+        $currentSite = method_exists(SiteContext::class, 'currentSite')
+            ? SiteContext::currentSite($r->user())
+            : null;
+
+        // STRICT PER-SITE: hanya boleh mengakses aset site aktif
+        if ($sid && $asset->site_id !== $sid) {
+            abort(404);
+        }
 
         return view('admin.assets.form', [
-            'asset'       => $asset->load(['site','category','costCenter']),
+            'asset'       => $asset->load(['site', 'category', 'costCenter']),
             'categories'  => $this->masterOptions('asset_categories', $sid),
             'costCenters' => $this->masterOptions('cost_centers', $sid),
+            'currentSite' => $currentSite,
         ]);
     }
 
+    /**
+     * UPDATE
+     */
     public function update(Request $r, Asset $asset)
     {
         $sid = SiteContext::currentSiteId($r->user());
-        if ($sid && $asset->site_id !== $sid) abort(404);
+
+        // STRICT PER-SITE
+        if ($sid && $asset->site_id !== $sid) {
+            abort(404);
+        }
 
         $data = $r->validate([
             'code'   => ['nullable', 'max:100', Rule::unique('assets', 'code')->where('site_id', $sid)->ignore($asset->id)],
@@ -168,8 +227,13 @@ class AssetController extends Controller
 
         if (is_string($data['extra'] ?? null)) {
             try {
-                $data['extra'] = json_decode($data['extra'], true, 512, JSON_THROW_ON_ERROR);
-            } catch (\Throwable $e) { /* keep as-is */ }
+                $decoded = json_decode($data['extra'], true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $data['extra'] = $decoded;
+                }
+            } catch (\Throwable $e) {
+                // biarkan sebagai string
+            }
         }
 
         $asset->update($data);
@@ -177,13 +241,43 @@ class AssetController extends Controller
         return back()->with('status', 'Asset updated.');
     }
 
+    /**
+     * DESTROY
+     */
     public function destroy(Request $r, Asset $asset)
     {
         $sid = SiteContext::currentSiteId($r->user());
-        if ($sid && $asset->site_id !== $sid) abort(404);
+
+        // STRICT PER-SITE
+        if ($sid && $asset->site_id !== $sid) {
+            abort(404);
+        }
 
         $asset->delete();
 
         return redirect()->route('admin.assets.index')->with('status', 'Asset deleted.');
+    }
+
+    /**
+     * BULK DELETE
+     */
+    public function bulkDelete(Request $r)
+    {
+        $sid = SiteContext::currentSiteId($r->user());
+
+        $data = $r->validate([
+            'ids'   => ['required', 'array', 'min:1'],
+            'ids.*' => ['uuid', 'exists:assets,id'],
+        ]);
+
+        // STRICT PER-SITE: hapus hanya milik site aktif
+        $count = Asset::query()
+            ->when($sid, fn($q) => $q->where('site_id', $sid))
+            ->whereIn('id', $data['ids'])
+            ->delete();
+
+        return redirect()
+            ->route('admin.assets.index')
+            ->with('status', "{$count} aset dihapus.");
     }
 }

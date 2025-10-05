@@ -45,7 +45,15 @@ class Asset extends Model
     {
         return $this->belongsTo(User::class, 'assigned_to_user_id');
     }
+    public function assignments()
+    {
+        return $this->hasMany(AssetAssignment::class);
+    }
 
+    public function latestAssignment()
+    {
+        return $this->hasOne(AssetAssignment::class)->latestOfMany();
+    }
     /* =========================
      |  Scopes
      |=========================*/
@@ -63,9 +71,9 @@ class Asset extends Model
 
         return $q->where(function ($w) use ($s) {
             $w->where('name', 'like', "%{$s}%")
-              ->orWhere('code', 'like', "%{$s}%")
-              ->orWhere('serial_no', 'like', "%{$s}%")
-              ->orWhere('plate_no', 'like', "%{$s}%");
+                ->orWhere('code', 'like', "%{$s}%")
+                ->orWhere('serial_no', 'like', "%{$s}%")
+                ->orWhere('plate_no', 'like', "%{$s}%");
         });
     }
 
@@ -116,8 +124,10 @@ class Asset extends Model
             if (is_string($m->extra)) {
                 $trim = trim($m->extra);
                 if ($trim !== '') {
-                    try { $m->extra = json_decode($trim, true, 512, JSON_THROW_ON_ERROR); }
-                    catch (\Throwable $e) { /* biarkan string — cast array akan handle */ }
+                    try {
+                        $m->extra = json_decode($trim, true, 512, JSON_THROW_ON_ERROR);
+                    } catch (\Throwable $e) { /* biarkan string — cast array akan handle */
+                    }
                 } else {
                     $m->extra = null;
                 }
@@ -128,8 +138,10 @@ class Asset extends Model
             if (is_string($m->extra)) {
                 $trim = trim($m->extra);
                 if ($trim !== '') {
-                    try { $m->extra = json_decode($trim, true, 512, JSON_THROW_ON_ERROR); }
-                    catch (\Throwable $e) { /* biarkan string */ }
+                    try {
+                        $m->extra = json_decode($trim, true, 512, JSON_THROW_ON_ERROR);
+                    } catch (\Throwable $e) { /* biarkan string */
+                    }
                 } else {
                     $m->extra = null;
                 }

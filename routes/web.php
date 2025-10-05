@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers (Pages & Auth)
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\LocationController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 
@@ -22,6 +21,7 @@ use App\Http\Controllers\CommodityController;             // CRUD commodities
 
 // Dedicated module
 use App\Http\Controllers\Admin\AssetController;
+use App\Http\Controllers\Admin\AssetAssignmentController; // Riwayat penempatan
 
 // Master Data (generic per-entity)
 use App\Http\Controllers\MasterDataController;
@@ -260,6 +260,20 @@ Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
     ->prefix('admin')->as('admin.')
     ->group(function () {
         Route::resource('assets', AssetController::class)->except(['show']);
+
+        // === Bulk delete (ADD) ===
+        Route::post('assets/bulk-delete', [AssetController::class, 'bulkDelete'])
+            ->name('assets.bulk-delete');
+
+        // ====== Asset Assignments (riwayat penempatan) ======
+        Route::get('assets/{asset}/assignments', [AssetAssignmentController::class, 'index'])
+            ->name('assets.assignments.index');
+
+        Route::post('assets/{asset}/assignments', [AssetAssignmentController::class, 'store'])
+            ->name('assets.assignments.store');
+
+        Route::delete('assets/{asset}/assignments/{assignment}', [AssetAssignmentController::class, 'destroy'])
+            ->name('assets.assignments.destroy');
     });
 
 /*
