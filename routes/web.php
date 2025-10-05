@@ -15,15 +15,15 @@ use App\Http\Controllers\Admin\DivisionController;
 use App\Http\Controllers\Admin\UserAccessController;
 use App\Http\Controllers\Admin\SiteContextController;
 use App\Http\Controllers\Admin\SiteConfigController;
-use App\Http\Controllers\Admin\SiteController; // CRUD daftar site
+use App\Http\Controllers\Admin\SiteController;           // CRUD daftar site
 use App\Http\Controllers\Admin\AuditLogController;
-use App\Http\Controllers\Admin\MasterEntityController;
-use App\Http\Controllers\CommodityController; // CRUD commodities
+use App\Http\Controllers\Admin\MasterEntityController;    // CRUD master_entities (UI)
+use App\Http\Controllers\CommodityController;             // CRUD commodities
 
-// === Tambahan: Assets module (dedicated) ===
+// Dedicated module
 use App\Http\Controllers\Admin\AssetController;
 
-// Master Data Controller (generic handler per-entity)
+// Master Data (generic per-entity)
 use App\Http\Controllers\MasterDataController;
 
 /*
@@ -56,9 +56,7 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Pilih Site (dipanggil oleh middleware SiteSelected)
-| - GET: tampilkan pilihan site (untuk SEMUA user terautentikasi)
-| - POST: simpan pilihan site ke session, redirect ke intended/dashboard
+| Pilih Site
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])
@@ -92,8 +90,7 @@ Route::middleware(['auth'])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm|manager'])
-    ->prefix('admin')
-    ->as('admin.')
+    ->prefix('admin')->as('admin.')
     ->group(function () {
         Route::resource('roles', RoleController::class)->except(['show']);
         Route::resource('users', UserController::class);
@@ -104,12 +101,27 @@ Route::middleware(['auth', 'hasrole:gm|manager'])
 
 /*
 |--------------------------------------------------------------------------
+| Master Entities (GM only) - kelola daftar entitas dari UI
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'hasrole:gm'])
+    ->prefix('admin/master-entities')->as('admin.master_entities.')
+    ->group(function () {
+        Route::get('/',           [MasterEntityController::class, 'index'])->name('index');
+        Route::get('/create',     [MasterEntityController::class, 'create'])->name('create');
+        Route::post('/',          [MasterEntityController::class, 'store'])->name('store');
+        Route::get('/{id}/edit',  [MasterEntityController::class, 'edit'])->name('edit');
+        Route::put('/{id}',       [MasterEntityController::class, 'update'])->name('update');
+        Route::delete('/{id}',    [MasterEntityController::class, 'destroy'])->name('destroy');
+    });
+
+/*
+|--------------------------------------------------------------------------
 | Master Data (GM only) — membutuhkan konteks site
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
-    ->prefix('admin/master')
-    ->as('admin.master.')
+    ->prefix('admin/master')->as('admin.master.')
     ->group(function () {
         // Permissions per record
         Route::get('{entity}/{record}/permissions', [MasterDataController::class, 'permissions'])
@@ -117,22 +129,22 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
         Route::post('{entity}/{record}/permissions', [MasterDataController::class, 'permissionsUpdate'])
             ->whereUuid('record')->name('permissions.update');
 
-        // /admin/master → redirect ke Overview
+        // /admin/master → Overview
         Route::get('/', fn() => redirect()->route('admin.master.overview'))->name('home');
 
         // Overview (cards)
         Route::get('overview', [MasterDataController::class, 'overview'])->name('overview');
 
         // Utilities
-        Route::get('{entity}/lookup',          [MasterDataController::class, 'lookup'])->name('lookup');
-        Route::get('{entity}/export',          [MasterDataController::class, 'export'])->name('export');
-        Route::post('{entity}/import',         [MasterDataController::class, 'import'])->name('import');
-        Route::get('{entity}/import-template', [MasterDataController::class, 'importTemplate'])->name('import.template');
-        Route::delete('{entity}/bulk-delete',  [MasterDataController::class, 'bulkDelete'])->name('bulk-delete');
-        Route::post('{entity}/{record}/duplicate', [MasterDataController::class, 'duplicate'])
+        Route::get('{entity}/lookup',             [MasterDataController::class, 'lookup'])->name('lookup');
+        Route::get('{entity}/export',             [MasterDataController::class, 'export'])->name('export');
+        Route::post('{entity}/import',            [MasterDataController::class, 'import'])->name('import');
+        Route::get('{entity}/import-template',    [MasterDataController::class, 'importTemplate'])->name('import.template');
+        Route::delete('{entity}/bulk-delete',     [MasterDataController::class, 'bulkDelete'])->name('bulk-delete');
+        Route::post('{entity}/{record}/duplicate',[MasterDataController::class, 'duplicate'])
             ->whereUuid('record')->name('duplicate');
 
-        // CRUD utama
+        // CRUD utama (per-entity)
         Route::get('{entity}',               [MasterDataController::class, 'index'])->name('index');
         Route::get('{entity}/create',        [MasterDataController::class, 'create'])->name('create');
         Route::post('{entity}',              [MasterDataController::class, 'store'])->name('store');
@@ -152,8 +164,7 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm'])
-    ->prefix('admin/access')
-    ->as('admin.access.')
+    ->prefix('admin/access')->as('admin.access.')
     ->group(function () {
         Route::get('users',              [UserAccessController::class, 'index'])->name('users.index');
         Route::get('users/{user}/role',  [UserAccessController::class, 'editRole'])->name('users.role.edit');
@@ -165,42 +176,24 @@ Route::middleware(['auth', 'hasrole:gm'])
 | Dashboards per Role
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'hasrole:gm'])
-    ->get('/gm', [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
-
-Route::middleware(['auth', 'hasrole:manager'])
-    ->get('/manager', [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
-
-Route::middleware(['auth', 'hasrole:foreman'])
-    ->get('/foreman', [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
-
-Route::middleware(['auth', 'hasrole:operator'])
-    ->get('/operator', [RoleDashboardController::class, 'operator'])->name('operator.dashboard');
-
-Route::middleware(['auth', 'hasrole:hse_officer'])
-    ->get('/hse', [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
-
-Route::middleware(['auth', 'hasrole:hr'])
-    ->get('/hr', [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
-
-Route::middleware(['auth', 'hasrole:finance'])
-    ->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
+Route::middleware(['auth', 'hasrole:gm'])->get('/gm',       [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
+Route::middleware(['auth', 'hasrole:manager'])->get('/manager', [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
+Route::middleware(['auth', 'hasrole:foreman'])->get('/foreman', [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
+Route::middleware(['auth', 'hasrole:operator'])->get('/operator', [RoleDashboardController::class, 'operator'])->name('operator.dashboard');
+Route::middleware(['auth', 'hasrole:hse_officer'])->get('/hse', [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
+Route::middleware(['auth', 'hasrole:hr'])->get('/hr', [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
+Route::middleware(['auth', 'hasrole:finance'])->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
 
 /*
 |--------------------------------------------------------------------------
 | GM: Site Switcher & Site Config
 |--------------------------------------------------------------------------
 */
+Route::middleware(['auth', 'hasrole:gm'])->post('/admin/site/switch', [SiteContextController::class, 'switch'])->name('admin.site.switch');
 
-// Ganti konteks site aktif (dipakai di sidenav) — tidak perlu site.selected
+// Sites CRUD (GM only)
 Route::middleware(['auth', 'hasrole:gm'])
-    ->post('/admin/site/switch', [SiteContextController::class, 'switch'])
-    ->name('admin.site.switch');
-
-// ===== Sites CRUD (GM only) =====
-Route::middleware(['auth', 'hasrole:gm'])
-    ->prefix('admin/sites')
-    ->as('admin.sites.')
+    ->prefix('admin/sites')->as('admin.sites.')
     ->group(function () {
         Route::get('/',            [SiteController::class, 'index'])->name('index');
         Route::get('/create',      [SiteController::class, 'create'])->name('create');
@@ -216,11 +209,10 @@ Route::middleware(['auth', 'hasrole:gm'])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm'])
-    ->prefix('admin/audit-logs')
-    ->as('admin.audit.')
+    ->prefix('admin/audit-logs')->as('admin.audit.')
     ->group(function () {
-        Route::get('/', [AuditLogController::class, 'index'])->name('index');
-        Route::get('/{log}', [AuditLogController::class, 'show'])->whereUuid('log')->name('show');
+        Route::get('/',       [AuditLogController::class, 'index'])->name('index');
+        Route::get('/{log}',  [AuditLogController::class, 'show'])->whereUuid('log')->name('show');
         Route::get('/export', [AuditLogController::class, 'export'])->name('export');
         Route::get('/feed/json', [AuditLogController::class, 'feed'])->name('feed');
     });
@@ -231,29 +223,25 @@ Route::middleware(['auth', 'hasrole:gm'])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm'])
-    ->prefix('admin')
-    ->as('admin.')
+    ->prefix('admin')->as('admin.')
     ->group(function () {
-        Route::prefix('site-config')
-            ->as('site_config.')
-            ->group(function () {
-                Route::get('/',                   [SiteConfigController::class, 'index'])->name('index');
-                Route::get('/create',             [SiteConfigController::class, 'create'])->name('create');
-                Route::post('/',                  [SiteConfigController::class, 'store'])->name('store');
-                Route::get('/{site_config}/edit', [SiteConfigController::class, 'edit'])->name('edit');
-                Route::put('/{site_config}',      [SiteConfigController::class, 'update'])->name('update');
-                Route::delete('/{site_config}',   [SiteConfigController::class, 'destroy'])->name('destroy');
-            });
+        Route::prefix('site-config')->as('site_config.')->group(function () {
+            Route::get('/',                   [SiteConfigController::class, 'index'])->name('index');
+            Route::get('/create',             [SiteConfigController::class, 'create'])->name('create');
+            Route::post('/',                  [SiteConfigController::class, 'store'])->name('store');
+            Route::get('/{site_config}/edit', [SiteConfigController::class, 'edit'])->name('edit');
+            Route::put('/{site_config}',      [SiteConfigController::class, 'update'])->name('update');
+            Route::delete('/{site_config}',   [SiteConfigController::class, 'destroy'])->name('destroy');
+        });
     });
 
 /*
 |--------------------------------------------------------------------------
-| Commodities (auth) — jika butuh site context, tambah 'site.selected'
+| Commodities (auth) — tambahkan 'site.selected' jika mau per-site
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])
-    ->prefix('admin/commodities')
-    ->as('admin.commodities.')
+    ->prefix('admin/commodities')->as('admin.commodities.')
     ->group(function () {
         Route::get('/',                 [CommodityController::class, 'index'])->name('index');
         Route::get('/create',           [CommodityController::class, 'create'])->name('create');
@@ -269,8 +257,7 @@ Route::middleware(['auth'])
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
-    ->prefix('admin')
-    ->as('admin.')
+    ->prefix('admin')->as('admin.')
     ->group(function () {
         Route::resource('assets', AssetController::class)->except(['show']);
     });
