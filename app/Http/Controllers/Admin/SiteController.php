@@ -29,14 +29,19 @@ class SiteController extends Controller
 
     public function create()
     {
-        return view('admin.sites.form', ['site' => new Site()]);
+        // ambil opsi dari DB untuk datalist (bukan hardcode)
+        $site  = new Site();
+        $codes = Site::orderBy('code')->pluck('code')->unique()->values();
+        $names = Site::orderBy('name')->pluck('name')->unique()->values();
+
+        return view('admin.sites.form', compact('site','codes','names'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
             'code' => ['required','alpha_dash','max:30','unique:sites,code'],
-            'name' => ['required','string' ,'integer', 'max:255'],
+            'name' => ['required','string','max:255'],
         ]);
 
         Site::create($data);
@@ -47,7 +52,10 @@ class SiteController extends Controller
 
     public function edit(Site $site)
     {
-        return view('admin.sites.form', compact('site'));
+        $codes = Site::orderBy('code')->pluck('code')->unique()->values();
+        $names = Site::orderBy('name')->pluck('name')->unique()->values();
+
+        return view('admin.sites.form', compact('site','codes','names'));
     }
 
     public function update(Request $request, Site $site)
@@ -65,7 +73,7 @@ class SiteController extends Controller
 
     public function destroy(Site $site)
     {
-        // site_configs akan ikut terhapus (cascade), users.default_site_id -> nullOnDelete
+        // pastikan constraint cascade/nullOnDelete sudah diset di FK terkait
         $site->delete();
 
         return redirect()->route('admin.sites.index')
@@ -82,7 +90,7 @@ class SiteController extends Controller
             'site' => ['required','uuid','exists:sites,id'],
         ]);
 
-        session(['site_id' => $request->string('site')->toString()]);
+        session(['site_id' => (string) $request->string('site')]);
 
         return back()->with('success', 'Site aktif telah diubah.');
     }

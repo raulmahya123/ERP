@@ -8,8 +8,8 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('commodities', function (Blueprint $t) {
             $t->uuid('id')->primary();
-            $t->string('code')->unique(); // coal, nickel, gold
-            $t->string('name');
+            $t->enum('code', ['Batubara', 'Nikel', 'Emas'])->index();
+            $t->string('name', 100);
             $t->timestamps();
         });
     }
