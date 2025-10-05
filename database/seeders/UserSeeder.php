@@ -1,4 +1,5 @@
 <?php
+
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -6,10 +7,12 @@ use App\Models\User;
 use App\Models\Role;
 use App\Models\Division;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
         $accounts = [
             ['name'=>'Admin GM',      'email'=>'admin@local.test',   'password'=>'password123','role_key'=>'gm',          'division_key'=>'plant'],
@@ -21,22 +24,62 @@ class UserSeeder extends Seeder
             ['name'=>'Finance Staff', 'email'=>'finance@local.test', 'password'=>'password123','role_key'=>'finance',     'division_key'=>'finance'],
         ];
 
-        foreach ($accounts as $a) {
-            $role     = Role::where('key', $a['role_key'])->first();
-            $division = !empty($a['division_key']) ? Division::where('key', $a['division_key'])->first() : null;
-
-            // Ini akan update role_id & division_id jika user sudah ada
-            User::updateOrCreate(
-                ['email' => $a['email']],
-                [
-                    'name'        => $a['name'],
-                    // CATATAN: ini akan reset password setiap kali seeding.
-                    // Kalau tidak mau reset password existing, lihat alternatif di bawah.
-                    'password'    => Hash::make($a['password']),
-                    'role_id'     => $role?->id,
-                    'division_id' => $division?->id,
-                ]
-            );
+        // Safety check
+        if (!Schema::hasTable('users')) {
+            $this->command?->warn('Table users tidak ditemukan. Jalankan migrasi dulu.');
+            return;
         }
+
+        foreach ($accounts as $a) {
+            // Cari role & division (aman walau belum ada)
+            $role     = Role::where('key', $a['role_key'])->orWhere('name', $a['role_key'])->first();
+            $division = !empty($a['division_key'])
+                        ? Division::where('key', $a['division_key'])->orWhere('name', $a['division_key'])->first()
+                        : null;
+
+            // Jika role tidak ada, buat otomatis minimal stub
+            if (!$role) {
+                $role = Role::create([
+                    'id'   => (string) Str::uuid(),
+                    'key'  => $a['role_key'],
+                    'name' => Str::title(str_replace('_', ' ', $a['role_key'])),
+                ]);
+                $this->command?->info("Role '{$a['role_key']}' dibuat otomatis.");
+            }
+
+            // Jika division tidak ada, buat stub juga
+            if ($division === null && !empty($a['division_key']) && Schema::hasTable('divisions')) {
+                $division = Division::create([
+                    'id'   => (string) Str::uuid(),
+                    'key'  => $a['division_key'],
+                    'name' => Str::title(str_replace('_', ' ', $a['division_key'])),
+                ]);
+                $this->command?->info("Division '{$a['division_key']}' dibuat otomatis.");
+            }
+
+            // Update or create user
+            $user = User::where('email', $a['email'])->first();
+
+            if ($user) {
+                // Hanya update role/division; tidak paksa reset password
+                $user->update([
+                    'name'        => $a['name'],
+                    'role_id'     => $role->id,
+                    'division_id' => $division?->id,
+                ]);
+            } else {
+                // Buat user baru
+                User::create([
+                    'id'           => (string) Str::uuid(),
+                    'name'         => $a['name'],
+                    'email'        => $a['email'],
+                    'password'     => Hash::make($a['password']),
+                    'role_id'      => $role->id,
+                    'division_id'  => $division?->id,
+                ]);
+            }
+        }
+
+        $this->command?->info('✅ UserSeeder selesai — akun default dibuat / diperbarui.');
     }
 }

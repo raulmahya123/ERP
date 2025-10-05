@@ -112,7 +112,19 @@ $adminGroupActive =
     request()->routeIs('admin.sites.*') ||
     request()->routeIs('admin.site_config.*') ||
     request()->routeIs('admin.audit.*') ||
-    request()->routeIs('admin.access.users.*');
+    request()->routeIs('admin.access.users.*') ||
+    request()->routeIs('admin.assets.*');
+
+/* =========================
+|  Site aktif (badge & quick switch)
+|=========================*/
+$currentSite = null;
+try {
+    $sid = session('site_id');
+    if ($sid) {
+        $currentSite = DB::table('sites')->where('id', $sid)->first(['id','code','name']);
+    }
+} catch (\Throwable $e) {}
 @endphp
 
 <aside class="bg-gradient-to-b from-white to-slate-50/70 border-r border-slate-200 h-screen sticky top-0 flex flex-col w-64 shrink-0 shadow-sm">
@@ -126,20 +138,38 @@ $adminGroupActive =
     </div>
   </div>
 
+  {{-- Site badge + quick switch --}}
+  <div class="px-5 pt-3">
+    <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+      <div class="min-w-0">
+        <div class="text-[11px] uppercase tracking-wider text-slate-400">Site Aktif</div>
+        @if($currentSite)
+          <div class="text-sm font-semibold text-slate-800 truncate">{{ $currentSite->code }} — {{ $currentSite->name }}</div>
+        @else
+          <div class="text-sm text-slate-500 italic">Belum dipilih</div>
+        @endif
+      </div>
+      <a href="{{ route('sites.select') }}"
+         class="shrink-0 inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium bg-[--navy] text-white hover:opacity-90">
+        Ganti
+      </a>
+    </div>
+  </div>
+
   {{-- Nav --}}
   <nav class="flex-1 overflow-y-auto py-3"
        x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }} }">
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
-       class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard')) }}">
+       class="group mt-2 flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard')) }}">
       <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10" />
       </svg>
       <span>Dashboard</span>
     </a>
 
-    {{-- Profil (ikon tanpa arc command) --}}
+    {{-- Profil --}}
     <a href="{{ route('profile.edit') }}"
        class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('profile.edit')) }}">
       <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('profile.edit') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}"
@@ -199,7 +229,7 @@ $adminGroupActive =
 
     {{-- ===== ADMIN (Roles/Users/Divisions/... ) — GM & Manager ===== --}}
     @if ($showAdminMenu)
-      <div class="mt-3 px-5">
+      <div class="mt-3 px-5" x-data>
         <button type="button" @click="openAdmin=!openAdmin"
                 class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -246,10 +276,18 @@ $adminGroupActive =
           @endif
 
           {{-- Konfigurasi Site (GM only) --}}
-          @if ($isGM && Route::has('admin.site_config.form'))
-            <a href="{{ route('admin.site_config.form') }}"
+          @if ($isGM && Route::has('admin.site_config.index'))
+            <a href="{{ route('admin.site_config.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
               Konfigurasi Site
+            </a>
+          @endif
+
+          {{-- Assets (GM & Manager) --}}
+          @if (($isGM || $isManager) && Route::has('admin.assets.index'))
+            <a href="{{ route('admin.assets.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.assets.*')) }}">
+              Assets
             </a>
           @endif
 

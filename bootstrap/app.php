@@ -3,8 +3,10 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+
+// import middleware kustom
 use App\Http\Middleware\EnsureUserHasRole;
-use App\Http\Middleware\EnsureSiteSelected; // ⬅️ tambahkan import ini
+use App\Http\Middleware\EnsureSiteSelected;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,12 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Alias middleware kustom kita
+        // Alias middleware kustom
         $middleware->alias([
-            'hasrole'       => EnsureUserHasRole::class,
-            'site.selected' => EnsureSiteSelected::class, // ⬅️ tambahkan alias ini
+            'hasrole'        => EnsureUserHasRole::class,
+            'site.selected'  => EnsureSiteSelected::class, // ⬅️ alias untuk cek site
 
-            // Jika juga pakai Spatie (opsional), aktifkan baris di bawah:
+            // Jika juga pakai Spatie (opsional):
             // 'role' => \Spatie\Permission\Middlewares\RoleMiddleware::class,
         ]);
     })

@@ -18,28 +18,42 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $q           = trim((string) $request->get('q', ''));
-        $roleId      = $request->get('role_id');
-        $divisionId  = $request->get('division_id');
+        $q          = trim((string) $request->get('q', ''));
+        $roleId     = $request->get('role_id');
+        $divisionId = $request->get('division_id');
+        $siteId     = $request->get('site_id');               // NEW
+        $perPage    = (int) $request->get('per_page', 20);    // NEW
+        $perPage    = max(5, min($perPage, 100));             // clamp 5..100
 
         $users = User::query()
-            ->with(['role', 'division', 'defaultSite']) // <— eager defaultSite (pastikan relasi ada di model User)
-            ->when($q, fn($qq) => $qq->where(function ($w) use ($q) {
-                $w->where('name', 'like', "%{$q}%")
-                  ->orWhere('email', 'like', "%{$q}%");
-            }))
-            ->when($roleId, fn($qq) => $qq->where('role_id', $roleId))
+            ->with(['role', 'division', 'defaultSite'])         // ORM eager load
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%");
+                });
+            })
+            ->when($roleId,     fn($qq) => $qq->where('role_id', $roleId))
             ->when($divisionId, fn($qq) => $qq->where('division_id', $divisionId))
+
+            // ===== PILIH SALAH SATU SESUAI MODEL =====
+            // (A) Jika kamu punya kolom default_site_id (belongsTo defaultSite):
+            ->when($siteId, fn($qq) => $qq->where('default_site_id', $siteId))
+
+            // (B) Jika user bisa punya banyak site (many-to-many: users_sites):
+            // ->when($siteId, fn($qq) => $qq->whereHas('sites', fn($s) => $s->where('sites.id', $siteId)))
+
             ->orderBy('name')
-            ->paginate(15)
+            ->paginate($perPage)
             ->withQueryString();
 
         $roles     = Role::orderBy('name')->get();
         $divisions = Division::orderBy('name')->get();
-        $sites     = Site::orderBy('name')->get(); // <—
+        $sites     = Site::orderBy('name')->get();
 
         return view('admin.users.index', compact('users', 'q', 'roles', 'divisions', 'sites'));
     }
+
 
     public function create()
     {
@@ -63,8 +77,8 @@ class UserController extends Controller
         // Tentukan default_site_id kalau kosong → dari SiteConfig.params->default_for_users = true → fallback site pertama
         $data['default_site_id'] = $data['default_site_id']
             ?? SiteConfig::query()
-                ->whereJsonContains('params->default_for_users', true)
-                ->value('site_id')
+            ->whereJsonContains('params->default_for_users', true)
+            ->value('site_id')
             ?? Site::orderBy('name')->value('id');
 
         $data['password'] = Hash::make($data['password']);

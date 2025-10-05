@@ -5,15 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rule as UniqueRule; // alias agar jelas
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Support\SiteContext;
 
 class MasterDataController extends Controller
 {
-    /**
-     * Daftar entity yang diizinkan.
-     * Sinkronkan dengan Route::pattern('entity', ...) di web.php kalau kamu pakai pattern ketat.
-     */
     protected array $entities = [
         'units',
         'pits',
@@ -24,24 +21,26 @@ class MasterDataController extends Controller
         'asset_categories',
     ];
 
+    /* =========================
+     | Helpers (DRY)
+     |=========================*/
     protected function normalizeEntityKey(string $key): string
     {
-        return \Illuminate\Support\Str::slug($key, '_');
+        return Str::slug($key, '_');
     }
 
     protected function getEntityRow(string $entity): ?object
     {
-        return \Illuminate\Support\Facades\DB::table('master_entities')
+        return DB::table('master_entities')
             ->where('key', $entity)
             ->where('enabled', 1)
             ->first();
     }
 
-    /** Pastikan entity valid (cek ke master_entities, bukan array) */
     protected function ensureEntity(string $entity): string
     {
         $key = $this->normalizeEntityKey($entity);
-        $exists = \Illuminate\Support\Facades\DB::table('master_entities')
+        $exists = DB::table('master_entities')
             ->where('key', $key)
             ->where('enabled', 1)
             ->exists();
@@ -50,69 +49,116 @@ class MasterDataController extends Controller
         return $key;
     }
 
-    /// App\Http\Controllers\MasterDataController (di dalam class)
+    protected function currentSiteId(?\App\Models\User $user): ?string
+    {
+        return SiteContext::currentSiteId($user);
+    }
+
+    /**
+     * Pastikan site_id valid; kalau tidak valid -> NULL.
+     */
+    protected function resolveValidSiteId(?string $sid): ?string
+    {
+        if (!$sid) return null;
+        return DB::table('sites')->where('id', $sid)->value('id') ?: null;
+    }
+
+    /**
+     * Terapkan scope site (site_id = $sid ATAU NULL) untuk SELECT.
+     */
+    protected function applySiteScope($query, ?string $sid)
+    {
+        if (\Schema::hasColumn('master_records', 'site_id')) {
+            $validSid = $this->resolveValidSiteId($sid);
+            if ($validSid) {
+                $query->where(function ($w) use ($validSid) {
+                    $w->where('site_id', $validSid)->orWhereNull('site_id');
+                });
+            }
+            // jika $sid tidak valid -> tidak filter (tampilkan semua, termasuk global)
+        }
+        return $query;
+    }
+
+    /**
+     * Rule unik code per (entity, site_id). Saat update, set $ignoreId.
+     * Mengembalikan instance rule kompatibel (tanpa return type ketat).
+     *
+     * @return \Illuminate\Contracts\Validation\Rule|\Illuminate\Contracts\Validation\ValidationRule|\Illuminate\Validation\Rules\Unique
+     */
+    protected function uniqueCodeRule(string $entity, ?string $sid, ?string $ignoreId = null)
+    {
+        $rule = UniqueRule::unique('master_records', 'code')
+            ->where(function ($q) use ($entity, $sid) {
+                $q->where('entity', $entity);
+                if (\Schema::hasColumn('master_records', 'site_id')) {
+                    $validSid = $this->resolveValidSiteId($sid);
+                    if ($validSid !== null) {
+                        $q->where('site_id', $validSid);
+                    } else {
+                        $q->whereNull('site_id');
+                    }
+                }
+            });
+
+        return $ignoreId ? $rule->ignore($ignoreId, 'id') : $rule;
+    }
+
     protected function normalizeExtra($extra): ?string
     {
-        // array/objek → simpan JSON
         if (is_array($extra)) {
             return json_encode($extra, JSON_UNESCAPED_UNICODE);
         }
-
-        // string:
         if (is_string($extra)) {
             $trim = trim($extra);
             if ($trim === '') return null;
-
-            // coba parse sebagai JSON valid
             try {
                 $decoded = json_decode($trim, true, 512, JSON_THROW_ON_ERROR);
-                // valid JSON → simpan hasil encode bersih
                 return json_encode($decoded, JSON_UNESCAPED_UNICODE);
             } catch (\Throwable $e) {
-                // bukan JSON → simpan sebagai JSON string yg valid
                 return json_encode($trim, JSON_UNESCAPED_UNICODE);
             }
         }
-
-        // selain itu → null
         return null;
     }
 
-
-
-
+    /* =========================
+     | Overview
+     |=========================*/
     public function overview()
     {
-        // Ambil semua entity aktif dari master_entities
-        $entities = \DB::table('master_entities')
+        $entities = DB::table('master_entities')
             ->where('enabled', 1)
             ->orderBy('sort')
             ->orderBy('label')
             ->get(['id', 'key', 'label', 'icon', 'color_from', 'color_to']);
 
-        // Array untuk blade
-        $allowedEntities = $entities->pluck('key')->all();                               // ['units','pits',...]
-        $labels          = $entities->mapWithKeys(fn($e) => [$e->key => $e->label])->all(); // ['units'=>'Units',...]
+        $allowedEntities = $entities->pluck('key')->all();
+        $labels          = $entities->mapWithKeys(fn($e) => [$e->key => $e->label])->all();
 
         $currentSiteId = session('site_id');
 
-        // Hitung total per entity (LEFT style via loop; pakai master_entity_id)
-        $q = \DB::table('master_records')
-            ->select('master_entity_id', \DB::raw('COUNT(*) as total'))
+        // Hitung total per entity_id, scope: site_id = current OR NULL
+        $q = DB::table('master_records')
+            ->select('master_entity_id', DB::raw('COUNT(*) as total'))
             ->whereIn('master_entity_id', $entities->pluck('id'));
 
         if ($currentSiteId && \Schema::hasColumn('master_records', 'site_id')) {
-            $q->where('site_id', $currentSiteId);
+            $validSid = $this->resolveValidSiteId($currentSiteId);
+            if ($validSid) {
+                $q->where(function ($w) use ($validSid) {
+                    $w->where('site_id', $validSid)->orWhereNull('site_id');
+                });
+            }
         }
 
-        $countsById = $q->groupBy('master_entity_id')->pluck('total', 'master_entity_id'); // [uuid => n]
+        $countsById = $q->groupBy('master_entity_id')->pluck('total', 'master_entity_id');
 
         $masterTotals = [];
         foreach ($entities as $e) {
-            $masterTotals[$e->key] = (int) ($countsById[$e->id] ?? 0); // key → total
+            $masterTotals[$e->key] = (int) ($countsById[$e->id] ?? 0);
         }
 
-        // (opsional) kirim juga meta warna/icon kalau ingin dipakai di blade
         $meta = $entities->mapWithKeys(function ($e) {
             return [$e->key => [
                 'icon'       => $e->icon,
@@ -126,56 +172,51 @@ class MasterDataController extends Controller
             'labels'          => $labels,
             'masterTotals'    => $masterTotals,
             'currentSiteId'   => $currentSiteId,
-            'meta'            => $meta, // boleh diabaikan kalau blade kamu pakai warna statis
+            'meta'            => $meta,
         ]);
     }
 
-
-
-    /** Helper: buat code duplicate yang unik dalam satu entity */
     protected function makeUniqueCode(string $entity, ?string $baseCode): ?string
     {
-        if (!$baseCode) {
-            return null;
-        }
+        if (!$baseCode) return null;
 
         $suffix = '-COPY';
         $candidate = $baseCode . $suffix;
+
         $exists = fn($code) => DB::table('master_records')
             ->where('entity', $entity)
             ->where('code', $code)
             ->exists();
 
-        if (!$exists($candidate)) {
-            return $candidate;
-        }
-        // tambahkan angka/random pendek
+        if (!$exists($candidate)) return $candidate;
+
         for ($i = 2; $i <= 50; $i++) {
             $candidate = $baseCode . $suffix . $i;
             if (!$exists($candidate)) return $candidate;
         }
-        // fallback terakhir – gunakan potongan uuid
         return $baseCode . $suffix . '-' . substr((string) Str::uuid(), 0, 8);
     }
 
-    /** GET /admin/master/{entity} */
+    /* =========================
+     | CRUD
+     |=========================*/
     public function index(Request $r, string $entity)
     {
         $entity = $this->ensureEntity($entity);
+        $sid    = $this->currentSiteId($r->user());
 
         $q = DB::table('master_records')->where('entity', $entity);
+        $this->applySiteScope($q, $sid);
 
         if ($search = trim((string) $r->get('q', ''))) {
             $q->where(function ($w) use ($search) {
                 $w->where('name', 'like', "%{$search}%")
-                    ->orWhere('code', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+                  ->orWhere('code', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
-        $records = $q->orderBy('name')
-            ->paginate(20)
-            ->withQueryString();
+        $records = $q->orderBy('name')->paginate(20)->withQueryString();
 
         return view('admin.master.index', [
             'entity'  => $entity,
@@ -184,7 +225,6 @@ class MasterDataController extends Controller
         ]);
     }
 
-    /** GET /admin/master/{entity}/create */
     public function create(string $entity)
     {
         $entity = $this->ensureEntity($entity);
@@ -194,31 +234,27 @@ class MasterDataController extends Controller
         ]);
     }
 
-    /** POST /admin/master/{entity} */
     public function store(Request $r, string $entity)
     {
-        $entity = $this->ensureEntity($entity);
+        $entity    = $this->ensureEntity($entity);
         $entityRow = $this->getEntityRow($entity);
         if (!$entityRow) abort(404, 'Unknown entity.');
 
-        $rules = [
-            'name'        => ['required', 'string', 'max:255'],
-            'code'        => [
-                'nullable',
-                'string',
-                'max:255',
-                \Illuminate\Validation\Rule::unique('master_records', 'code')
-                    ->where(fn($q) => $q->where('entity', $entity))
-            ],
-            'description' => ['nullable', 'string'],
-            'extra'       => ['nullable'], // ← JANGAN ada 'json'
-        ];
-        $data = $r->validate($rules);
+        $rawSid = $this->currentSiteId($r->user());
+        $sid    = $this->resolveValidSiteId($rawSid); // penting: valid/NULL
 
-        \DB::table('master_records')->insert([
-            'id'               => (string) \Str::uuid(),
+        $data = $r->validate([
+            'name'        => ['required', 'string', 'max:255'],
+            'code'        => ['nullable', 'string', 'max:255', $this->uniqueCodeRule($entity, $sid)],
+            'description' => ['nullable', 'string'],
+            'extra'       => ['nullable'],
+        ]);
+
+        DB::table('master_records')->insert([
+            'id'               => (string) Str::uuid(),
             'entity'           => $entity,
             'master_entity_id' => $entityRow->id,
+            'site_id'          => (\Schema::hasColumn('master_records', 'site_id') ? $sid : null),
             'name'             => $data['name'],
             'code'             => $data['code'] ?? null,
             'description'      => $data['description'] ?? null,
@@ -231,29 +267,17 @@ class MasterDataController extends Controller
         return redirect()->route('admin.master.index', $entity)->with('status', 'Record created.');
     }
 
-
-
-    /** GET /admin/master/{entity}/{record} (opsional) */
     public function show(string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
-        // Cari berdasarkan ID (unik), lalu validasi entity-nya
-        $row = \Illuminate\Support\Facades\DB::table('master_records')
-            ->where('id', $record)
-            ->first();
-
-        if (!$row || (string)$row->entity !== (string)$entity) {
-            abort(404);
-        }
+        $row = DB::table('master_records')->where('id', $record)->first();
+        if (!$row || (string) $row->entity !== (string) $entity) abort(404);
 
         $extraArray = null;
         if (!empty($row->extra)) {
-            try {
-                $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\Throwable $e) {
-                $extraArray = null;
-            }
+            try { $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR); }
+            catch (\Throwable $e) { $extraArray = null; }
         }
 
         return view('admin.master.show', [
@@ -263,27 +287,17 @@ class MasterDataController extends Controller
         ]);
     }
 
-
-    /** GET /admin/master/{entity}/{record}/edit */
     public function edit(string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
-        $row = \Illuminate\Support\Facades\DB::table('master_records')
-            ->where('id', $record)
-            ->first();
-
-        if (!$row || (string)$row->entity !== (string)$entity) {
-            abort(404);
-        }
+        $row = DB::table('master_records')->where('id', $record)->first();
+        if (!$row || (string) $row->entity !== (string) $entity) abort(404);
 
         $extraArray = null;
         if (!empty($row->extra)) {
-            try {
-                $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\Throwable $e) {
-                $extraArray = null;
-            }
+            try { $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR); }
+            catch (\Throwable $e) { $extraArray = null; }
         }
 
         return view('admin.master.edit', [
@@ -293,30 +307,23 @@ class MasterDataController extends Controller
         ]);
     }
 
-
-    /** PUT /admin/master/{entity}/{record} */
     public function update(Request $r, string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
+        $row    = DB::table('master_records')->where('id', $record)->first();
+        if (!$row || (string) $row->entity !== (string) $entity) abort(404);
 
-        $row = \DB::table('master_records')->where('id', $record)->first();
-        if (!$row || (string)$row->entity !== (string)$entity) abort(404);
+        // site_id tetap, tapi rule unik harus per site milik record tsb (validasi NULL-aware)
+        $sid = (\Schema::hasColumn('master_records', 'site_id') ? ($row->site_id ?? null) : null);
 
-        $rules = [
+        $data = $r->validate([
             'name'        => ['required', 'string', 'max:255'],
-            'code'        => [
-                'nullable',
-                'string',
-                'max:255',
-                \Illuminate\Validation\Rule::unique('master_records', 'code')
-                    ->where(fn($q) => $q->where('entity', $entity)->where('id', '!=', $record))
-            ],
+            'code'        => ['nullable', 'string', 'max:255', $this->uniqueCodeRule($entity, $sid, $record)],
             'description' => ['nullable', 'string'],
-            'extra'       => ['nullable'], // ← JANGAN ada 'json'
-        ];
-        $data = $r->validate($rules);
+            'extra'       => ['nullable'],
+        ]);
 
-        \DB::table('master_records')->where('id', $record)->update([
+        DB::table('master_records')->where('id', $record)->update([
             'name'        => $data['name'],
             'code'        => $data['code'] ?? null,
             'description' => $data['description'] ?? null,
@@ -327,40 +334,30 @@ class MasterDataController extends Controller
         return redirect()->route('admin.master.index', $entity)->with('status', 'Record updated.');
     }
 
-
-
-    /** DELETE /admin/master/{entity}/{record} */
     public function destroy(string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
-        $row = \Illuminate\Support\Facades\DB::table('master_records')
-            ->where('id', $record)
-            ->first();
-        if (!$row || (string)$row->entity !== (string)$entity) abort(404);
+        $row = DB::table('master_records')->where('id', $record)->first();
+        if (!$row || (string) $row->entity !== (string) $entity) abort(404);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($record) {
-            \Illuminate\Support\Facades\DB::table('master_record_permissions')
-                ->where('master_record_id', $record)->delete();
-
-            \Illuminate\Support\Facades\DB::table('master_records')
-                ->where('id', $record)->delete();
+        DB::transaction(function () use ($record) {
+            DB::table('master_record_permissions')->where('master_record_id', $record)->delete();
+            DB::table('master_records')->where('id', $record)->delete();
         });
 
         return redirect()->route('admin.master.index', ['entity' => $entity])
             ->with('status', 'Record deleted.');
     }
 
-
-    /** GET /admin/master/{entity}/{record}/permissions */
+    /* =========================
+     | Permissions
+     |=========================*/
     public function permissions(string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
-        $rec = DB::table('master_records')
-            ->where('entity', $entity)
-            ->where('id', $record)
-            ->first();
+        $rec = DB::table('master_records')->where('entity', $entity)->where('id', $record)->first();
         if (!$rec) abort(404);
 
         $users = DB::table('users')
@@ -382,15 +379,11 @@ class MasterDataController extends Controller
         ]);
     }
 
-    /** POST /admin/master/{entity}/{record}/permissions */
     public function permissionsUpdate(Request $r, string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
-        $exists = DB::table('master_records')
-            ->where('entity', $entity)
-            ->where('id', $record)
-            ->exists();
+        $exists = DB::table('master_records')->where('entity', $entity)->where('id', $record)->exists();
         if (!$exists) abort(404);
 
         $data = $r->validate([
@@ -405,9 +398,7 @@ class MasterDataController extends Controller
         $rows = $data['permissions'] ?? [];
 
         DB::transaction(function () use ($record, $rows) {
-            DB::table('master_record_permissions')
-                ->where('master_record_id', $record)
-                ->delete();
+            DB::table('master_record_permissions')->where('master_record_id', $record)->delete();
 
             if (empty($rows)) return;
 
@@ -435,32 +426,30 @@ class MasterDataController extends Controller
             ->with('status', 'Permissions updated.');
     }
 
-    /* =========================================================
-     |  Tambahan: lookup, export/import, template, bulk delete, duplicate
-     |=========================================================*/
-
-    /** GET /admin/master/{entity}/lookup?q=&page=&limit= */
+    /* =========================
+     | Utilities
+     |=========================*/
     public function lookup(Request $r, string $entity)
     {
         $entity = $this->ensureEntity($entity);
+        $sid    = $this->currentSiteId($r->user());
 
         $q      = trim((string) $r->get('q', ''));
         $limit  = max(1, min(100, (int) $r->get('limit', 10)));
         $page   = max(1, (int) $r->get('page', 1));
 
         $base = DB::table('master_records')->where('entity', $entity);
+        $this->applySiteScope($base, $sid);
 
         if ($q !== '') {
             $base->where(function ($w) use ($q) {
                 $w->where('name', 'like', "%{$q}%")
-                    ->orWhere('code', 'like', "%{$q}%");
+                  ->orWhere('code', 'like', "%{$q}%");
             });
         }
 
         $total = (clone $base)->count();
-        $items = $base->orderBy('name')
-            ->forPage($page, $limit)
-            ->get(['id', 'name', 'code']);
+        $items = $base->orderBy('name')->forPage($page, $limit)->get(['id', 'name', 'code']);
 
         return response()->json([
             'items' => $items,
@@ -473,25 +462,26 @@ class MasterDataController extends Controller
         ]);
     }
 
-    /** GET /admin/master/{entity}/export (CSV) */
     public function export(Request $r, string $entity): StreamedResponse
     {
         $entity = $this->ensureEntity($entity);
+        $sid    = $this->currentSiteId($r->user());
 
         $search = trim((string) $r->get('q', ''));
         $filename = $entity . '_' . now()->format('Ymd_His') . '.csv';
 
-        $callback = function () use ($entity, $search) {
+        $callback = function () use ($entity, $search, $sid) {
             $out = fopen('php://output', 'w');
-            // header
-            fputcsv($out, ['id', 'entity', 'name', 'code', 'description', 'extra', 'created_by', 'created_at', 'updated_at']);
+            fputcsv($out, ['id', 'entity', 'name', 'code', 'description', 'extra', 'created_by', 'site_id', 'created_at', 'updated_at']);
 
             $q = DB::table('master_records')->where('entity', $entity);
+            $this->applySiteScope($q, $sid);
+
             if ($search !== '') {
                 $q->where(function ($w) use ($search) {
                     $w->where('name', 'like', "%{$search}%")
-                        ->orWhere('code', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%");
+                      ->orWhere('code', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
                 });
             }
 
@@ -505,6 +495,7 @@ class MasterDataController extends Controller
                         $row->description,
                         $row->extra,
                         $row->created_by,
+                        $row->site_id ?? '',
                         $row->created_at,
                         $row->updated_at,
                     ]);
@@ -519,16 +510,14 @@ class MasterDataController extends Controller
         ]);
     }
 
-    /** GET /admin/master/{entity}/import-template (CSV header + contoh) */
     public function importTemplate(string $entity): StreamedResponse
     {
         $entity = $this->ensureEntity($entity);
         $filename = $entity . '_template.csv';
 
-        $callback = function () use ($entity) {
+        $callback = function () {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['name', 'code', 'description', 'extra']); // header
-            // contoh baris (opsional)
             fputcsv($out, ['Contoh Nama', 'KODE001', 'Deskripsi opsional', '{"key":"value"}']);
             fclose($out);
         };
@@ -538,12 +527,13 @@ class MasterDataController extends Controller
         ]);
     }
 
-    /** POST /admin/master/{entity}/import (CSV) */
     public function import(Request $r, string $entity)
     {
-        $entity = $this->ensureEntity($entity);
+        $entity    = $this->ensureEntity($entity);
         $entityRow = $this->getEntityRow($entity);
         if (!$entityRow) abort(404, 'Unknown entity.');
+
+        $sid = $this->resolveValidSiteId($this->currentSiteId($r->user()));
 
         $r->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:20480']]);
         $file = $r->file('file');
@@ -558,7 +548,9 @@ class MasterDataController extends Controller
         }
 
         $map = [];
-        foreach ($header as $idx => $col) $map[Str::of($col)->lower()->replace(' ', '_')] = $idx;
+        foreach ($header as $idx => $col) {
+            $map[Str::of($col)->lower()->replace(' ', '_')] = $idx;
+        }
 
         if (!array_key_exists('name', $map)) {
             fclose($handle);
@@ -566,25 +558,25 @@ class MasterDataController extends Controller
         }
 
         $inserted = 0;
-        $updated = 0;
-        $skipped = 0;
+        $updated  = 0;
+        $skipped  = 0;
 
         DB::beginTransaction();
         try {
             while (($row = fgetcsv($handle)) !== false) {
-                $name = $row[$map['name']] ?? null;
-                $code = ($map['code'] ?? null) !== null ? trim((string)$row[$map['code']]) : null;
-                $description = ($map['description'] ?? null) !== null ? trim((string)$row[$map['description']]) : null;
-                $extra = ($map['extra'] ?? null) !== null ? trim((string)$row[$map['extra']]) : null;
+                $name        = $row[$map['name']] ?? null;
+                $code        = ($map['code'] ?? null) !== null ? trim((string) $row[$map['code']]) : null;
+                $description = ($map['description'] ?? null) !== null ? trim((string) $row[$map['description']]) : null;
+                $extra       = ($map['extra'] ?? null) !== null ? trim((string) $row[$map['extra']]) : null;
 
                 if (!$name || trim($name) === '') {
-                    $skipped++;
-                    continue;
+                    $skipped++; continue;
                 }
 
                 $payload = [
                     'entity'           => $entity,
                     'master_entity_id' => $entityRow->id,
+                    'site_id'          => (\Schema::hasColumn('master_records', 'site_id') ? $sid : null),
                     'name'             => trim($name),
                     'code'             => $code ?: null,
                     'description'      => $description ?: null,
@@ -594,20 +586,26 @@ class MasterDataController extends Controller
 
                 if ($code) {
                     $exists = DB::table('master_records')
-                        ->where('entity', $entity)->where('code', $code)->first();
+                        ->where('entity', $entity)
+                        ->when(\Schema::hasColumn('master_records', 'site_id'), function ($qq) use ($sid) {
+                            if ($sid !== null) $qq->where('site_id', $sid);
+                            else $qq->whereNull('site_id');
+                        })
+                        ->where('code', $code)
+                        ->first();
 
                     if ($exists) {
                         DB::table('master_records')->where('id', $exists->id)->update($payload);
                         $updated++;
                     } else {
-                        $payload['id'] = (string) Str::uuid();
+                        $payload['id']         = (string) Str::uuid();
                         $payload['created_by'] = optional($r->user())->id;
                         $payload['created_at'] = now();
                         DB::table('master_records')->insert($payload);
                         $inserted++;
                     }
                 } else {
-                    $payload['id'] = (string) Str::uuid();
+                    $payload['id']         = (string) Str::uuid();
                     $payload['created_by'] = optional($r->user())->id;
                     $payload['created_at'] = now();
                     DB::table('master_records')->insert($payload);
@@ -626,8 +624,6 @@ class MasterDataController extends Controller
         return back()->with('status', "Import selesai. Inserted: {$inserted}, Updated: {$updated}, Skipped: {$skipped}.");
     }
 
-
-    /** DELETE /admin/master/{entity}/bulk-delete  (body: ids[] UUID) */
     public function bulkDelete(Request $r, string $entity)
     {
         $entity = $this->ensureEntity($entity);
@@ -647,13 +643,11 @@ class MasterDataController extends Controller
         return back()->with('status', 'Selected records deleted.');
     }
 
-    /** POST /admin/master/{entity}/{record}/duplicate */
     public function duplicate(string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
-        $row = DB::table('master_records')
-            ->where('entity', $entity)->where('id', $record)->first();
+        $row = DB::table('master_records')->where('entity', $entity)->where('id', $record)->first();
         if (!$row) abort(404);
 
         $newId   = (string) Str::uuid();
@@ -663,6 +657,7 @@ class MasterDataController extends Controller
             'id'               => $newId,
             'entity'           => $row->entity,
             'master_entity_id' => $row->master_entity_id ?? optional($this->getEntityRow($entity))->id,
+            'site_id'          => (\Schema::hasColumn('master_records', 'site_id') ? ($row->site_id ?? null) : null),
             'name'             => $row->name . ' (Copy)',
             'code'             => $newCode,
             'description'      => $row->description,
