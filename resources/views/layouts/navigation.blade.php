@@ -1,71 +1,95 @@
 {{-- resources/views/layouts/sidenav.blade.php --}}
 @php
-  use Illuminate\Support\Str;
-  use Illuminate\Support\Facades\Gate;
-  use Illuminate\Support\Facades\DB;
-  use Illuminate\Support\Facades\Auth;
-  use Illuminate\Support\Facades\Route; // <— tambahkan
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
-  $user = Auth::user();
-  $user?->loadMissing('role');
+$user = Auth::user();
+$user?->loadMissing('role');
 
-  // ===== Normalisasi role =====
-  $rawRole = $user->role->key
-            ?? $user->role->slug
-            ?? $user->role->name
-            ?? (is_string($user->role ?? null) ? $user->role : '')
-            ?? '';
+/* =========================
+|  Normalisasi Role
+|=========================*/
+$rawRole = $user->role->key
+    ?? $user->role->slug
+    ?? $user->role->name
+    ?? (is_string($user->role ?? null) ? $user->role : '')
+    ?? '';
 
-  $norm = Str::of($rawRole)->lower()->replace(['_', '-'], ' ')->squish()->toString();
-  $roleKey   = ['gm'=>'gm','general manager'=>'gm','generalmanager'=>'gm','manager'=>'manager','mgr'=>'manager'][$norm] ?? $norm;
-  $isGM      = $roleKey === 'gm';
-  $isManager = $roleKey === 'manager';
+$norm    = Str::of($rawRole)->lower()->replace(['_', '-'], ' ')->squish()->toString();
+$roleKey = [
+    'gm'               => 'gm',
+    'general manager'  => 'gm',
+    'generalmanager'   => 'gm',
+    'manager'          => 'manager',
+    'mgr'              => 'manager',
+][$norm] ?? $norm;
 
-  // ===== Gate / visibility =====
-  $showAdminMenu   = ($isGM || $isManager);
-  $canManageMaster = Gate::check('manage-master-data'); // biasanya hanya GM
-  $canGrantAccess  = Gate::check('grant-access');       // biasanya hanya GM
+$isGM      = $roleKey === 'gm';
+$isManager = $roleKey === 'manager';
 
-  // ===== Ambil entity default untuk link "Master Data" (prioritas master_entities) =====
-  $entitiesFromME = DB::table('master_entities')
-      ->where('enabled', 1)
-      ->orderBy('sort')
-      ->orderBy('label')
-      ->pluck('key')
-      ->all();
+/* =========================
+|  Gate / Permission Flags
+|=========================*/
+$canManageMaster = Gate::check('manage-master-data');
+$canGrantAccess  = Gate::check('grant-access');
+$showAdminMenu   = ($isGM || $isManager);
 
-  $entitiesFromMR = DB::table('master_records')
-      ->select('entity')
-      ->whereNotNull('entity')
-      ->distinct()
-      ->orderBy('entity')
-      ->pluck('entity')
-      ->all();
+/* =========================
+|  Entitas Master (default)
+|=========================*/
+try {
+    $entitiesFromME = DB::table('master_entities')
+        ->where('enabled', 1)
+        ->orderBy('sort')
+        ->orderBy('label')
+        ->pluck('key')
+        ->all();
+} catch (\Throwable $e) {
+    $entitiesFromME = [];
+}
 
-  $defaultEntity = $entitiesFromME[0] ?? ($entitiesFromMR[0] ?? 'units');
+try {
+    $entitiesFromMR = DB::table('master_records')
+        ->select('entity')
+        ->whereNotNull('entity')
+        ->distinct()
+        ->orderBy('entity')
+        ->pluck('entity')
+        ->all();
+} catch (\Throwable $e) {
+    $entitiesFromMR = [];
+}
 
-  // Active states
-  $isMasterOverviewActive = request()->routeIs('admin.master.overview');
-  $isMasterListActive     = request()->routeIs('admin.master.*') && ! $isMasterOverviewActive;
+$defaultEntity = $entitiesFromME[0] ?? ($entitiesFromMR[0] ?? 'units');
 
-  // Helper kelas aktif
-  $activeClasses = fn($isActive) =>
-      $isActive
-        ? 'bg-green-50 text-green-700 border-l-4 border-yellow-500'
-        : 'text-gray-600 hover:bg-blue-50 hover:text-green-700';
+/* =========================
+|  Active States
+|=========================*/
+$isMasterOverviewActive = request()->routeIs('admin.master.overview');
+$isMasterListActive     = request()->routeIs('admin.master.*') && ! $isMasterOverviewActive;
 
-  // Role dashboards
-  $roleLinks = [
-    'manager'     => ['label'=>'Dashboard Manager', 'route'=>'manager.dashboard',  'emoji'=>'📊'],
-    'foreman'     => ['label'=>'Dashboard Foreman', 'route'=>'foreman.dashboard',  'emoji'=>'🛠'],
-    'operator'    => ['label'=>'Dashboard Operator','route'=>'operator.dashboard',  'emoji'=>'🚜'],
-    'hse_officer' => ['label'=>'Dashboard HSE',     'route'=>'hse.dashboard',      'emoji'=>'🛡'],
-    'hr'          => ['label'=>'Dashboard HR',      'route'=>'hr.dashboard',       'emoji'=>'👤'],
-    'finance'     => ['label'=>'Dashboard Finance', 'route'=>'finance.dashboard',  'emoji'=>'💰'],
-  ];
+/* Helper kelas aktif (gold/navy/teal) */
+$activeClasses = function (bool $isActive) {
+    return $isActive
+        ? 'bg-teal-50 text-teal-800 border-l-4 border-yellow-500'
+        : 'text-slate-600 hover:bg-slate-50 hover:text-teal-700';
+};
 
-  // Badge role
-  $badge = match($roleKey) {
+/* Role Dashboards */
+$roleLinks = [
+    'manager'     => ['label'=>'Dashboard Manager',  'route'=>'manager.dashboard',  'emoji'=>'📊'],
+    'foreman'     => ['label'=>'Dashboard Foreman',  'route'=>'foreman.dashboard',  'emoji'=>'🛠'],
+    'operator'    => ['label'=>'Dashboard Operator', 'route'=>'operator.dashboard', 'emoji'=>'🚜'],
+    'hse_officer' => ['label'=>'Dashboard HSE',      'route'=>'hse.dashboard',      'emoji'=>'🛡'],
+    'hr'          => ['label'=>'Dashboard HR',       'route'=>'hr.dashboard',       'emoji'=>'👤'],
+    'finance'     => ['label'=>'Dashboard Finance',  'route'=>'finance.dashboard',  'emoji'=>'💰'],
+];
+
+/* Badge Role */
+$badge = match($roleKey) {
     'gm'          => 'bg-yellow-100 text-yellow-700 ring-1 ring-yellow-300',
     'manager'     => 'bg-blue-100 text-blue-700 ring-1 ring-blue-300',
     'foreman'     => 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300',
@@ -74,40 +98,54 @@
     'hr'          => 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-300',
     'finance'     => 'bg-cyan-100 text-cyan-700 ring-1 ring-cyan-300',
     default       => 'bg-gray-100 text-gray-600 ring-1 ring-gray-300',
-  };
+};
 
-  // ===== Audit visibility (menu muncul jika GM & route tersedia) =====
-  $canViewAudit = $isGM && Route::has('admin.audit.index');
+/* Audit visibility */
+$canViewAudit = $isGM && Route::has('admin.audit.index');
+
+/* Admin group active? Biar accordion auto-open */
+$adminGroupActive =
+    request()->routeIs('admin.roles.*') ||
+    request()->routeIs('admin.users.*') ||
+    request()->routeIs('admin.divisions.*') ||
+    request()->routeIs('admin.commodities.*') ||
+    request()->routeIs('admin.sites.*') ||
+    request()->routeIs('admin.site_config.*') ||
+    request()->routeIs('admin.audit.*') ||
+    request()->routeIs('admin.access.users.*');
 @endphp
 
-<aside class="bg-gradient-to-b from-white to-blue-50 border-r border-gray-200 h-screen sticky top-0 flex flex-col w-64 shrink-0 shadow-sm">
+<aside class="bg-gradient-to-b from-white to-slate-50/70 border-r border-slate-200 h-screen sticky top-0 flex flex-col w-64 shrink-0 shadow-sm">
   {{-- Brand --}}
-  <div class="flex items-center gap-2 px-5 py-4 border-b">
-    <svg class="w-7 h-7 text-green-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 19l9 5 9-5"/>
-    </svg>
-    <span class="font-bold text-lg text-green-700 tracking-wide">{{ config('app.name','BISA') }}</span>
+  <div class="flex items-center justify-between px-5 py-4 border-b">
+    <div class="flex items-center gap-2">
+      <svg class="w-7 h-7 text-teal-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 19l9 5 9-5" />
+      </svg>
+      <span class="font-bold text-lg text-slate-800 tracking-wide">{{ config('app.name','BISA') }}</span>
+    </div>
   </div>
 
   {{-- Nav --}}
   <nav class="flex-1 overflow-y-auto py-3"
-       x-data="{ openAdmin:false }"
-       x-init="openAdmin=false">
+       x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }} }">
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
        class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard')) }}">
-      <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10"/>
+      <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10" />
       </svg>
       <span>Dashboard</span>
     </a>
 
-    {{-- Profil --}}
+    {{-- Profil (ikon tanpa arc command) --}}
     <a href="{{ route('profile.edit') }}"
        class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('profile.edit')) }}">
-      <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('profile.edit') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.485 0 4.779.658 6.879 1.804M15 11a3 3 0 11-6 0 3 0 016 0z"/>
+      <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('profile.edit') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}"
+           fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <span>Profil</span>
     </a>
@@ -116,31 +154,29 @@
     @if ($isGM && Route::has('gm.dashboard'))
       <a href="{{ route('gm.dashboard') }}"
          class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('gm.dashboard')) }}">
-        <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('gm.dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M5 8h14"/>
+        <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('gm.dashboard') ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M5 8h14" />
         </svg>
         <span>GM Dashboard</span>
       </a>
     @endif
 
-{{-- ===== Master Data (kelola daftar entities) ===== --}}
-@if ($isGM && $canManageMaster && Route::has('admin.master_entities.index'))
-  <a href="{{ route('admin.master_entities.index') }}"
-     class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition
-            {{ $activeClasses(request()->routeIs('admin.master_entities.*')) }}">
-    <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M5 7h14M5 12h14M5 17h14" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span>Master Data</span>
-  </a>
-@endif
-
+    {{-- ===== Master Data (Kelola daftar entities) ===== --}}
+    @if ($isGM && $canManageMaster && Route::has('admin.master_entities.index'))
+      <a href="{{ route('admin.master_entities.index') }}"
+         class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.master_entities.*')) }}">
+        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M5 7h14M5 12h14M5 17h14" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span>Master Data</span>
+      </a>
+    @endif
 
     {{-- ===== Master Data Overview (card grid) ===== --}}
     @if ($isGM && $canManageMaster && Route::has('admin.master.overview'))
       <a href="{{ route('admin.master.overview') }}"
          class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($isMasterOverviewActive) }}">
-        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="2"></rect>
           <rect x="14" y="3" width="7" height="7" rx="2"></rect>
           <rect x="3" y="14" width="7" height="7" rx="2"></rect>
@@ -150,31 +186,44 @@
       </a>
     @endif
 
-    {{-- ===== ADMIN (Roles/Users/Divisions) — GM & Manager ===== --}}
+    {{-- ===== Quick Access ke daftar entity default (opsional) ===== --}}
+    @if (Route::has('admin.master.index'))
+      <a href="{{ route('admin.master.index', ['entity' => $defaultEntity]) }}"
+         class="group flex items-center gap-3 px-5 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($isMasterListActive) }}">
+        <svg class="w-5 h-5 flex-shrink-0 {{ $isMasterListActive ? 'text-yellow-600' : 'text-yellow-500 group-hover:text-yellow-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Daftar {{ Str::headline($defaultEntity) }}</span>
+      </a>
+    @endif
+
+    {{-- ===== ADMIN (Roles/Users/Divisions/... ) — GM & Manager ===== --}}
     @if ($showAdminMenu)
       <div class="mt-3 px-5">
         <button type="button" @click="openAdmin=!openAdmin"
-                class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:bg-blue-50">
+                class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h14M5 17h14"/>
+            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h14M5 17h14" />
             </svg>
             Admin
           </span>
-          <svg class="w-4 h-4 text-gray-500 transform transition" :class="openAdmin ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          <svg class="w-4 h-4 text-slate-500 transform transition" :class="openAdmin ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
-        <div x-show="openAdmin" x-transition.origin.top class="mt-2 space-y-1">
+        <div x-show="openAdmin" x-transition.origin.top.left class="mt-2 space-y-1">
           <a href="{{ route('admin.roles.index') }}"
              class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.roles.*')) }}">
             Roles
           </a>
+
           <a href="{{ route('admin.users.index') }}"
              class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.users.*')) }}">
             Users
           </a>
+
           <a href="{{ route('admin.divisions.index') }}"
              class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.divisions.*')) }}">
             Divisions
@@ -197,22 +246,22 @@
           @endif
 
           {{-- Konfigurasi Site (GM only) --}}
-          @if ($isGM && Route::has('admin.site_config.edit'))
-            <a href="{{ route('admin.site_config.edit') }}"
+          @if ($isGM && Route::has('admin.site_config.form'))
+            <a href="{{ route('admin.site_config.form') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
               Konfigurasi Site
             </a>
-          @endif>
+          @endif
 
           {{-- Audit Logs (GM only) --}}
           @if ($canViewAudit)
             <a href="{{ route('admin.audit.index') }}"
-               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition
-                      {{ $activeClasses(request()->routeIs('admin.audit.*')) }}">
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.audit.*')) }}">
               Audit Logs
             </a>
           @endif
 
+          {{-- Kelola Akses (GM only) --}}
           @if ($isGM && $canGrantAccess && Route::has('admin.access.users.index'))
             <a href="{{ route('admin.access.users.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
@@ -223,21 +272,23 @@
       </div>
     @endif
 
-    {{-- ===== Role dashboards ===== --}}
-    <div class="mt-3 px-5">
-      <div class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Role Dashboards</div>
+    {{-- ===== Role Dashboards ===== --}}
+    <div class="mt-4 px-5">
+      <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Role Dashboards</div>
 
       @php $roleRoute = $roleLinks[$roleKey]['route'] ?? null; @endphp
 
       @if ($isGM)
         @foreach($roleLinks as $link)
-          <a href="{{ route($link['route']) }}"
-             class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($link['route'])) }}">
-            <span class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">{{ $link['emoji'] }}</span>
-            <span>{{ $link['label'] }}</span>
-          </a>
+          @if(Route::has($link['route']))
+            <a href="{{ route($link['route']) }}"
+               class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($link['route'])) }}">
+              <span class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">{{ $link['emoji'] }}</span>
+              <span>{{ $link['label'] }}</span>
+            </a>
+          @endif
         @endforeach
-      @elseif ($roleRoute)
+      @elseif ($roleRoute && Route::has($roleRoute))
         <a href="{{ route($roleRoute) }}"
            class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($roleRoute)) }}">
           <span class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">
@@ -258,25 +309,25 @@
 
     <div class="px-5 py-3 flex items-center gap-3">
       @if($avatar)
-        <img src="{{ $avatar }}" alt="Avatar" class="w-10 h-10 rounded-full object-cover border border-green-200">
+        <img src="{{ $avatar }}" alt="Avatar" class="w-10 h-10 rounded-full object-cover border border-teal-200">
       @else
-        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-green-600 text-white font-bold">
+        <div class="flex items-center justify-center w-10 h-10 rounded-full bg-teal-700 text-white font-bold">
           {{ $initial }}
         </div>
       @endif
 
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
-          <div class="text-sm font-semibold text-green-700 truncate">{{ $user->name ?? 'Guest User' }}</div>
+          <div class="text-sm font-semibold text-slate-800 truncate">{{ $user->name ?? 'Guest User' }}</div>
           @if($roleKey)
             <span class="text-[10px] px-2 py-0.5 rounded-full {{ $badge }}">{{ strtoupper($roleKey) }}</span>
           @endif
         </div>
         @if(!empty($user->role?->name))
-          <div class="text-xs text-gray-500 truncate">{{ $user->role->name }}</div>
+          <div class="text-xs text-slate-500 truncate">{{ $user->role->name }}</div>
         @endif
         @if(!empty($user->email))
-          <div class="text-xs text-gray-400 truncate">{{ $user->email }}</div>
+          <div class="text-xs text-slate-400 truncate">{{ $user->email }}</div>
         @endif
       </div>
     </div>
@@ -284,9 +335,9 @@
     <form method="POST" action="{{ route('logout') }}" class="px-4 pb-3">
       @csrf
       <button type="submit"
-              class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition">
-        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 11-4 0v-1m0-10V5a2 2 0 114 0v1"/>
+              class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition">
+        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 11-4 0v-1m0-10V5a2 2 0 114 0v1" />
         </svg>
         <span>Logout</span>
       </button>

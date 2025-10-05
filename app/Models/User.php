@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Hash;
 
 class User extends Authenticatable
 {
@@ -20,6 +22,7 @@ class User extends Authenticatable
         'password',
         'role_id',
         'division_id',
+        'default_site_id', // <<< penting
     ];
 
     protected $hidden = [
@@ -27,7 +30,13 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    // === Relationships ===
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+
+    /* =========================
+     | Relationships
+     |=========================*/
     public function role()
     {
         return $this->belongsTo(Role::class);
@@ -38,7 +47,22 @@ class User extends Authenticatable
         return $this->belongsTo(Division::class);
     }
 
-    // === Helpers ===
+    public function defaultSite()
+    {
+        return $this->belongsTo(\App\Models\Site::class, 'default_site_id');
+    }
+
+    /* =========================
+     | Query Scopes
+     |=========================*/
+    public function scopeInSite($q, $siteId)
+    {
+        return $q->where('default_site_id', $siteId);
+    }
+
+    /* =========================
+     | Helpers
+     |=========================*/
     public function hasRole(string $roleKey): bool
     {
         return $this->role && $this->role->key === $roleKey;
@@ -49,7 +73,14 @@ class User extends Authenticatable
         return $this->role && in_array($this->role->key, $keys, true);
     }
 
-    // === Accessors ===
+    public function isGM(): bool
+    {
+        return optional($this->role)->key === 'gm';
+    }
+
+    /* =========================
+     | Accessors
+     |=========================*/
     public function getRoleKeyAttribute(): ?string
     {
         $this->loadMissing('role');
@@ -68,12 +99,52 @@ class User extends Authenticatable
         return optional($this->division)->name;
     }
 
-    public function isGM(): bool
+    public function getDefaultSiteNameAttribute(): ?string
     {
-        return optional($this->role)->key === 'gm';
+        $this->loadMissing('defaultSite');
+        return optional($this->defaultSite)->name;
     }
-    public function defaultSite()
+
+    /* =========================
+     | Mutators (email & password)
+     |=========================*/
+    protected function email(): Attribute
     {
-        return $this->belongsTo(\App\Models\Site::class, 'default_site_id');
+        return Attribute::make(
+            set: fn ($value) => is_string($value) ? mb_strtolower($value) : $value,
+        );
+    }
+
+    protected function password(): Attribute
+    {
+        return Attribute::make(
+            set: function ($value) {
+                if (!$value) return $value;
+                // Hindari rehash jika sudah ter-hash
+                return Hash::needsRehash($value) ? Hash::make($value) : $value;
+            }
+        );
+    }
+
+    /* =========================
+     | Boot hooks: auto-isi default_site_id
+     |=========================*/
+    protected static function booted(): void
+    {
+        static::creating(function (self $user) {
+            if (filled($user->default_site_id)) return;
+
+            try {
+                // Ambil dari SiteConfig.params->default_for_users = true
+                $siteId = \App\Models\SiteConfig::whereJsonContains('params->default_for_users', true)->value('site_id')
+                       ?? \App\Models\Site::orderBy('name')->value('id');
+
+                if ($siteId) {
+                    $user->default_site_id = $siteId;
+                }
+            } catch (\Throwable $e) {
+                // Diamkan jika tabel belum ada saat early migration/seed
+            }
+        });
     }
 }

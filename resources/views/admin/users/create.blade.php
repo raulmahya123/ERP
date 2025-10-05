@@ -61,7 +61,7 @@
         <label for="email" class="block text-sm font-medium text-slate-700">Email</label>
         <input type="email" name="email" id="email" x-model.trim="email"
           class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-          @input="dirty=true" value="{{ old('email') }}">
+          @input="email = (email||'').toLowerCase(); dirty=true" value="{{ old('email') }}">
         @error('email') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
       </div>
 
@@ -121,16 +121,51 @@
         @error('role_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
       </div>
 
+      {{-- Division --}}
+      <div>
+        <label for="division_id" class="block text-sm font-medium text-slate-700">Division</label>
+        <select name="division_id" id="division_id" x-model="divisionId"
+          class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+          @change="dirty=true">
+          <option value="">— (Opsional) Pilih Division —</option>
+          @foreach($divisions as $division)
+            <option value="{{ $division->id }}" @selected(old('division_id')==$division->id)>{{ $division->name }}</option>
+          @endforeach
+        </select>
+        @error('division_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
+      </div>
+
+      {{-- Default Site --}}
+      <div>
+        <div class="flex items-center justify-between">
+          <label for="default_site_id" class="block text-sm font-medium text-slate-700">Default Site</label>
+          <span class="text-[11px] text-slate-500">Kosongkan untuk auto dari SiteConfig</span>
+        </div>
+        <select name="default_site_id" id="default_site_id" x-model="defaultSiteId"
+          class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+          @change="dirty=true">
+          <option value="">— Auto (SiteConfig.default_for_users) —</option>
+          @foreach($sites as $site)
+            <option value="{{ $site->id }}" @selected(old('default_site_id')==$site->id)>{{ $site->name }}</option>
+          @endforeach
+        </select>
+        @error('default_site_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
+
+        {{-- Hint auto-detected (opsional, hanya UI) --}}
+        <p class="mt-1 text-xs text-slate-500" x-show="!defaultSiteId">
+          Sistem akan memilih site default dari <code>site_configs.params.default_for_users = true</code>,
+          atau fallback ke site pertama.
+        </p>
+      </div>
+
       {{-- Tombol --}}
       <div class="flex items-center justify-between pt-2">
-        {{-- Batal: gaya button solid abu-abu --}}
         <a href="{{ route('admin.users.index') }}"
            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow
                   bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium">
           ← Batal
         </a>
 
-        {{-- Simpan --}}
         <button type="submit"
           :disabled="!canSubmit"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white shadow
@@ -158,6 +193,8 @@ function createUserForm(){
     pwd: '',
     confirm: '',
     roleId: @json(old('role_id', '')),
+    divisionId: @json(old('division_id', '')),        // <— NEW
+    defaultSiteId: @json(old('default_site_id','')),  // <— NEW
     showPwd:false,
     showConfirm:false,
     caps:false,
@@ -167,7 +204,7 @@ function createUserForm(){
     get matches(){ return this.confirm && this.pwd === this.confirm },
     get rules(){
       return {
-        min: (this.pwd||'').length >= 8,   // minimal 8; sesuaikan kebijakan
+        min: (this.pwd||'').length >= 8,
         upper: /[A-Z]/.test(this.pwd||''),
         num: /\d/.test(this.pwd||''),
         sym: /[^A-Za-z0-9]/.test(this.pwd||'')
@@ -196,11 +233,11 @@ function createUserForm(){
 
       Swal.fire({
         title: 'Simpan data user baru?',
-        text: 'Pastikan Email & Role sudah benar.',
+        text: 'Pastikan Email, Role, Division, & Default Site sudah benar.',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#10b981', // emerald
-        cancelButtonColor: '#6b7280',  // gray
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
         confirmButtonText: 'Ya, simpan',
         cancelButtonText: 'Batal'
       }).then((res) => {
@@ -210,17 +247,11 @@ function createUserForm(){
   }
 }
 
-// Flash popup dari session (opsional)
+// Flash popup (opsional)
 @if (session('success'))
   window.addEventListener('DOMContentLoaded', () => {
     if (typeof Swal !== 'undefined') {
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        text: @json(session('success')),
-        timer: 1800,
-        showConfirmButton: false
-      });
+      Swal.fire({ icon: 'success', title: 'Berhasil', text: @json(session('success')), timer: 1800, showConfirmButton: false });
     }
   });
 @endif
@@ -228,11 +259,7 @@ function createUserForm(){
 @if (session('error'))
   window.addEventListener('DOMContentLoaded', () => {
     if (typeof Swal !== 'undefined') {
-      Swal.fire({
-        icon: 'error',
-        title: 'Gagal',
-        text: @json(session('error')),
-      });
+      Swal.fire({ icon: 'error', title: 'Gagal', text: @json(session('error')) });
     }
   });
 @endif

@@ -1,100 +1,88 @@
-<section 
-  x-data="{ showCurrent:false, showNew:false, showConfirm:false, capsCurrent:false, capsNew:false, pwd:'', confirm:'' }" 
-  class="space-y-6">
-
-  <header>
-    <h2 class="text-lg font-bold text-slate-900">Update Password</h2>
-    <p class="mt-1 text-sm text-slate-600">
-      Use a long, random password to keep your account secure.
-    </p>
+<section x-data="{ showCur:false, showNew:false, showConf:false, capsCur:false, capsNew:false, capsConf:false }">
+  <header class="mb-4">
+    <h3 class="text-base font-semibold text-slate-800">Update Password</h3>
+    <p class="text-sm text-slate-500">Gunakan password kuat yang belum pernah dipakai di tempat lain.</p>
   </header>
 
-  <form method="post" action="{{ route('password.update') }}" class="mt-6 space-y-6">
+  <form method="post" action="{{ route('password.update') }}" class="space-y-4">
     @csrf
     @method('put')
 
     {{-- Current password --}}
     <div>
-      <x-input-label for="current_password" value="Current Password" />
+      <label for="current_password" class="block text-sm font-medium text-slate-700">Current Password</label>
       <div class="relative mt-1">
-        <input id="current_password" name="current_password"
-               x-bind:type="showCurrent ? 'text' : 'password'"
-               class="block w-full rounded-lg border-gray-300 pr-28 focus:border-emerald-600 focus:ring-emerald-600"
-               @keyup.capture="capsCurrent = $event.getModifierState && $event.getModifierState('CapsLock')">
-        <div class="absolute inset-y-0 right-1 flex items-center gap-1">
-          <span x-show="capsCurrent" 
-                class="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                Caps
-          </span>
-          <button type="button"
-                  class="text-xs px-2 py-1 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700"
-                  @click="showCurrent=!showCurrent">
-            <span x-text="showCurrent ? 'Hide' : 'Show'"></span>
+        <input
+          id="current_password"
+          name="current_password"
+          :type="showCur ? 'text' : 'password'"
+          class="block w-full rounded-lg border-slate-300 pr-24 focus:border-emerald-600 focus:ring-emerald-600"
+          autocomplete="current-password"
+          @keyup.capture="capsCur = $event.getModifierState && $event.getModifierState('CapsLock')"
+          required
+        >
+        <div class="absolute inset-y-0 right-2 flex items-center gap-2">
+          <button type="button" class="text-xs text-slate-500 hover:text-slate-700" @click="showCur = !showCur" aria-controls="current_password" :aria-pressed="showCur">
+            <span x-text="showCur ? 'Hide' : 'Show'"></span>
           </button>
+          <span x-show="capsCur" class="text-[10px] text-amber-600 font-semibold">CAPS</span>
         </div>
       </div>
-      <x-input-error :messages="$errors->updatePassword->get('current_password')" class="mt-2" />
+      @error('current_password')<p class="mt-1 text-sm text-rose-600">{{ $message }}</p>@enderror
     </div>
 
     {{-- New password --}}
     <div>
-      <x-input-label for="password" value="New Password" />
+      <label for="new_password" class="block text-sm font-medium text-slate-700">New Password</label>
       <div class="relative mt-1">
-        <input id="password" name="password"
-               x-model="pwd"
-               x-bind:type="showNew ? 'text' : 'password'"
-               class="block w-full rounded-lg border-gray-300 pr-28 focus:border-emerald-600 focus:ring-emerald-600"
-               @keyup.capture="capsNew = $event.getModifierState && $event.getModifierState('CapsLock')">
-        <div class="absolute inset-y-0 right-1 flex items-center gap-1">
-          <span x-show="capsNew" 
-                class="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                Caps
-          </span>
-          <button type="button"
-                  class="text-xs px-2 py-1 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700"
-                  @click="showNew=!showNew">
+        <input
+          id="new_password"
+          name="password"
+          :type="showNew ? 'text' : 'password'"
+          class="block w-full rounded-lg border-slate-300 pr-24 focus:border-emerald-600 focus:ring-emerald-600"
+          autocomplete="new-password"
+          @keyup.capture="capsNew = $event.getModifierState && $event.getModifierState('CapsLock')"
+          required
+        >
+        <div class="absolute inset-y-0 right-2 flex items-center gap-2">
+          <button type="button" class="text-xs text-slate-500 hover:text-slate-700" @click="showNew = !showNew" aria-controls="new_password" :aria-pressed="showNew">
             <span x-text="showNew ? 'Hide' : 'Show'"></span>
           </button>
+          <span x-show="capsNew" class="text-[10px] text-amber-600 font-semibold">CAPS</span>
         </div>
       </div>
-      <x-input-error :messages="$errors->updatePassword->get('password')" class="mt-2" />
+      @error('password')<p class="mt-1 text-sm text-rose-600">{{ $message }}</p>@enderror
     </div>
 
-    {{-- Confirm password --}}
+    {{-- Confirm --}}
     <div>
-      <x-input-label for="password_confirmation" value="Confirm Password" />
+      <label for="password_confirmation" class="block text-sm font-medium text-slate-700">Confirm New Password</label>
       <div class="relative mt-1">
-        <input id="password_confirmation" name="password_confirmation"
-               x-model="confirm"
-               x-bind:type="showConfirm ? 'text' : 'password'"
-               class="block w-full rounded-lg border-gray-300 pr-28 focus:border-emerald-600 focus:ring-emerald-600">
-        <div class="absolute inset-y-0 right-1 flex items-center gap-1">
-          <span x-show="confirm && confirm!==pwd" 
-                class="text-[10px] px-2 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
-                Not match
-          </span>
-          <span x-show="confirm && confirm===pwd" 
-                class="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">
-                Match
-          </span>
-          <button type="button"
-                  class="text-xs px-2 py-1 rounded-md border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700"
-                  @click="showConfirm=!showConfirm">
-            <span x-text="showConfirm ? 'Hide' : 'Show'"></span>
+        <input
+          id="password_confirmation"
+          name="password_confirmation"
+          :type="showConf ? 'text' : 'password'"
+          class="block w-full rounded-lg border-slate-300 pr-24 focus:border-emerald-600 focus:ring-emerald-600"
+          autocomplete="new-password"
+          @keyup.capture="capsConf = $event.getModifierState && $event.getModifierState('CapsLock')"
+          required
+        >
+        <div class="absolute inset-y-0 right-2 flex items-center gap-2">
+          <button type="button" class="text-xs text-slate-500 hover:text-slate-700" @click="showConf = !showConf" aria-controls="password_confirmation" :aria-pressed="showConf">
+            <span x-text="showConf ? 'Hide' : 'Show'"></span>
           </button>
+          <span x-show="capsConf" class="text-[10px] text-amber-600 font-semibold">CAPS</span>
         </div>
       </div>
-      <x-input-error :messages="$errors->updatePassword->get('password_confirmation')" class="mt-2" />
     </div>
 
-    {{-- Save button hijau --}}
-    <div class="flex items-center gap-4">
-      <x-primary-button
-        :disabled="true"
-        x-bind:disabled="!pwd || !confirm || pwd!==confirm"
-        class="bg-emerald-600 hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
-        Save
-      </x-primary-button>
+    <div class="flex items-center gap-3 pt-2">
+      <x-primary-button>Save</x-primary-button>
+      @if (session('status') === 'password-updated')
+        <p x-data="{ show: true }" x-show="show" x-transition
+           x-init="setTimeout(() => show = false, 2000)"
+           class="text-sm text-emerald-600">Saved.</p>
+      @endif
     </div>
   </form>
 </section>

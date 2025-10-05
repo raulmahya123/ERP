@@ -13,16 +13,16 @@
       @if (Route::has('admin.users.export'))
         <a href="{{ route('admin.users.export', request()->query()) }}"
            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/15 text-white font-medium ring-1 ring-white/25 hover:bg-white/25 transition">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8m-8 4h6M5 20h14a2 2 0 002-2V8l-6-6H7a2 2 0 00-2 2v2"/>
           </svg>
           Export
         </a>
-      @endif>
+      @endif
 
       <a href="{{ route('admin.users.create') }}"
          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[--gold] text-[--navy] font-medium shadow hover:opacity-90 transition">
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
         Tambah User
@@ -33,7 +33,7 @@
   {{-- Body --}}
   <div class="p-6">
     {{-- Filters --}}
-    <form method="get" class="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+    <form method="get" class="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
       <div class="sm:col-span-2">
         <input type="text" name="q" value="{{ $q ?? request('q') }}" placeholder="Cari nama / email…"
                class="w-full rounded-lg border-slate-300 shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm" />
@@ -69,12 +69,27 @@
       </div>
       @endisset
 
-      <div class="sm:col-span-2 lg:col-span-4 flex items-center gap-2">
+      {{-- Filter Site (baru) --}}
+      @isset($sites)
+      <div>
+        <select name="site_id"
+                class="w-full rounded-lg border-slate-300 shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
+          <option value="">— Semua Site —</option>
+          @foreach($sites as $s)
+            <option value="{{ $s->id }}" @selected((string)request('site_id') === (string)$s->id)>
+              {{ $s->name }}
+            </option>
+          @endforeach
+        </select>
+      </div>
+      @endisset
+
+      <div class="sm:col-span-2 lg:col-span-5 flex items-center gap-2 pt-1">
         <button type="submit"
                 class="px-4 py-2 rounded-lg bg-[--navy] text-white font-medium hover:bg-[--teal] transition">
           Terapkan
         </button>
-        @if(request()->hasAny(['q','role_id','division_id']))
+        @if(request()->hasAny(['q','role_id','division_id','site_id']))
           <a href="{{ route('admin.users.index') }}" class="text-sm text-slate-500 hover:text-slate-700">Reset</a>
         @endif
       </div>
@@ -89,6 +104,7 @@
             <th class="px-4 py-3 text-left font-semibold">Email</th>
             <th class="px-4 py-3 text-left font-semibold">Role</th>
             <th class="px-4 py-3 text-left font-semibold">Division</th>
+            <th class="px-4 py-3 text-left font-semibold">Default Site</th> {{-- NEW --}}
             <th class="px-4 py-3 text-center font-semibold">Aksi</th>
           </tr>
         </thead>
@@ -101,9 +117,11 @@
                   <span class="ml-1 inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-[10px] ring-1 ring-emerald-200">verified</span>
                 @endif
               </td>
+
               <td class="px-4 py-3 font-mono text-emerald-700">
                 {{ $user->email }}
               </td>
+
               <td class="px-4 py-3">
                 @if (isset($user->role) && $user->role)
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
@@ -120,19 +138,29 @@
                 @endif
               </td>
 
-              {{-- Division (muncul jika ada relasi) --}}
+              {{-- Division --}}
               <td class="px-4 py-3">
                 @if (isset($user->division) && $user->division)
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 ring-1 ring-sky-200">
                     {{ $user->division->name }}
                   </span>
                 @elseif (method_exists($user, 'divisions') && $user->divisions()->exists())
-                  {{-- kalau many-to-many, tampilkan 1–2 pertama --}}
                   @foreach($user->divisions()->limit(2)->get() as $div)
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 ring-1 ring-sky-200 mr-1">
                       {{ $div->name }}
                     </span>
                   @endforeach
+                @else
+                  <span class="text-slate-400">—</span>
+                @endif
+              </td>
+
+              {{-- Default Site (NEW) --}}
+              <td class="px-4 py-3">
+                @if (isset($user->defaultSite) && $user->defaultSite)
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                    {{ $user->defaultSite->name }}
+                  </span>
                 @else
                   <span class="text-slate-400">—</span>
                 @endif
@@ -151,7 +179,7 @@
                   {{-- Edit --}}
                   <a href="{{ route('admin.users.edit', $user) }}"
                      class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-[--navy] text-white shadow hover:bg-[--teal] transition">
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M11 5h2m-6 14h12M5 13l4 4L19 7" />
                     </svg>
                     Edit
@@ -179,7 +207,7 @@
                             data-id="{{ $user->id }}"
                             data-name="{{ $user->name }}"
                             class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-300 hover:bg-red-200 transition">
-                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                       Hapus
@@ -190,7 +218,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="5" class="px-4 py-6 text-center text-slate-500">Belum ada user.</td>
+              <td colspan="6" class="px-4 py-6 text-center text-slate-500">Belum ada user.</td>
             </tr>
           @endforelse
         </tbody>

@@ -11,27 +11,36 @@
       <h1 class="text-xl font-bold text-white">✏️ Edit User</h1>
       <p class="text-xs text-white/80">Perbarui data akun dan perannya.</p>
     </div>
-    @if($user->role)
-      <span class="inline-flex items-center gap-1 rounded-full bg-white/15 text-white text-xs font-semibold px-2 py-0.5 ring-1 ring-white/30">
-        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11.5a3 3 0 100-6 3 3 0 000 6zM6 20a6 6 0 1112 0H6z"/>
-        </svg>
-        {{ $user->role->name }}
-      </span>
-    @else
-      <span class="inline-flex items-center gap-1 rounded-full bg-amber-400/20 text-white text-xs font-semibold px-2 py-0.5 ring-1 ring-white/20">
-        No Role
-      </span>
-    @endif
+    <div class="flex items-center gap-2">
+      @if($user->role)
+        <span class="inline-flex items-center gap-1 rounded-full bg-white/15 text-white text-xs font-semibold px-2 py-0.5 ring-1 ring-white/30">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11.5a3 3 0 100-6 3 3 0 000 6zM6 20a6 6 0 1112 0H6z"/>
+          </svg>
+          {{ $user->role->name }}
+        </span>
+      @else
+        <span class="inline-flex items-center gap-1 rounded-full bg-amber-400/20 text-white text-xs font-semibold px-2 py-0.5 ring-1 ring-white/20">
+          No Role
+        </span>
+      @endif
+
+      {{-- Badge default site (info) --}}
+      @if(isset($user->defaultSite) && $user->defaultSite)
+        <span class="inline-flex items-center gap-1 rounded-full bg-white/15 text-white text-[11px] font-semibold px-2 py-0.5 ring-1 ring-white/30">
+          🌐 {{ $user->defaultSite->name }}
+        </span>
+      @endif
+    </div>
   </div>
 
   {{-- Body --}}
   <div class="p-6">
 
-    {{-- Inline Alerts (server-rendered) --}}
+    {{-- Alerts --}}
     @if (session('success'))
       <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 flex items-center gap-2">
-        <svg class="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
         <span class="text-sm font-medium">{{ session('success') }}</span>
@@ -39,7 +48,7 @@
     @endif
     @if (session('error'))
       <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 flex items-center gap-2">
-        <svg class="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
         <span class="text-sm font-medium">{{ session('error') }}</span>
@@ -78,40 +87,6 @@
         @error('email') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
       </div>
 
-      {{-- Password Toggle --}}
-      <div class="rounded-xl border border-slate-200 p-4" x-data="{ showPwd:false }">
-        <div class="flex items-center justify-between">
-          <div class="text-sm">
-            <div class="font-medium text-slate-800">Password</div>
-            <div class="text-slate-500">Kosongkan jika tidak ingin mengubah.</div>
-          </div>
-          <button type="button" @click="showPwd=!showPwd"
-                  class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white ring-1 ring-slate-200 hover:bg-slate-50">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5C7.305 4.5 3.34 7.36 2 12c1.34 4.64 5.305 7.5 10 7.5s8.66-2.86 10-7.5C20.66 7.36 16.695 4.5 12 4.5z"/>
-              <circle cx="12" cy="12" r="3" stroke-width="2"/>
-            </svg>
-            <span x-text="showPwd ? 'Sembunyikan' : 'Ubah Password'"></span>
-          </button>
-        </div>
-
-        <div class="grid md:grid-cols-2 gap-4 mt-4" x-show="showPwd" x-cloak>
-          <div>
-            <label class="block text-sm font-medium">Password (opsional)</label>
-            <input type="password" name="password"
-                   class="mt-1 w-full rounded-lg border-slate-300 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                   @input="$root.dirty = true" />
-            @error('password') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-          </div>
-          <div>
-            <label class="block text-sm font-medium">Konfirmasi Password</label>
-            <input type="password" name="password_confirmation"
-                   class="mt-1 w-full rounded-lg border-slate-300 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                   @input="$root.dirty = true" />
-          </div>
-        </div>
-      </div>
-
       {{-- Role --}}
       <div>
         <label for="role_id" class="block text-sm font-medium text-slate-700">Role</label>
@@ -132,6 +107,43 @@
             Catatan: Tidak dapat mengosongkan role akun sendiri (dibatasi oleh kebijakan keamanan).
           </p>
         @endif
+      </div>
+
+      {{-- Division --}}
+      <div>
+        <label for="division_id" class="block text-sm font-medium text-slate-700">Division</label>
+        <select id="division_id" name="division_id"
+                class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                @change="dirty = true">
+          <option value="">— pilih division —</option>
+          @foreach($divisions as $d)
+            <option value="{{ $d->id }}" @selected((string)old('division_id', $user->division_id)===(string)$d->id)>
+              {{ $d->name }}
+            </option>
+          @endforeach
+        </select>
+        @error('division_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
+      </div>
+
+      {{-- Default Site --}}
+      <div>
+        <label for="default_site_id" class="block text-sm font-medium text-slate-700">Default Site</label>
+        <select id="default_site_id" name="default_site_id"
+                class="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
+                @change="dirty = true">
+          <option value="">— pilih default site —</option>
+          @foreach($sites as $s)
+            <option value="{{ $s->id }}" @selected((string)old('default_site_id', $user->default_site_id)===(string)$s->id)>
+              {{ $s->name }}
+            </option>
+          @endforeach
+        </select>
+        @error('default_site_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
+
+        <p class="mt-2 text-xs text-slate-500">
+          Jika dikosongkan, sistem akan mencoba mengisi otomatis sesuai konfigurasi
+          <code>SiteConfig.params->default_for_users = true</code> atau memakai site pertama.
+        </p>
       </div>
 
       {{-- Actions --}}
@@ -156,12 +168,10 @@
   </div>
 </div>
 
-{{-- Alpine untuk toggle & guard --}}
 <script defer src="https://unpkg.com/alpinejs"></script>
 @endsection
 
 @push('scripts')
-{{-- SweetAlert2 --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function editUserForm(){
@@ -169,7 +179,7 @@ function editUserForm(){
     dirty: false,
     changedRole: false,
 
-    confirmSubmit(e){
+    confirmSubmit(){
       const form = document.getElementById('edit-user-form');
       if (typeof Swal === 'undefined') { form.submit(); return; }
 
@@ -183,8 +193,8 @@ function editUserForm(){
         text,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#10b981', // emerald-500
-        cancelButtonColor: '#6b7280',  // gray-500
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
         confirmButtonText: 'Ya, simpan',
         cancelButtonText: 'Batal'
       }).then((res) => {
@@ -203,13 +213,12 @@ function editUserForm(){
     },
 
     init(){
-      // Guard: peringatkan saat keluar halaman jika ada perubahan
       window.addEventListener('beforeunload', this.beforeUnloadHandler.bind(this));
     }
   }
 }
 
-// Flash popup dari session (success/error)
+// Flash popup
 @if (session('success'))
   window.addEventListener('DOMContentLoaded', () => {
     if (typeof Swal !== 'undefined') {
