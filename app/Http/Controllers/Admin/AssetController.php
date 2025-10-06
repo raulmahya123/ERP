@@ -7,6 +7,7 @@ use App\Models\Asset;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use App\Support\SiteContext;
 
 class AssetController extends Controller
@@ -14,6 +15,28 @@ class AssetController extends Controller
     /* ==========================
      |  Helpers (DRY)
      |==========================*/
+
+    /**
+     * Cek apakah user adalah GM (mendukung spatie/permission ataupun kolom role sederhana).
+     */
+    protected function isGM($user): bool
+    {
+        if (!$user) return false;
+
+        // Spatie\Permission (jika ada)
+        if (method_exists($user, 'hasRole')) {
+            if ($user->hasRole('gm')) return true;
+        }
+
+        // Fallback: baca relasi/kolom role
+        $raw = is_object($user->role ?? null)
+            ? ($user->role->key ?? $user->role->slug ?? $user->role->name ?? '')
+            : (is_string($user->role ?? null) ? $user->role : '');
+
+        $norm = Str::of($raw)->lower()->replace(['_', '-'], ' ')->squish()->toString();
+
+        return in_array($norm, ['gm', 'general manager', 'generalmanager'], true);
+    }
 
     /**
      * Ambil options dari master_records untuk entity tertentu,
@@ -58,9 +81,10 @@ class AssetController extends Controller
      */
     public function index(Request $r)
     {
-        $sid         = SiteContext::currentSiteId($r->user());
+        $user       = $r->user();
+        $sid        = SiteContext::currentSiteId($user);
         $currentSite = method_exists(SiteContext::class, 'currentSite')
-            ? SiteContext::currentSite($r->user())
+            ? SiteContext::currentSite($user)
             : null;
 
         $q = Asset::query()
@@ -96,6 +120,7 @@ class AssetController extends Controller
         return view('admin.assets.index', [
             'assets'      => $assets,
             'currentSite' => $currentSite,
+            'isGM'        => $this->isGM($user), // <— dikirim ke view
         ]);
     }
 

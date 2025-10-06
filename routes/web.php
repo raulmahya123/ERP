@@ -26,11 +26,14 @@ use App\Http\Controllers\Admin\AssetAssignmentController; // Riwayat penempatan
 // Master Data (generic per-entity)
 use App\Http\Controllers\MasterDataController;
 
+use App\Http\Controllers\DashboardController; // controller baru utk dashboard actions
+
 /*
 |--------------------------------------------------------------------------
 | Route Patterns
 |--------------------------------------------------------------------------
 */
+
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
 
@@ -47,8 +50,10 @@ Route::redirect('/', '/login')->name('root');
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', [StaticPageController::class, 'dashboard'])->name('dashboard');
-
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/dashboard/assets', [DashboardController::class, 'quickStore'])
+        ->middleware('hasrole:gm|manager')
+        ->name('dashboard.assets.quick-store');
     Route::get('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -141,7 +146,7 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
         Route::post('{entity}/import',            [MasterDataController::class, 'import'])->name('import');
         Route::get('{entity}/import-template',    [MasterDataController::class, 'importTemplate'])->name('import.template');
         Route::delete('{entity}/bulk-delete',     [MasterDataController::class, 'bulkDelete'])->name('bulk-delete');
-        Route::post('{entity}/{record}/duplicate',[MasterDataController::class, 'duplicate'])
+        Route::post('{entity}/{record}/duplicate', [MasterDataController::class, 'duplicate'])
             ->whereUuid('record')->name('duplicate');
 
         // CRUD utama (per-entity)
