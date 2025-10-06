@@ -1,22 +1,6 @@
 @extends('layouts.app')
 @section('title','Master Entities')
 
-@section('header')
-  <div class="flex items-center justify-between">
-    <div>
-      <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Master Entities</h2>
-      <p class="text-sm text-slate-500">Kamus entitas dinamis untuk seluruh modul BISA ERP.</p>
-    </div>
-    <a href="{{ route('admin.master_entities.create') }}"
-       class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700 transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
-      <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-      </svg>
-      New Entity
-    </a>
-  </div>
-@endsection
-
 @section('content')
   @if (session('status'))
     <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -24,31 +8,44 @@
     </div>
   @endif
 
-  {{-- HERO STRIP --}}
-  <div class="relative overflow-hidden rounded-3xl mb-6">
-    <div class="bg-gradient-to-r from-emerald-600 via-[--teal] to-[--navy] px-6 py-6 text-white">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  {{-- HERO STRIP (match Dashboard/Profile style) --}}
+  <div class="relative overflow-hidden rounded-2xl shadow-xl ring-1 ring-teal-900/20 mb-6">
+    <div class="absolute inset-0 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
+
+
+    <div class="relative px-6 sm:px-10 py-6 sm:py-7 text-white">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div class="text-sm/5 uppercase tracking-widest text-white/80">Master Data</div>
-          <div class="mt-0.5 text-xl font-bold">Entity Directory</div>
-          <p class="text-white/80 text-xs mt-1">Konfigurasi entitas dengan urutan, label, dan status aktif.</p>
+          <div class="text-sm/5 uppercase tracking-widest text-white/85">Master Data</div>
+          <div class="mt-0.5 text-2xl font-extrabold tracking-tight">Entity Directory</div>
+          <p class="text-white/90 text-sm mt-1">Konfigurasi entitas dengan urutan, label, dan status aktif.</p>
         </div>
-        @isset($rows)
-          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 ring-1 ring-white/20 px-3 py-1 text-xs font-semibold">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
-            Total: {{ method_exists($rows,'total') ? $rows->total() : count($rows) }}
-          </span>
-        @endisset
+
+        <div class="flex items-center gap-2">
+          @isset($rows)
+            <span class="inline-flex items-center gap-2 rounded-full bg-white/10 ring-1 ring-white/30 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
+              Total: {{ method_exists($rows,'total') ? $rows->total() : count($rows) }}
+            </span>
+          @endisset
+          <a href="{{ route('admin.master_entities.create') }}"
+             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 text-sm shadow-md ring-1 ring-amber-300/40 transition">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            New Entity
+          </a>
+        </div>
       </div>
     </div>
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_50%_at_100%_0%,rgba(255,255,255,.18),transparent_60%),radial-gradient(60%_60%_at_0%_100%,rgba(255,255,255,.14),transparent_60%)]"></div>
   </div>
 
   {{-- CARD TABLE --}}
   <div class="rounded-3xl bg-white overflow-hidden shadow ring-1 ring-slate-200">
     <div class="overflow-x-auto">
       <table class="min-w-full text-sm">
-        <thead class="bg-slate-50 text-[--navy] border-b border-slate-200 sticky top-0 z-10">
+        <thead class="bg-slate-50 text-slate-700 border-b border-slate-200 sticky top-0 z-10">
           <tr>
             <th class="px-4 py-3 text-left font-semibold w-52">Key</th>
             <th class="px-4 py-3 text-left font-semibold">Label</th>
@@ -65,7 +62,7 @@
                   {{ $r->key }}
                 </span>
               </td>
-              <td class="px-4 py-3 font-medium text-slate-900">
+              <td class="px-4 py-3 font-medium text-slate-800">
                 {{ $r->label }}
               </td>
               <td class="px-4 py-3">
@@ -87,7 +84,9 @@
               <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-2 flex-wrap">
                   {{-- Open --}}
-                  <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[--navy] text-white shadow hover:bg-[--teal] transition focus:outline-none focus:ring-2 focus:ring-[--teal]"
+                  <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium 
+                            bg-sky-700 text-white shadow hover:bg-teal-600 transition 
+                            focus:outline-none focus:ring-2 focus:ring-teal-600"
                      href="{{ route('admin.master.index', $r->key) }}">
                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 9h10M9 13h6M5 7v10"/>
@@ -96,7 +95,9 @@
                   </a>
 
                   {{-- Edit --}}
-                  <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white text-[--navy] ring-1 ring-slate-200 hover:ring-[--teal] hover:bg-slate-50 transition focus:outline-none focus:ring-2 focus:ring-[--teal]"
+                  <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium 
+                            bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-teal-600 hover:bg-slate-50 transition 
+                            focus:outline-none focus:ring-2 focus:ring-teal-600"
                      href="{{ route('admin.master_entities.edit', $r->id) }}">
                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M11 5h2m-6 14h12M5 13l4 4L19 7"/>
@@ -104,7 +105,7 @@
                     Edit
                   </a>
 
-                  {{-- Force Delete (opsional) --}}
+                  {{-- Force Delete --}}
                   <form method="POST" action="{{ route('admin.master_entities.destroy', $r->id) }}"
                         class="inline" onsubmit="return false" id="del-{{ $r->id }}">
                     @csrf @method('DELETE')
@@ -112,7 +113,9 @@
                     <button type="button"
                             data-id="{{ $r->id }}"
                             data-key="{{ $r->key }}"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700 ring-1 ring-red-200 hover:bg-red-200 transition focus:outline-none focus:ring-2 focus:ring-red-300 js-del-entity">
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold 
+                                   bg-red-100 text-red-700 ring-1 ring-red-200 hover:bg-red-200 transition 
+                                   focus:outline-none focus:ring-2 focus:ring-red-300 js-del-entity">
                       <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                       </svg>
@@ -148,7 +151,6 @@
       </table>
     </div>
 
-    {{-- Pagination --}}
     @if(method_exists($rows,'links'))
       <div class="px-4 py-4 border-t bg-slate-50">
         {{ $rows->links() }}

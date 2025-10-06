@@ -33,9 +33,10 @@
     </div>
   @endif
 
-  {{-- HERO --}}
-  <div class="relative overflow-hidden rounded-3xl ring-1 ring-slate-200 shadow-sm">
-    <div class="absolute inset-0 bg-gradient-to-r from-indigo-800 via-indigo-600 to-amber-500"></div>
+  {{-- HERO (teal/sky + aksen gold) --}}
+  <div class="relative overflow-hidden rounded-2xl ring-1 ring-slate-200 shadow-sm">
+    <div class="absolute inset-0 bg-gradient-to-r from-teal-800 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
     <div class="relative p-6 sm:p-8 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">🏠 Dashboard</h1>
@@ -64,7 +65,7 @@
         Asset Terbaru
       </h2>
       @if($isGMorMgr)
-      <a href="{{ route('admin.assets.index') }}" class="text-sm text-indigo-700 hover:text-indigo-900 font-medium">Lihat semua →</a>
+      <a href="{{ route('admin.assets.index') }}" class="text-sm text-teal-700 hover:text-teal-900 font-medium">Lihat semua →</a>
       @endif
     </div>
 
@@ -116,7 +117,7 @@
                   <a href="{{ route('admin.assets.edit', $a->id) }}"
                      class="px-2 py-1 rounded-lg bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 text-xs">Edit</a>
                   <a href="{{ route('admin.assets.assignments.index', $a->id) }}"
-                     class="px-2 py-1 rounded-lg bg-indigo-700 text-white hover:bg-indigo-800 text-xs">Transfer</a>
+                     class="px-2 py-1 rounded-lg bg-teal-700 text-white hover:bg-teal-800 text-xs">Transfer</a>
                 </div>
                 @else
                   <span class="text-slate-400 text-xs">—</span>
@@ -135,7 +136,7 @@
   <div x-show="showModal" x-transition.opacity class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
     <div class="absolute inset-0 bg-black/40" @click="showModal=false"></div>
     <div class="relative w-full sm:max-w-2xl bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 m-4 sm:m-0">
-      <div class="px-6 py-3 bg-gradient-to-r from-indigo-700 via-indigo-600 to-amber-500 text-white rounded-t-2xl flex justify-between items-center">
+      <div class="px-6 py-3 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-700 text-white rounded-t-2xl flex justify-between items-center">
         <h3 class="font-semibold">Tambah Asset</h3>
         <button @click="showModal=false" class="text-white/80 hover:text-white">&times;</button>
       </div>
@@ -147,11 +148,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700">Kode</label>
-            <input name="code" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input name="code" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Nama <span class="text-red-600">*</span></label>
-            <input name="name" required class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input name="name" required class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
         </div>
 
@@ -159,7 +160,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700">Kategori Asset</label>
-            <select name="asset_category_id" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <select name="asset_category_id" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
               <option value="">— pilih —</option>
               @foreach($categories as $cat)
                 <option value="{{ $cat->id }}">{{ $cat->name }}</option>
@@ -168,7 +169,7 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Cost Center</label>
-            <select name="cost_center_id" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <select name="cost_center_id" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
               <option value="">— pilih —</option>
               @foreach(($costCenters ?? []) as $cc)
                 <option value="{{ $cc->id }}">{{ $cc->name }}</option>
@@ -181,11 +182,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700">Brand</label>
-            <input name="brand" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input name="brand" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Model</label>
-            <input name="model" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input name="model" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
         </div>
 
@@ -193,11 +194,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700">Serial No</label>
-            <input name="serial_no" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input name="serial_no" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Plate No / Unit No</label>
-            <input name="plate_no" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus-border-indigo-600">
+            <input name="plate_no" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
         </div>
 
@@ -205,7 +206,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700">Status</label>
-            <select name="status" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <select name="status" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="retired">Retired</option>
@@ -213,7 +214,7 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Tanggal Commissioning</label>
-            <input type="date" name="commissioned_at" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input type="date" name="commissioned_at" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
         </div>
 
@@ -221,24 +222,24 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700">Acquisition Cost</label>
-            <input type="number" step="0.01" name="acq_cost" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input type="number" step="0.01" name="acq_cost" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700">Acquisition Date</label>
-            <input type="date" name="acq_date" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+            <input type="date" name="acq_date" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
           </div>
         </div>
 
         {{-- Lokasi --}}
         <div>
           <label class="block text-sm font-medium text-slate-700">Lokasi</label>
-          <input name="location" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600">
+          <input name="location" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600">
         </div>
 
         {{-- Extra --}}
         <div>
           <label class="block text-sm font-medium text-slate-700">Extra (JSON / text)</label>
-          <textarea name="extra[notes]" rows="3" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-indigo-600 focus:border-indigo-600"></textarea>
+          <textarea name="extra[notes]" rows="3" class="mt-1 w-full rounded-lg border-slate-300 focus:ring-teal-600 focus:border-teal-600"></textarea>
         </div>
 
         <div class="flex justify-end gap-2 pt-2">

@@ -2,13 +2,6 @@
 @extends('layouts.app')
 @section('title','GM Dashboard')
 
-@section('header')
-<div class="flex items-center gap-3">
-  <span class="inline-flex items-center rounded-full bg-[#0d2b52]/10 text-[#0d2b52] px-3 py-1 text-xs font-semibold">GM</span>
-  <h2 class="font-semibold text-xl text-slate-800">Executive Overview</h2>
-</div>
-@endsection
-
 @section('content')
 @php
 use App\Models\User;
@@ -31,14 +24,42 @@ $icoLayers = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="curre
         d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z" />
 </svg>';
 
-/** Safeguard count (hindari error saat seeder/belum ada tabel) */
-try {
-  $totalUsers = User::count();
-} catch (\Throwable $e) { $totalUsers = 0; }
-try {
-  $totalDivisions = Division::count();
-} catch (\Throwable $e) { $totalDivisions = 0; }
+/** Safeguard count */
+try { $totalUsers = User::count(); } catch (\Throwable $e) { $totalUsers = 0; }
+try { $totalDivisions = Division::count(); } catch (\Throwable $e) { $totalDivisions = 0; }
 @endphp
+
+{{-- ===== HERO (match Dashboard shape) ===== --}}
+<div class="relative overflow-hidden rounded-2xl shadow-xl ring-1 ring-teal-900/20 mb-6">
+  <div class="absolute inset-0 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-800"></div>
+  <div class="absolute inset-0 opacity-20 bg-[radial-gradient(90%_90%_at_12%_10%,_rgba(255,255,255,.9)_0%,_transparent_60%)]"></div>
+  <div class="absolute inset-0 opacity-15 bg-[radial-gradient(120%_80%_at_60%_-10%,_rgba(255,255,255,.6)_0%,_transparent_55%)]"></div>
+
+  <div class="relative px-6 sm:px-10 py-6 sm:py-7 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="space-y-1">
+      <h1 class="text-2xl sm:text-[28px] font-extrabold tracking-tight drop-shadow-sm flex items-center gap-2">
+        <span class="inline-flex items-center rounded-full bg-white/20 text-white px-3 py-1 text-xs font-semibold ring-1 ring-white/30">GM</span>
+        <span>Executive Overview</span>
+      </h1>
+      <p class="text-white/90 text-sm">Ringkasan eksekutif lintas site: produksi, revenue, kas, dan master data.</p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      @if (Route::has('admin.users.index'))
+      <a href="{{ route('admin.users.index') }}"
+         class="px-4 py-2 rounded-xl bg-white/10 text-white ring-1 ring-white/30 hover:bg-white/15 backdrop-blur-sm text-sm font-semibold transition shadow-sm">
+        Kelola Users
+      </a>
+      @endif
+      @if (Route::has('admin.divisions.index'))
+      <a href="{{ route('admin.divisions.index') }}"
+         class="px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 text-sm shadow-md ring-1 ring-amber-300/40 transition">
+        Kelola Divisions
+      </a>
+      @endif
+    </div>
+  </div>
+</div>
 
 {{-- ===== KPI Cards (5 kolom) ===== --}}
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -150,7 +171,7 @@ try {
 
 </div>
 
-{{-- ===== Quick Action (dipindah ke baris bawah, full width) ===== --}}
+{{-- ===== Quick Action (full width) ===== --}}
 <div class="mt-4 p-4 rounded-2xl shadow-xl bg-gradient-to-r from-[#0d2b52] to-[#143a6e] text-white">
   <div class="flex items-start justify-between">
     <div>
@@ -170,21 +191,18 @@ try {
         + User
       </a>
     @endif
-
     @if (Route::has('admin.roles.index'))
       <a href="{{ route('admin.roles.index') }}"
          class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm bg-emerald-500 text-white shadow hover:bg-emerald-600">
         + Role
       </a>
     @endif
-
     @if (Route::has('admin.divisions.index'))
       <a href="{{ route('admin.divisions.index') }}"
          class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm bg-sky-500 text-white shadow hover:bg-sky-600">
         + Division
       </a>
     @endif
-
     @if (Route::has('admin.reports.create'))
       <a href="{{ route('admin.reports.create') }}"
          class="inline-flex items-center px-3 py-2 rounded-xl font-semibold text-sm bg-yellow-400 text-slate-900 shadow hover:bg-yellow-500">
@@ -194,7 +212,7 @@ try {
   </div>
 </div>
 
-{{-- ===== Content cards (putih) ===== --}}
+{{-- ===== Content cards ===== --}}
 <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
   <div class="bg-white border border-slate-200 rounded-2xl shadow p-6">
     <div class="flex items-center justify-between mb-2">
@@ -212,33 +230,27 @@ try {
       <div class="text-[#0d2b52] font-extrabold tracking-wide">Financial Snapshot</div>
       <div class="text-xs text-slate-400">Updated daily</div>
     </div>
-    <div class="text-sm text-slate-500">AR/AP aging, margin, unit cost, etc.</div>
+    <div class="text-sm text-slate-500">AR/AP aging, margin, unit cost, dll.</div>
     <div class="mt-4 h-64 rounded-xl border border-dashed border-slate-200 grid place-items-center text-slate-400">
       Insert <strong>Chart.js</strong> or BI iframe here
     </div>
   </div>
 </div>
 
-{{-- ===== Master Data Overview (enhanced, glossy) ===== --}}
+{{-- ===== Master Data Overview (logic tetap) ===== --}}
 @php
   use Illuminate\Support\Str;
   use Illuminate\Support\Facades\DB;
   use Illuminate\Support\Facades\Gate;
   use Illuminate\Support\Facades\Schema;
 
-  $canManageMaster  = Gate::check('manage-master-data'); // biasanya khusus GM
+  $canManageMaster  = Gate::check('manage-master-data');
   $currentSiteId    = session('site_id');
-
-  // Daftar entity yang diizinkan oleh Route::pattern('entity', ...)
   $allowedEntities = ['units','pits','stockpiles','cost_centers','accounts','employees','asset_categories'];
-
-  // Label human-readable
   $labels = [];
   foreach ($allowedEntities as $e) {
       $labels[$e] = Str::headline(str_replace('-', ' ', $e));
   }
-
-  // Warna gradient per entity (selaras kartu KPI)
   $colors = [
     'units'            => 'from-emerald-500 to-teal-700',
     'pits'             => 'from-amber-500 to-orange-700',
@@ -248,8 +260,6 @@ try {
     'employees'        => 'from-rose-500 to-pink-600',
     'asset_categories' => 'from-lime-500 to-green-700',
   ];
-
-  // Ikon per entity (pakai ikon yang sudah ada, fallback ke SVG sederhana)
   $icons = [
     'units'            => $icoLayers ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z"/></svg>',
     'pits'             => $icoChart  ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M11 3v18M6 8v13M16 13v8M21 6v15"/></svg>',
@@ -260,7 +270,6 @@ try {
     'asset_categories' => $icoLayers ?? '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2l9 5-9 5-9-5 9-5zm0 10l9 5-9 5-9-5 9-5z"/></svg>',
   ];
 
-  // Hitung total per entity dari master_records (fallback 0)
   $masterTotals = [];
   try {
       $q = DB::table('master_records')
@@ -273,13 +282,8 @@ try {
 
       $rows = $q->get();
       $counts = [];
-      foreach ($rows as $r) {
-          $counts[$r->entity] = (int) $r->total;
-      }
-
-      foreach ($allowedEntities as $e) {
-          $masterTotals[$e] = $counts[$e] ?? 0;
-      }
+      foreach ($rows as $r) { $counts[$r->entity] = (int) $r->total; }
+      foreach ($allowedEntities as $e) { $masterTotals[$e] = $counts[$e] ?? 0; }
   } catch (\Throwable $e) {
       foreach ($allowedEntities as $e) { $masterTotals[$e] = 0; }
   }
