@@ -265,7 +265,8 @@ Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
     ->prefix('admin')->as('admin.')
     ->group(function () {
         Route::resource('assets', AssetController::class)->except(['show']);
-
+Route::get('assets/{asset}', [AssetController::class, 'show'])
+    ->name('assets.show');
         // === Bulk delete (ADD) ===
         Route::post('assets/bulk-delete', [AssetController::class, 'bulkDelete'])
             ->name('assets.bulk-delete');

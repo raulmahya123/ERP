@@ -13,13 +13,20 @@
     <div class="absolute inset-0 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
 
-
     <div class="relative px-6 sm:px-10 py-6 sm:py-7 text-white">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div class="text-sm/5 uppercase tracking-widest text-white/85">Master Data</div>
-          <div class="mt-0.5 text-2xl font-extrabold tracking-tight">Entity Directory</div>
-          <p class="text-white/90 text-sm mt-1">Konfigurasi entitas dengan urutan, label, dan status aktif.</p>
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm">
+            {{-- navbar icon simple --}}
+            <svg class="h-5 w-5 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-sm/5 uppercase tracking-widest text-white/85">Master Data</div>
+            <div class="mt-0.5 text-2xl font-extrabold tracking-tight">Entity Directory</div>
+            <p class="text-white/90 text-sm mt-1">Konfigurasi entitas dengan urutan, label, dan status aktif.</p>
+          </div>
         </div>
 
         <div class="flex items-center gap-2">
@@ -30,7 +37,7 @@
             </span>
           @endisset
           <a href="{{ route('admin.master_entities.create') }}"
-             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 text-sm shadow-md ring-1 ring-amber-300/40 transition">
+             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 text-sm shadow-md ring-1 ring-emerald-700/20 transition">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
             </svg>
@@ -82,47 +89,57 @@
                 </span>
               </td>
               <td class="px-4 py-3">
-                <div class="flex items-center justify-center gap-2 flex-wrap">
-                  {{-- Open --}}
-                  <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium 
-                            bg-sky-700 text-white shadow hover:bg-teal-600 transition 
-                            focus:outline-none focus:ring-2 focus:ring-teal-600"
-                     href="{{ route('admin.master.index', $r->key) }}">
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 9h10M9 13h6M5 7v10"/>
+                {{-- ONE GREEN BUTTON -> POP ACTIONS --}}
+                <div x-data="{open:false}" class="relative flex items-center justify-center">
+                  <button @click="open=!open"
+                          @keydown.escape.window="open=false"
+                          type="button"
+                          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold
+                                 bg-emerald-600 text-white shadow hover:bg-emerald-700 ring-1 ring-emerald-700/20 transition">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6h.01M12 12h.01M12 18h.01"/>
                     </svg>
-                    Open
-                  </a>
-
-                  {{-- Edit --}}
-                  <a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium 
-                            bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-teal-600 hover:bg-slate-50 transition 
-                            focus:outline-none focus:ring-2 focus:ring-teal-600"
-                     href="{{ route('admin.master_entities.edit', $r->id) }}">
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5h2m-6 14h12M5 13l4 4L19 7"/>
+                    Actions
+                    <svg class="h-4 w-4 -mr-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/>
                     </svg>
-                    Edit
-                  </a>
+                  </button>
 
-                  {{-- Force Delete --}}
-                  <form method="POST" action="{{ route('admin.master_entities.destroy', $r->id) }}"
-                        class="inline" onsubmit="return false" id="del-{{ $r->id }}">
-                    @csrf @method('DELETE')
-                    <input type="hidden" name="force" value="1">
+                  {{-- MENU --}}
+                  <div x-cloak x-show="open" @click.outside="open=false" x-transition.origin.top.right
+                       class="absolute right-0 top-9 w-40 rounded-xl bg-white shadow-lg ring-1 ring-slate-200 overflow-hidden z-20">
+                    <a href="{{ route('admin.master.index', $r->key) }}"
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                      <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 9h10M9 13h6M5 7v10"/>
+                      </svg>
+                      Open
+                    </a>
+                    <a href="{{ route('admin.master_entities.edit', $r->id) }}"
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                      <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9M16.5 3.5a2.12 2.12 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                      </svg>
+                      Edit
+                    </a>
                     <button type="button"
                             data-id="{{ $r->id }}"
                             data-key="{{ $r->key }}"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold 
-                                   bg-red-100 text-red-700 ring-1 ring-red-200 hover:bg-red-200 transition 
-                                   focus:outline-none focus:ring-2 focus:ring-red-300 js-del-entity">
-                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            class="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-700 hover:bg-red-50 js-del-entity">
+                      <svg class="h-4 w-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                       </svg>
                       Delete
                     </button>
-                  </form>
+                  </div>
                 </div>
+
+                {{-- HIDDEN DELETE FORM --}}
+                <form method="POST" action="{{ route('admin.master_entities.destroy', $r->id) }}"
+                      class="hidden" id="del-{{ $r->id }}">
+                  @csrf @method('DELETE')
+                  <input type="hidden" name="force" value="1">
+                </form>
               </td>
             </tr>
           @empty
@@ -174,10 +191,16 @@
       html: "Semua <b>records & permissions</b> di entity <code>"+ key +"</code> akan <b>DIHAPUS permanen</b>.",
       icon: 'warning',
       showCancelButton: true,
+      reverseButtons: true,
       confirmButtonColor: '#dc2626',
       cancelButtonColor: '#6b7280',
       confirmButtonText: 'Ya, hapus',
-      cancelButtonText: 'Batal'
+      cancelButtonText: 'Batal',
+      customClass: {
+        popup: 'rounded-2xl',
+        confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+        cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+      }
     }).then((result) => {
       if (result.isConfirmed) {
         const form = document.getElementById('del-' + id);

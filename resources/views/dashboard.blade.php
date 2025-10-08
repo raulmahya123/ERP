@@ -33,27 +33,38 @@
     </div>
   @endif
 
-  {{-- HERO (teal/sky + aksen gold) --}}
-  <div class="relative overflow-hidden rounded-2xl ring-1 ring-slate-200 shadow-sm">
-    <div class="absolute inset-0 bg-gradient-to-r from-teal-800 via-teal-600 to-sky-700"></div>
+  {{-- HERO (serumpun: teal/sky + aksen gold) --}}
+  <div class="relative overflow-hidden rounded-2xl shadow-xl ring-1 ring-teal-900/20">
+    <div class="absolute inset-0 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
-    <div class="relative p-6 sm:p-8 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">🏠 Dashboard</h1>
-        <p class="text-white/90 text-sm mt-1">Kelola asetmu lebih cepat. Buat asset tanpa site, lalu transfer saat siap.</p>
+
+    <div class="relative px-6 sm:px-10 py-6 sm:py-7 text-white">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm">
+            <svg class="h-5 w-5 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">🏠 Dashboard</h1>
+            <p class="text-white/90 text-sm mt-1">Kelola asetmu lebih cepat. Buat asset tanpa site, lalu transfer saat siap.</p>
+          </div>
+        </div>
+
+        @if($isGMorMgr)
+        <div class="flex gap-2">
+          <a href="{{ route('sites.select') }}"
+             class="px-4 py-2 rounded-xl bg-white/10 text-white ring-1 ring-white/30 hover:bg-white/15 text-sm font-medium transition">
+            Ganti Site
+          </a>
+          <button @click="showModal=true"
+                  class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 text-sm shadow-md ring-1 ring-emerald-700/20 transition">
+            + Create Asset
+          </button>
+        </div>
+        @endif
       </div>
-      @if($isGMorMgr)
-      <div class="flex gap-2">
-        <a href="{{ route('sites.select') }}"
-           class="px-4 py-2 rounded-xl bg-white/10 text-white ring-1 ring-white/30 hover:bg-white/15 text-sm font-medium transition">
-          Ganti Site
-        </a>
-        <button @click="showModal=true"
-                class="px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 text-sm shadow transition">
-          + Create Asset
-        </button>
-      </div>
-      @endif
     </div>
   </div>
 
@@ -77,7 +88,7 @@
         <p class="mt-3 font-medium text-slate-700">Belum ada asset</p>
         @if($isGMorMgr)
         <button @click="showModal=true"
-                class="mt-3 px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 text-sm">+ Tambah Asset</button>
+                class="mt-3 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 text-sm shadow-md ring-1 ring-emerald-700/20">+ Tambah Asset</button>
         @endif
       </div>
     @else
@@ -89,12 +100,12 @@
               <th class="py-2 px-4">Kategori</th>
               <th class="py-2 px-4">Site</th>
               <th class="py-2 px-4">Perolehan</th>
-              <th class="py-2 px-4">Aksi</th>
+              <th class="py-2 px-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             @foreach($recentAssets as $a)
-            <tr class="border-t hover:bg-slate-50">
+            <tr class="border-t hover:bg-slate-50/70">
               <td class="py-3 px-4">
                 <div class="font-medium text-slate-800">{{ $a->name }}</div>
                 <div class="text-xs text-slate-500">#{{ Str::limit($a->id, 8, '') }}</div>
@@ -113,11 +124,44 @@
               </td>
               <td class="py-3 px-4">
                 @if($isGMorMgr)
-                <div class="flex gap-2">
-                  <a href="{{ route('admin.assets.edit', $a->id) }}"
-                     class="px-2 py-1 rounded-lg bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 text-xs">Edit</a>
-                  <a href="{{ route('admin.assets.assignments.index', $a->id) }}"
-                     class="px-2 py-1 rounded-lg bg-teal-700 text-white hover:bg-teal-800 text-xs">Transfer</a>
+                {{-- ONE GREEN BUTTON -> POP ACTIONS (serumpun dengan Master Entities) --}}
+                <div x-data="{open:false}" class="relative flex items-center justify-center">
+                  <button @click="open=!open" @keydown.escape.window="open=false" type="button"
+                          class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold
+                                 bg-emerald-600 text-white shadow hover:bg-emerald-700 ring-1 ring-emerald-700/20 transition">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6h.01M12 12h.01M12 18h.01"/>
+                    </svg>
+                    Actions
+                    <svg class="h-4 w-4 -mr-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/>
+                    </svg>
+                  </button>
+
+                  <div x-cloak x-show="open" @click.outside="open=false" x-transition.origin.top.right
+                       class="absolute right-0 top-9 w-44 rounded-xl bg-white shadow-lg ring-1 ring-slate-200 overflow-hidden z-20">
+                    <a href="{{ route('admin.assets.show', $a->id) }}"
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                      <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.55-4.55a1.5 1.5 0 10-2.12-2.12L12.88 7.88M5 19l4.55-4.55m0 0L19 5m-9.45 9.45L10 15l-5 5"/>
+                      </svg>
+                      Detail
+                    </a>
+                    <a href="{{ route('admin.assets.edit', $a->id) }}"
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                      <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9M16.5 3.5a2.12 2.12 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                      </svg>
+                      Edit
+                    </a>
+                    <a href="{{ route('admin.assets.assignments.index', $a->id) }}"
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                      <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7l4-4 4 4M12 3v10m-7 8h14a2 2 0 002-2v-5a2 2 0 00-2-2H5a2 2 0 00-2 2v5a2 2 0 002 2z"/>
+                      </svg>
+                      Transfer
+                    </a>
+                  </div>
                 </div>
                 @else
                   <span class="text-slate-400 text-xs">—</span>
@@ -131,7 +175,7 @@
     @endif
   </div>
 
-  {{-- MODAL QUICK CREATE --}}
+  {{-- MODAL QUICK CREATE (serumpun: header gradient, tombol solid hijau) --}}
   @if($isGMorMgr)
   <div x-show="showModal" x-transition.opacity class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
     <div class="absolute inset-0 bg-black/40" @click="showModal=false"></div>
@@ -244,7 +288,7 @@
 
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" @click="showModal=false" class="px-4 py-2 text-sm rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50">Batal</button>
-          <button :disabled="submitting" class="px-4 py-2 text-sm rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 disabled:opacity-60">Simpan</button>
+          <button :disabled="submitting" class="px-4 py-2 text-sm rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60 shadow-md ring-1 ring-emerald-700/20">Simpan</button>
         </div>
       </form>
     </div>

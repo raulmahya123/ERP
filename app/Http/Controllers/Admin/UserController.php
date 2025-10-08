@@ -167,15 +167,24 @@ class UserController extends Controller
 
     public function resetPassword(User $user)
     {
-        $temp = Str::random(10);
+        // password sementara (boleh ganti panjang/kompleksitas sesuai kebijakan)
+        $temp = Str::random(12);
 
         try {
             $user->forceFill([
                 'password' => Hash::make($temp),
             ])->save();
 
-            return back()->with('success', "Password sementara untuk {$user->name}: {$temp}");
+            // Flash biasa + payload khusus untuk popup di view
+            return back()->with([
+                'success'         => "Password user {$user->name} telah direset.",
+                'reset_password'  => [
+                    'user'     => $user->name,
+                    'password' => $temp,
+                ],
+            ]);
         } catch (\Throwable $e) {
+            // optional: report($e);
             return back()->with('error', 'Gagal mereset password.');
         }
     }
