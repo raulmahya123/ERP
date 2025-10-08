@@ -27,17 +27,21 @@ class MasterEntityController extends Controller
         $data = $r->validate([
             'key'        => ['required', 'regex:/^[a-z0-9_]+$/', 'max:50', Rule::unique('master_entities', 'key')],
             'label'      => ['required', 'string', 'max:100'],
-            'enabled'    => ['sometimes', 'boolean'],
+            'enabled'    => ['nullable', 'boolean'],
             'sort'       => ['nullable', 'integer', 'min:0'],
-            'schema'     => ['nullable'], // boleh json string
+            'schema'     => ['nullable'], // json string boleh
             'icon'       => ['nullable', 'string', 'max:255'],
             'color_from' => ['nullable', 'string', 'max:50'],
             'color_to'   => ['nullable', 'string', 'max:50'],
         ]);
+
+        // Normalize
+        $data['key']     = Str::slug($data['key'], '_');
+        $data['enabled'] = $r->boolean('enabled'); // default false jika kosong
+
         if (is_string($data['schema'] ?? null)) {
             $data['schema'] = json_decode($data['schema'], true);
         }
-        $data['key'] = Str::slug($data['key'], '_');
 
         MasterEntity::create($data);
 
@@ -54,40 +58,41 @@ class MasterEntityController extends Controller
         $data = $r->validate([
             'key'        => ['required', 'regex:/^[a-z0-9_]+$/', 'max:50', Rule::unique('master_entities', 'key')->ignore($master_entity->id)],
             'label'      => ['required', 'string', 'max:100'],
-            'enabled'    => ['sometimes', 'boolean'],
+            'enabled'    => ['nullable', 'boolean'],
             'sort'       => ['nullable', 'integer', 'min:0'],
             'schema'     => ['nullable'],
             'icon'       => ['nullable', 'string', 'max:255'],
             'color_from' => ['nullable', 'string', 'max:50'],
             'color_to'   => ['nullable', 'string', 'max:50'],
         ]);
+
+        // Normalize
+        $data['key']     = Str::slug($data['key'], '_');
+        $data['enabled'] = $r->boolean('enabled');
+
         if (is_string($data['schema'] ?? null)) {
             $data['schema'] = json_decode($data['schema'], true);
         }
-        $data['key'] = Str::slug($data['key'], '_');
 
         $master_entity->update($data);
 
         return redirect()->route('admin.master_entities.index')->with('status', 'Entity updated.');
     }
 
-    // app/Http/Controllers/Admin/MasterEntityController.php
-    public function destroy(\Illuminate\Http\Request $r, \App\Models\MasterEntity $master_entity)
+    public function destroy(Request $r, MasterEntity $master_entity)
     {
         $count = \DB::table('master_records')
             ->where('master_entity_id', $master_entity->id)
             ->count();
 
-        // jika masih dipakai & tidak minta force -> beritahu user
         if ($count > 0 && ! $r->boolean('force')) {
             return back()->withErrors([
-                'delete' => "Entity masih dipakai oleh {$count} record. Nonaktifkan (enabled=0) atau pindahkan data terlebih dulu. " .
-                    "Atau centang 'Force delete' untuk menghapus beserta datanya.",
+                'delete' => "Entity masih dipakai oleh {$count} record. Nonaktifkan (enabled=0) atau pindahkan data terlebih dulu. ".
+                            "Atau centang 'Force delete' untuk menghapus beserta datanya.",
             ]);
         }
 
         \DB::transaction(function () use ($master_entity) {
-            // hapus anak2 dulu baru entity
             $ids = \DB::table('master_records')
                 ->where('master_entity_id', $master_entity->id)
                 ->pluck('id');

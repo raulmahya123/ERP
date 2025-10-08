@@ -1,77 +1,149 @@
+{{-- resources/views/admin/master/edit.blade.php --}}
 @extends('layouts.app')
 @php use Illuminate\Support\Str; @endphp
 @section('title', 'Edit ' . Str::headline($entity))
 
 @section('content')
-<div class="max-w-3xl mx-auto p-6">
-  <div class="flex items-center justify-between mb-4">
-    <h1 class="text-xl font-bold">Edit {{ Str::headline($entity) }}</h1>
-    <a href="{{ route('admin.master.index', $entity) }}" class="px-3 py-2 rounded-lg text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700">Back</a>
-  </div>
+<style>[x-cloak]{display:none}</style>
 
+{{-- ===== HERO (serumpun hijau–emas–biru) ===== --}}
+<div class="relative overflow-hidden rounded-3xl shadow-xl ring-1 ring-emerald-900/10 mb-6">
+  <div class="absolute inset-0 bg-[radial-gradient(120%_100%_at_0%_0%,rgba(255,255,255,.35)_0%,transparent_50%)]"></div>
+  <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+  <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/20 blur-2xl"></div>
+
+  <div class="relative px-6 sm:px-8 py-5 text-white flex items-center justify-between">
+    <div class="flex items-start gap-3">
+      <div class="h-11 w-11 rounded-2xl bg-white/10 grid place-items-center ring-1 ring-white/20">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          Edit {{ Str::headline($entity) }}
+        </h1>
+        <p class="text-white/90 text-sm">Perbarui data master dengan gaya seragam hijau–emas–biru.</p>
+      </div>
+    </div>
+
+    <a href="{{ route('admin.master.index', $entity) }}"
+       class="px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 ring-1 ring-white/30 hover:bg-white/15 transition">
+      ← Back
+    </a>
+  </div>
+</div>
+
+<div class="max-w-3xl mx-auto p-0 sm:p-2">
+  {{-- FLASH --}}
   @if (session('status'))
-    <div class="mb-4 px-4 py-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
+    <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
       {{ session('status') }}
     </div>
   @endif
 
-  <form method="POST" action="{{ route('admin.master.update', ['entity'=>$entity,'record'=>$record->id]) }}" class="space-y-4">
-    @csrf @method('PUT')
+  {{-- ERRORS --}}
+  @if ($errors->any())
+    <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 ring-1 ring-red-200 text-sm">
+      <div class="font-semibold mb-1">Gagal menyimpan:</div>
+      <ul class="list-disc pl-5 space-y-0.5">
+        @foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach
+      </ul>
+    </div>
+  @endif
 
-    <div>
-      <label class="block text-sm font-medium">Name <span class="text-red-600">*</span></label>
-      <input name="name" value="{{ old('name', $record->name) }}" class="border rounded px-3 py-2 w-full" required>
-      @error('name') <div class="text-red-600 text-sm mt-1">{{ $message }}</div> @enderror
+  {{-- FORM CARD --}}
+  <div class="bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50">
+      <h2 class="font-semibold text-slate-800">Form: {{ Str::headline($entity) }}</h2>
     </div>
 
-    <div>
-      <label class="block text-sm font-medium">Code</label>
-      <input name="code" value="{{ old('code', $record->code) }}" class="border rounded px-3 py-2 w-full">
-      @error('code') <div class="text-red-600 text-sm mt-1">{{ $message }}</div> @enderror
-    </div>
+    <div class="p-6">
+      <form method="POST" action="{{ route('admin.master.update', ['entity'=>$entity,'record'=>$record->id]) }}" class="space-y-5">
+        @csrf @method('PUT')
 
-    <div>
-      <label class="block text-sm font-medium">Description</label>
-      <textarea name="description" rows="3" class="border rounded px-3 py-2 w-full">{{ old('description', $record->description) }}</textarea>
-      @error('description') <div class="text-red-600 text-sm mt-1">{{ $message }}</div> @enderror
-    </div>
+        {{-- Name --}}
+        <div>
+          <label class="block text-sm font-medium text-slate-700">
+            Name <span class="text-red-600">*</span>
+          </label>
+          <input name="name" value="{{ old('name', $record->name) }}" required
+                 class="mt-1 w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm
+                        focus:border-emerald-600 focus:ring-emerald-600">
+          @error('name') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+        </div>
 
-    @php
-      // Prefill EXTRA untuk edit
-      $extraInput = old('extra');
-      if ($extraInput === null) {
-          $raw = $record->extra ?? null;
-          if ($raw !== null) {
+        {{-- Code --}}
+        <div>
+          <label class="block text-sm font-medium text-slate-700">Code</label>
+          <input name="code" value="{{ old('code', $record->code) }}"
+                 class="mt-1 w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm
+                        focus:border-emerald-600 focus:ring-emerald-600">
+          @error('code') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+        </div>
+
+        {{-- Description --}}
+        <div>
+          <label class="block text-sm font-medium text-slate-700">Description</label>
+          <textarea name="description" rows="3"
+                    class="mt-1 w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm
+                           focus:border-emerald-600 focus:ring-emerald-600">{{ old('description', $record->description) }}</textarea>
+          @error('description') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+        </div>
+
+        {{-- Extra (prefill pretty JSON bila valid) --}}
+        @php
+          $extraInput = old('extra');
+          if ($extraInput === null) {
+            $raw = $record->extra ?? null;
+            if ($raw !== null) {
               try {
-                  $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-                  if (is_array($decoded)) {
-                      // objek/array → pretty JSON
-                      $extraInput = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-                  } else {
-                      // primitif (string/number/bool) → tampil apa adanya
-                      $extraInput = is_string($decoded) ? $decoded : json_encode($decoded, JSON_UNESCAPED_UNICODE);
-                  }
+                $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                  $extraInput = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                } else {
+                  $extraInput = is_string($decoded) ? $decoded : json_encode($decoded, JSON_UNESCAPED_UNICODE);
+                }
               } catch (\Throwable $e) {
-                  // fallback kalau kolom bukan JSON valid
-                  $extraInput = $raw;
+                $extraInput = $raw; // fallback jika bukan JSON valid
               }
-          } else {
+            } else {
               $extraInput = '';
+            }
           }
-      }
-    @endphp
-    <div>
-      <label class="block text-sm font-medium">Extra (JSON atau teks biasa)</label>
-      <textarea name="extra" rows="6" class="border rounded px-3 py-2 w-full"
-                placeholder='contoh JSON: {"color":"red","capacity":100} atau tulis teks biasa'>{{ $extraInput }}</textarea>
-      <p class="mt-1 text-xs text-slate-500">JSON akan diformat otomatis. Teks biasa juga bisa.</p>
-      @error('extra') <div class="text-red-600 text-sm mt-1">{{ $message }}</div> @enderror
-    </div>
+        @endphp
+        <div>
+          <label class="block text-sm font-medium text-slate-700">Extra (JSON atau teks biasa)</label>
+          <textarea name="extra" rows="6"
+                    placeholder='contoh JSON: {"color":"red","capacity":100} atau tulis teks biasa'
+                    class="mt-1 w-full rounded-2xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm
+                           focus:border-emerald-600 focus:ring-emerald-600">{{ $extraInput }}</textarea>
+          <p class="mt-1 text-xs text-slate-500">JSON akan diformat otomatis. Teks biasa juga bisa.</p>
+          @error('extra') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+        </div>
 
-    <div class="flex items-center justify-between">
-      <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$record->id]) }}" class="px-3 py-2 rounded bg-amber-500 text-white">Permissions</a>
-      <button class="px-3 py-2 rounded bg-blue-600 text-white">Update</button>
+        {{-- Footer Actions --}}
+        <div class="flex items-center justify-between pt-1">
+          <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$record->id]) }}"
+             class="px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 ring-1 ring-amber-300/40">
+            Permissions
+          </a>
+          <div class="flex gap-2">
+            <a href="{{ route('admin.master.index', $entity) }}"
+               class="px-4 py-2 rounded-xl bg-white ring-1 ring-slate-200 text-slate-700 hover:bg-slate-50">
+              Cancel
+            </a>
+            <button
+              class="px-4 py-2 rounded-xl font-semibold text-white
+                     bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-700
+                     hover:from-emerald-700 hover:to-sky-800 shadow">
+              Update
+            </button>
+          </div>
+        </div>
+
+      </form>
     </div>
-  </form>
+  </div>
 </div>
 @endsection

@@ -3,42 +3,59 @@
 @php use Illuminate\Support\Str; @endphp
 @section('title', 'Detail ' . Str::headline($entity))
 
-@section('header')
-  <div class="flex items-center justify-between">
+@section('content')
+<div class="max-w-7xl mx-auto space-y-6">
+
+  {{-- ACTIONS BAR --}}
+  <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <span class="inline-flex items-center rounded-full bg-[#0d2b52]/10 text-[#0d2b52] px-3 py-1 text-xs font-semibold">GM</span>
-      <h2 class="font-semibold text-xl text-slate-800">
-        {{ Str::headline($entity) }} — Detail
+      <div class="h-8 w-8 rounded-xl bg-emerald-100 text-emerald-700 grid place-items-center">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+      </div>
+      <h2 class="text-xl font-bold text-slate-800">
+        Master {{ Str::headline($entity) }}
+        <span class="text-slate-500 font-normal">— Detail</span>
       </h2>
     </div>
-    <div class="flex items-center gap-2">
+
+    <div class="flex flex-wrap items-center gap-2">
       <a href="{{ route('admin.master.index',$entity) }}"
-         class="px-3 py-2 rounded-lg text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700">Back</a>
+         class="px-3 py-2 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">
+        Back
+      </a>
       <a href="{{ route('admin.master.edit',['entity'=>$entity,'record'=>$record->id]) }}"
-         class="px-3 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700">Edit</a>
+         class="px-3 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 shadow-sm">
+        Edit
+      </a>
       <a href="{{ route('admin.master.permissions',['entity'=>$entity,'record'=>$record->id]) }}"
-         class="px-3 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600">Permissions</a>
+         class="px-3 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-500 shadow-sm">
+        Permissions
+      </a>
       <form method="POST" action="{{ route('admin.master.duplicate',['entity'=>$entity,'record'=>$record->id]) }}"
             onsubmit="return confirm('Duplicate record ini?')" class="inline">
         @csrf
-        <button class="px-3 py-2 rounded-lg text-sm font-semibold bg-sky-600 text-white hover:bg-sky-700">Duplicate</button>
+        <button class="px-3 py-2 rounded-xl text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 shadow-sm">
+          Duplicate
+        </button>
       </form>
       <form method="POST" action="{{ route('admin.master.destroy',['entity'=>$entity,'record'=>$record->id]) }}"
             onsubmit="return confirm('Hapus record ini?')" class="inline">
         @csrf @method('DELETE')
-        <button class="px-3 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700">Delete</button>
+        <button class="px-3 py-2 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 shadow-sm">
+          Delete
+        </button>
       </form>
     </div>
   </div>
-@endsection
 
-@section('content')
+  {{-- MAIN CONTENT --}}
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    {{-- Kartu informasi utama --}}
-    <div class="lg:col-span-2 bg-white rounded-2xl shadow ring-1 ring-slate-200 overflow-hidden">
-      <div class="px-5 py-4 border-b bg-gradient-to-r from-emerald-500 to-teal-700 text-white">
-        <div class="font-bold">Master {{ Str::headline($entity) }}</div>
-        <div class="text-xs opacity-90">Record Information</div>
+
+    {{-- Kartu Informasi Utama --}}
+    <div class="lg:col-span-2 bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700 text-white">
+        <div class="font-bold leading-tight">Master {{ Str::headline($entity) }}</div>
+        <div class="text-xs text-white/85">Record Information</div>
       </div>
 
       <div class="p-6 space-y-4">
@@ -76,23 +93,22 @@
     </div>
 
     {{-- Kartu EXTRA (JSON) --}}
-    <div class="bg-white rounded-2xl shadow ring-1 ring-slate-200 overflow-hidden">
-      <div class="px-5 py-4 border-b bg-gradient-to-r from-sky-500 to-indigo-700 text-white">
-        <div class="font-bold">Extra (JSON)</div>
-        <div class="text-xs opacity-90">Custom attributes</div>
+    <div class="bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+      <div class="px-6 py-4 bg-gradient-to-r from-sky-600 to-indigo-700 text-white">
+        <div class="font-bold leading-tight">Extra (JSON)</div>
+        <div class="text-xs text-white/85">Custom Attributes</div>
       </div>
 
-      <div class="p-4">
+      <div class="p-5">
         @if(!empty($extraArray) && is_array($extraArray))
-          {{-- Render key-value --}}
-          <div class="mb-3">
+          <div class="mb-4">
             <div class="text-xs text-slate-500 mb-1">Parsed</div>
-            <div class="border rounded-lg overflow-hidden">
+            <div class="border border-slate-200 rounded-xl overflow-hidden">
               <table class="min-w-full text-sm">
                 <tbody>
                   @foreach($extraArray as $k => $v)
                     <tr class="border-b last:border-0">
-                      <th class="px-3 py-2 text-left font-semibold text-slate-700 w-40 align-top">{{ Str::headline($k) }}</th>
+                      <th class="px-3 py-2 text-left font-semibold text-slate-700 w-40 align-top bg-slate-50">{{ Str::headline($k) }}</th>
                       <td class="px-3 py-2 text-slate-700">
                         @if(is_array($v) || is_object($v))
                           <pre class="text-xs bg-slate-50 p-2 rounded">{{ json_encode($v, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre>
@@ -110,14 +126,14 @@
           <div class="text-sm text-slate-500">Tidak ada data extra.</div>
         @endif
 
-        {{-- Raw JSON prettified --}}
+        {{-- RAW JSON --}}
         @php
           $pretty = $record->extra
             ? json_encode(json_decode($record->extra, true), JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE)
             : '';
         @endphp
         @if($pretty)
-          <div class="mt-3">
+          <div class="mt-4">
             <div class="text-xs text-slate-500 mb-1">Raw</div>
             <pre class="text-xs bg-slate-50 p-3 rounded overflow-x-auto"><code>{{ $pretty }}</code></pre>
           </div>
@@ -125,4 +141,5 @@
       </div>
     </div>
   </div>
+</div>
 @endsection

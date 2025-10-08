@@ -109,16 +109,18 @@ Route::middleware(['auth', 'hasrole:gm|manager'])
 | Master Entities (GM only) - kelola daftar entitas dari UI
 |--------------------------------------------------------------------------
 */
+// routes/web.php
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/master-entities')->as('admin.master_entities.')
     ->group(function () {
-        Route::get('/',           [MasterEntityController::class, 'index'])->name('index');
-        Route::get('/create',     [MasterEntityController::class, 'create'])->name('create');
-        Route::post('/',          [MasterEntityController::class, 'store'])->name('store');
-        Route::get('/{id}/edit',  [MasterEntityController::class, 'edit'])->name('edit');
-        Route::put('/{id}',       [MasterEntityController::class, 'update'])->name('update');
-        Route::delete('/{id}',    [MasterEntityController::class, 'destroy'])->name('destroy');
+        Route::get('/',                      [MasterEntityController::class, 'index'])->name('index');
+        Route::get('/create',                [MasterEntityController::class, 'create'])->name('create');
+        Route::post('/',                     [MasterEntityController::class, 'store'])->name('store');
+        Route::get('/{master_entity}/edit',  [MasterEntityController::class, 'edit'])->name('edit');
+        Route::put('/{master_entity}',       [MasterEntityController::class, 'update'])->name('update');
+        Route::delete('/{master_entity}',    [MasterEntityController::class, 'destroy'])->name('destroy');
     });
+
 
 /*
 |--------------------------------------------------------------------------

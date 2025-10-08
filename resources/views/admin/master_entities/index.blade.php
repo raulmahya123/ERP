@@ -1,3 +1,4 @@
+{{-- resources/views/admin/master_entities/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Master Entities')
 
@@ -8,31 +9,31 @@
     </div>
   @endif
 
-  {{-- HERO STRIP (match Dashboard/Profile style) --}}
-  <div class="relative overflow-hidden rounded-2xl shadow-xl ring-1 ring-teal-900/20 mb-6">
-    <div class="absolute inset-0 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-700"></div>
-    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
+  {{-- HERO STRIP (serumpun hijau–emas–biru, match Dashboard/Profile) --}}
+  <div class="relative overflow-hidden rounded-3xl shadow-xl ring-1 ring-emerald-900/10 mb-6">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.8)_0%,_transparent_60%)]"></div>
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/20 blur-2xl"></div>
 
     <div class="relative px-6 sm:px-10 py-6 sm:py-7 text-white">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm">
-            {{-- navbar icon simple --}}
+          <div class="h-11 w-11 rounded-2xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
             <svg class="h-5 w-5 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
             </svg>
           </div>
           <div>
-            <div class="text-sm/5 uppercase tracking-widest text-white/85">Master Data</div>
-            <div class="mt-0.5 text-2xl font-extrabold tracking-tight">Entity Directory</div>
-            <p class="text-white/90 text-sm mt-1">Konfigurasi entitas dengan urutan, label, dan status aktif.</p>
+            <div class="text-[11px] uppercase tracking-[0.18em] text-white/85">Master Data</div>
+            <h1 class="mt-0.5 text-2xl sm:text-3xl font-extrabold tracking-tight">Entity Directory</h1>
+            <p class="text-white/90 text-sm mt-1">Konfigurasi entitas: urutan, label, dan status aktif.</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
           @isset($rows)
             <span class="inline-flex items-center gap-2 rounded-full bg-white/10 ring-1 ring-white/30 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
               Total: {{ method_exists($rows,'total') ? $rows->total() : count($rows) }}
             </span>
           @endisset
@@ -48,11 +49,11 @@
     </div>
   </div>
 
-  {{-- CARD TABLE --}}
+  {{-- CARD TABLE (serumpun + aksen emas) --}}
   <div class="rounded-3xl bg-white overflow-hidden shadow ring-1 ring-slate-200">
     <div class="overflow-x-auto">
       <table class="min-w-full text-sm">
-        <thead class="bg-slate-50 text-slate-700 border-b border-slate-200 sticky top-0 z-10">
+        <thead class="bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-b border-slate-200 sticky top-0 z-10">
           <tr>
             <th class="px-4 py-3 text-left font-semibold w-52">Key</th>
             <th class="px-4 py-3 text-left font-semibold">Label</th>
@@ -63,7 +64,8 @@
         </thead>
         <tbody class="divide-y divide-slate-100">
           @forelse($rows as $r)
-            <tr class="hover:bg-slate-50/70">
+            @php $pk = $r->getKey(); @endphp
+            <tr class="hover:bg-emerald-50/40">
               <td class="px-4 py-3">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full font-mono text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                   {{ $r->key }}
@@ -89,7 +91,7 @@
                 </span>
               </td>
               <td class="px-4 py-3">
-                {{-- ONE GREEN BUTTON -> POP ACTIONS --}}
+                {{-- ONE GREEN BUTTON -> POP ACTIONS (serumpun) --}}
                 <div x-data="{open:false}" class="relative flex items-center justify-center">
                   <button @click="open=!open"
                           @keydown.escape.window="open=false"
@@ -107,23 +109,23 @@
 
                   {{-- MENU --}}
                   <div x-cloak x-show="open" @click.outside="open=false" x-transition.origin.top.right
-                       class="absolute right-0 top-9 w-40 rounded-xl bg-white shadow-lg ring-1 ring-slate-200 overflow-hidden z-20">
+                       class="absolute right-0 top-9 w-44 rounded-xl bg-white shadow-lg ring-1 ring-slate-200 overflow-hidden z-20">
                     <a href="{{ route('admin.master.index', $r->key) }}"
-                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50/60">
                       <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 9h10M9 13h6M5 7v10"/>
                       </svg>
                       Open
                     </a>
-                    <a href="{{ route('admin.master_entities.edit', $r->id) }}"
-                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
-                      <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <a href="{{ route('admin.master_entities.edit', $r) }}"
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-sky-50/70">
+                      <svg class="h-4 w-4 text-sky-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9M16.5 3.5a2.12 2.12 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/>
                       </svg>
                       Edit
                     </a>
                     <button type="button"
-                            data-id="{{ $r->id }}"
+                            data-id="{{ $pk }}"
                             data-key="{{ $r->key }}"
                             class="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-700 hover:bg-red-50 js-del-entity">
                       <svg class="h-4 w-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -135,8 +137,8 @@
                 </div>
 
                 {{-- HIDDEN DELETE FORM --}}
-                <form method="POST" action="{{ route('admin.master_entities.destroy', $r->id) }}"
-                      class="hidden" id="del-{{ $r->id }}">
+                <form method="POST" action="{{ route('admin.master_entities.destroy', $r) }}"
+                      class="hidden" id="del-{{ $pk }}">
                   @csrf @method('DELETE')
                   <input type="hidden" name="force" value="1">
                 </form>
@@ -154,7 +156,7 @@
                   <h3 class="mt-3 font-semibold text-slate-800">Belum ada entity</h3>
                   <p class="text-sm text-slate-500 mt-1">Buat entity untuk mulai mengelola master data.</p>
                   <a href="{{ route('admin.master_entities.create') }}"
-                     class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700 transition">
+                     class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700 transition ring-1 ring-emerald-700/20">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                     </svg>
@@ -193,7 +195,7 @@
       showCancelButton: true,
       reverseButtons: true,
       confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
+      cancelButtonColor: '#0891b2',
       confirmButtonText: 'Ya, hapus',
       cancelButtonText: 'Batal',
       customClass: {

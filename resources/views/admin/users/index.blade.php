@@ -4,18 +4,22 @@
 @section('title','Daftar User')
 
 @section('content')
-<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+<div class="rounded-3xl shadow ring-1 ring-emerald-900/10 overflow-hidden">
 
-  {{-- HEADER (seragam Dashboard) --}}
+  {{-- HEADER (serumpun hijau–emas–biru) --}}
   <div class="relative overflow-hidden rounded-t-3xl">
-    <div class="absolute inset-0 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-700"></div>
-    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
+    {{-- Base gradient: emerald → teal → sky --}}
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    {{-- Soft highlight (TL) --}}
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+    {{-- Gold glow accent --}}
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
 
     <div class="relative px-6 sm:px-10 py-6 text-white">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {{-- LEFT: Icon + Title --}}
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
             <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round"
                     d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m8-6a4 4 0 11-8 0 4 4 0 018 0"/>
@@ -30,7 +34,7 @@
         {{-- RIGHT --}}
         <div class="flex items-center gap-2">
           @isset($users)
-          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold ring-1 ring-white/30">
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold ring-1 ring-white/30 backdrop-blur-sm">
             <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
             Total:
             {{ method_exists($users,'total') ? $users->total() : (is_countable($users) ? count($users) : '-') }}
@@ -57,18 +61,20 @@
   </div>
 
   {{-- FILTER BAR --}}
-  <div class="px-6 sm:px-10 py-5 bg-white border-t border-slate-100">
+  <div class="px-6 sm:px-10 py-5 bg-white border-t border-emerald-900/5">
     <form method="get" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
       <div class="sm:col-span-2 lg:col-span-2">
         <div class="relative">
           <input type="text" name="q" value="{{ request('q') }}" placeholder="Cari nama / email…"
-                 class="w-full rounded-xl border-slate-300 bg-white shadow-sm pl-10 pr-10 py-2.5 text-sm focus:ring-teal-600 focus:border-teal-600"/>
+                 class="w-full rounded-xl border-slate-300 bg-white shadow-sm pl-10 pr-10 py-2.5 text-sm focus:ring-emerald-600 focus:border-emerald-600"/>
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"/>
           </svg>
           @if(request()->filled('q'))
           <a href="{{ route('admin.users.index') }}"
-             class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-700">Reset</a>
+             class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-white bg-sky-700 px-2 py-0.5 rounded-lg ring-1 ring-white/30 hover:bg-sky-600">
+            Reset
+          </a>
           @endif
         </div>
       </div>
@@ -111,7 +117,7 @@
 
       <div>
         <select name="per_page"
-                class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm focus:ring-teal-600 focus:border-teal-600"
+                class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm focus:ring-sky-600 focus:border-sky-600"
                 onchange="this.form.submit()">
           @foreach([10,20,30,50,100] as $pp)
             <option value="{{ $pp }}" @selected((int)request('per_page', 20) === $pp)>{{ $pp }} / page</option>
@@ -140,10 +146,10 @@
     @endif
 
     {{-- TABLE --}}
-    <div class="overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
+    <div class="overflow-hidden rounded-2xl ring-1 ring-emerald-900/10 bg-white">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+          <thead class="bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-b border-emerald-900/10">
             <tr>
               <th class="px-4 py-3 text-left font-semibold">Nama</th>
               <th class="px-4 py-3 text-left font-semibold">Email</th>
@@ -155,7 +161,7 @@
           </thead>
           <tbody class="divide-y divide-slate-100">
             @forelse ($users as $user)
-            <tr class="hover:bg-slate-50/70">
+            <tr class="hover:bg-emerald-50/60">
               <td class="px-4 py-3 font-medium text-slate-900">{{ $user->name }}</td>
               <td class="px-4 py-3 font-mono text-emerald-700">{{ $user->email }}</td>
               <td class="px-4 py-3">
@@ -170,7 +176,7 @@
               <td class="px-4 py-3">{{ $user->division->name ?? '—' }}</td>
               <td class="px-4 py-3">{{ $user->defaultSite->name ?? '—' }}</td>
 
-              {{-- ACTIONS: dropdown hijau -> di DALAM dropdown ada 4 pill --}}
+              {{-- ACTIONS --}}
               <td class="px-4 py-3">
                 <div x-data="{open:false}" class="relative flex items-center justify-center">
                   <button @click="open=!open" @keydown.escape.window="open=false" type="button"
@@ -186,7 +192,7 @@
                   </button>
 
                   <div x-cloak x-show="open" @click.outside="open=false" x-transition.origin.top.right
-                       class="absolute right-0 top-9 w-56 rounded-xl bg-white shadow-lg ring-1 ring-slate-200 overflow-hidden z-20">
+                       class="absolute right-0 top-9 w-56 rounded-xl bg-white shadow-lg ring-1 ring-emerald-900/10 overflow-hidden z-20">
                     <div class="p-3">
                       <div class="grid grid-cols-2 gap-2">
                         {{-- Detail --}}
@@ -203,7 +209,7 @@
                                   bg-emerald-600 text-white shadow ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
                           Edit
                         </a>
-                        {{-- Reset --}}
+                        {{-- Reset (amber / gold accent) --}}
                         @if (Route::has('admin.users.reset-password'))
                         <button type="button"
                                 onclick="confirmReset(this)"
@@ -214,7 +220,7 @@
                           Reset
                         </button>
                         @endif
-                        {{-- Hapus --}}
+                        {{-- Hapus (destruktif) --}}
                         <button type="button"
                                 onclick="confirmDelete(this)"
                                 data-id="{{ $user->id }}"
@@ -241,8 +247,9 @@
             </tr>
             @empty
             <tr>
-              <td colspan="6" class="px-4 py-12 text-center text-slate-500">
-                Belum ada user. <a href="{{ route('admin.users.create') }}" class="text-emerald-700 underline">Buat sekarang</a>.
+              <td colspan="6" class="px-4 py-12 text-center text-slate-600">
+                Belum ada user.
+                <a href="{{ route('admin.users.create') }}" class="font-semibold text-emerald-700 hover:text-emerald-800 underline">Buat sekarang</a>.
               </td>
             </tr>
             @endforelse
@@ -276,10 +283,16 @@ function confirmDelete(el){
     text: "Apakah kamu yakin ingin menghapus user: " + name + " ?",
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonColor: '#dc2626',
-    cancelButtonColor: '#6b7280',
+    // Destruktif (merah) & cancel biru agar serumpun
+    confirmButtonColor: '#dc2626', // red-600
+    cancelButtonColor: '#0284c7',  // sky-600
     confirmButtonText: 'Ya, hapus',
-    cancelButtonText: 'Batal'
+    cancelButtonText: 'Batal',
+    customClass: {
+      popup: 'rounded-2xl',
+      confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+      cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+    }
   }).then((r)=>{ if(r.isConfirmed){ document.getElementById('delete-form-'+id).submit(); }});
 }
 
@@ -297,19 +310,21 @@ function confirmReset(el){
     text: 'Password user ' + name + ' akan direset.',
     icon: 'question',
     showCancelButton: true,
-    confirmButtonColor: '#f59e0b',
-    cancelButtonColor: '#6b7280',
+    // Aksen emas (amber) + cancel biru
+    confirmButtonColor: '#d97706', // amber-600
+    cancelButtonColor: '#0284c7',  // sky-600
     confirmButtonText: 'Ya, reset',
-    cancelButtonText: 'Batal'
+    cancelButtonText: 'Batal',
+    customClass: {
+      popup: 'rounded-2xl',
+      confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+      cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+    }
   }).then((r)=>{ if(r.isConfirmed){ document.getElementById('reset-form-'+id).submit(); }});
 }
 
 /* ------------------------------
    Popup: password baru setelah reset
-   Backend sebaiknya set session('reset_password') = [
-     'user' => 'Nama/Email',
-     'password' => 'TempPass123'
-   ]  // atau string 'TempPass123'
 -------------------------------- */
 @if (session()->has('reset_password'))
   (function(){
@@ -330,6 +345,13 @@ function confirmReset(el){
       `,
       showConfirmButton: false,
       focusConfirm: false,
+      customClass: { popup: 'rounded-2xl' },
+      // Decorative backdrop (emerald/teal/sky soft)
+      backdrop: `
+        rgba(12, 18, 26, .2)
+        left top / cover
+        no-repeat
+      `,
       didOpen: () => {
         const btn = document.getElementById('copy-pwd');
         btn?.addEventListener('click', () => {

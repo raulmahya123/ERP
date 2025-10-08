@@ -1,15 +1,20 @@
+{{-- resources/views/admin/assets/assignments.blade.php --}}
 @extends('layouts.app')
 
 @section('title','Riwayat Penempatan Aset')
 
 @section('content')
-<div class="rounded-2xl shadow ring-1 ring-slate-200 overflow-hidden">
+<style>[x-cloak]{display:none}</style>
 
-  {{-- HEADER --}}
-  <div class="px-6 py-5 bg-gradient-to-r from-emerald-600 via-[--teal] to-[--navy] text-white flex items-center justify-between">
-    <div>
-      <h1 class="text-xl font-bold">📜 Riwayat Penempatan</h1>
-      <p class="text-xs text-white/80">Catat dan pantau perpindahan aset antar site / user.</p>
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+
+  {{-- ===== HEADER (serumpun hijau–emas–biru) ===== --}}
+  <div class="relative px-6 py-5 text-white bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700 flex items-center justify-between">
+    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
+
+    <div class="relative">
+      <h1 class="text-xl font-extrabold tracking-tight">📜 Riwayat Penempatan</h1>
+      <p class="text-xs text-white/85">Catat dan pantau perpindahan aset antar site / user.</p>
 
       {{-- Asset summary --}}
       <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
@@ -28,124 +33,142 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="relative flex items-center gap-2">
       <a href="{{ route('admin.assets.index') }}"
-         class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 text-white text-sm font-medium ring-1 ring-white/30 hover:bg-white/20">
+         class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
         ← Kembali
       </a>
       @if (Route::has('admin.assets.edit'))
         <a href="{{ route('admin.assets.edit', $asset) }}"
-           class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 text-white text-sm font-medium ring-1 ring-white/30 hover:bg-white/20">
+           class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400 text-slate-900 text-sm font-semibold ring-1 ring-amber-300/40 hover:bg-amber-300 transition">
           ✏️ Edit Aset
         </a>
       @endif
     </div>
   </div>
 
-  {{-- FLASH / ALERTS --}}
+  {{-- ===== FLASH / ALERTS ===== --}}
   @if(session('status') || session('success'))
-    <div class="px-6 py-3 bg-emerald-50 text-emerald-700 text-sm border-b border-emerald-200">
+    <div class="px-6 py-3 bg-emerald-50 text-emerald-900 text-sm ring-1 ring-emerald-200">
       {{ session('status') ?? session('success') }}
     </div>
   @endif
   @if ($errors->any())
-    <div class="px-6 py-3 bg-red-50 text-red-700 text-sm border-b border-red-200">
+    <div class="px-6 py-3 bg-red-50 text-red-700 text-sm ring-1 ring-red-200">
       {{ $errors->first() }}
     </div>
   @endif
 
-  {{-- FORM TAMBAH PENEMPATAN / TRANSFER --}}
-  <div class="px-6 py-5 bg-slate-50 border-b">
-    <h2 class="font-semibold text-slate-700 mb-3">Tambah Penempatan / Transfer</h2>
+  {{-- ===== FORM TAMBAH PENEMPATAN / TRANSFER ===== --}}
+  <div class="px-6 py-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border-b border-slate-200">
+    <h2 class="font-semibold text-slate-800 mb-3">Tambah Penempatan / Transfer</h2>
 
-    <form id="assign-form" method="POST" action="{{ route('admin.assets.assignments.store', $asset) }}" class="grid gap-3 sm:grid-cols-2">
+    <form id="assign-form" method="POST" action="{{ route('admin.assets.assignments.store', $asset) }}" class="grid gap-4 sm:grid-cols-2">
       @csrf
 
+      {{-- Site Tujuan --}}
       <div class="sm:col-span-1">
-        <label class="block text-sm font-medium text-slate-700">Site Tujuan</label>
-        <select name="to_site_id" class="mt-1 w-full rounded-xl border-slate-300" required>
+        <label class="block text-sm font-medium text-slate-700">Site Tujuan <span class="text-red-600">*</span></label>
+        <select name="to_site_id"
+                class="mt-1 w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
+                required>
           <option value="">— Pilih site —</option>
           @foreach(\App\Models\Site::orderBy('name')->get() as $s)
-            <option value="{{ $s->id }}" @selected(old('to_site_id')===$s->id)>{{ $s->name }} ({{ $s->code }})</option>
+            <option value="{{ $s->id }}" @selected(old('to_site_id')==$s->id)>{{ $s->name }} ({{ $s->code }})</option>
           @endforeach
         </select>
         @error('to_site_id') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
       </div>
 
+      {{-- User Penerima --}}
       <div class="sm:col-span-1">
         <label class="block text-sm font-medium text-slate-700">User Penerima (opsional)</label>
-        <select name="to_user_id" class="mt-1 w-full rounded-xl border-slate-300">
+        <select name="to_user_id"
+                class="mt-1 w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
           <option value="">— (kosong) —</option>
           @foreach(\App\Models\User::orderBy('name')->get() as $u)
-            <option value="{{ $u->id }}" @selected(old('to_user_id')===$u->id)>{{ $u->name }}</option>
+            <option value="{{ $u->id }}" @selected(old('to_user_id')==$u->id)>{{ $u->name }}</option>
           @endforeach
         </select>
         @error('to_user_id') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
       </div>
 
+      {{-- Tanggal Efektif --}}
       <div class="sm:col-span-1">
         <label class="block text-sm font-medium text-slate-700">Tanggal Efektif</label>
-        <input type="date" name="assigned_at" value="{{ old('assigned_at', now()->toDateString()) }}" class="mt-1 w-full rounded-xl border-slate-300">
+        <input type="date" name="assigned_at"
+               value="{{ old('assigned_at', now()->toDateString()) }}"
+               class="mt-1 w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
         @error('assigned_at') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
       </div>
 
+      {{-- Catatan --}}
       <div class="sm:col-span-2">
         <label class="block text-sm font-medium text-slate-700">Catatan</label>
-        <textarea name="note" rows="2" class="mt-1 w-full rounded-xl border-slate-300" placeholder="Mis. transfer dari HO ke Site DBK">{{ old('note') }}</textarea>
+        <textarea name="note" rows="2"
+                  class="mt-1 w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
+                  placeholder="Mis. transfer dari HO ke Site DBK">{{ old('note') }}</textarea>
         @error('note') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
       </div>
 
-      <div class="sm:col-span-2">
-        <button class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[--navy] text-white">
+      {{-- Submit --}}
+      <div class="sm:col-span-2 pt-1">
+        <button class="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-white
+                       bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-700
+                       hover:from-emerald-700 hover:to-sky-800 shadow">
           Simpan
         </button>
       </div>
     </form>
   </div>
 
-  {{-- TABEL RIWAYAT --}}
+  {{-- ===== TABEL RIWAYAT ===== --}}
   <div class="overflow-x-auto">
-    <table class="min-w-full text-sm divide-y divide-slate-200">
-      <thead class="bg-slate-50 text-slate-700">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
         <tr>
-          <th class="px-4 py-2 text-left font-medium">Tanggal</th>
-          <th class="px-4 py-2 text-left font-medium">Dari → Ke (Site)</th>
-          <th class="px-4 py-2 text-left font-medium">User (Dari → Ke)</th>
-          <th class="px-4 py-2 text-left font-medium">Dibuat Oleh</th>
-          <th class="px-4 py-2 text-left font-medium">Catatan</th>
-          <th class="px-4 py-2"></th>
+          <th class="px-4 py-3 text-left font-medium">Tanggal</th>
+          <th class="px-4 py-3 text-left font-medium">Dari → Ke (Site)</th>
+          <th class="px-4 py-3 text-left font-medium">User (Dari → Ke)</th>
+          <th class="px-4 py-3 text-left font-medium">Dibuat Oleh</th>
+          <th class="px-4 py-3 text-left font-medium">Catatan</th>
+          <th class="px-4 py-3"></th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-100">
+      <tbody class="[&>tr:nth-child(even)]:bg-slate-50/40">
         @forelse($assignments as $a)
-          <tr>
-            <td class="px-4 py-2 text-sm">{{ optional($a->assigned_at)->format('d M Y') ?: '—' }}</td>
-            <td class="px-4 py-2 text-sm">
-              {{ $a->fromSite?->code ?? '—' }} → <span class="font-medium">{{ $a->toSite?->code ?? '—' }}</span>
+          <tr class="border-b border-slate-100 hover:bg-emerald-50/40 transition">
+            <td class="px-4 py-2">{{ optional($a->assigned_at)->format('d M Y') ?: '—' }}</td>
+            <td class="px-4 py-2">
+              {{ $a->fromSite?->code ?? '—' }} → <span class="font-semibold">{{ $a->toSite?->code ?? '—' }}</span>
             </td>
-            <td class="px-4 py-2 text-sm">
-              {{ $a->fromUser?->name ?? '—' }} → <span class="font-medium">{{ $a->toUser?->name ?? '—' }}</span>
+            <td class="px-4 py-2">
+              {{ $a->fromUser?->name ?? '—' }} → <span class="font-semibold">{{ $a->toUser?->name ?? '—' }}</span>
             </td>
-            <td class="px-4 py-2 text-sm">{{ $a->creator?->name ?? '—' }}</td>
-            <td class="px-4 py-2 text-sm">{{ $a->note ?: '—' }}</td>
+            <td class="px-4 py-2">{{ $a->creator?->name ?? '—' }}</td>
+            <td class="px-4 py-2">{{ $a->note ?: '—' }}</td>
             <td class="px-4 py-2 text-right">
               <form method="POST" action="{{ route('admin.assets.assignments.destroy', [$asset, $a]) }}" onsubmit="return confirm('Hapus riwayat ini?');">
                 @csrf @method('DELETE')
-                <button class="text-sm text-red-600 hover:underline">Hapus</button>
+                <button class="inline-flex items-center gap-1 text-red-600 hover:underline">
+                  Hapus
+                </button>
               </form>
             </td>
           </tr>
         @empty
           <tr>
-            <td colspan="6" class="px-4 py-10 text-center text-slate-500">Belum ada riwayat.</td>
+            <td colspan="6" class="px-4 py-10 text-center text-slate-600">
+              Belum ada riwayat.
+            </td>
           </tr>
         @endforelse
       </tbody>
     </table>
   </div>
 
-  {{-- PAGINATION --}}
-  <div class="px-6 py-3 border-t bg-slate-50">
+  {{-- ===== PAGINATION ===== --}}
+  <div class="px-6 py-3 border-t border-slate-200 bg-slate-50">
     {{ $assignments->links() }}
   </div>
 

@@ -6,16 +6,17 @@
 @section('content')
 <div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
 
-  {{-- NAVBAR HEADER (seragam dengan Dashboard) --}}
+  {{-- NAVBAR HEADER (serumpun hijau–emas–biru, match Dashboard) --}}
   <div class="relative overflow-hidden rounded-t-3xl">
-    <div class="absolute inset-0 bg-gradient-to-r from-teal-700 via-teal-600 to-sky-700"></div>
-    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(70%_70%_at_10%_10%,_#fff_0%,_transparent_60%)]"></div>
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.8)_0%,_transparent_60%)]"></div>
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/20 blur-2xl"></div>
 
     <div class="relative px-6 sm:px-10 py-6 text-white">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {{-- LEFT: Icon + Title --}}
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
             <svg class="h-5 w-5 text-white/90" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5 9 6.343 9 8s1.343 3 3 3zm0 2c-2.21 0-4 1.343-4 3v1h8v-1c0-1.657-1.79-3-4-3z"/>
             </svg>
@@ -29,7 +30,7 @@
         {{-- RIGHT: Actions --}}
         <div class="flex items-center gap-2">
           @isset($roles)
-          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold ring-1 ring-white/30">
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold ring-1 ring-white/30 backdrop-blur-sm">
             <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
             Total: {{ $roles->total() ?? $roles->count() }}
           </span>
@@ -51,13 +52,15 @@
       @php $q = $q ?? request('q') ?? ''; @endphp
       <div class="relative w-full sm:w-96">
         <input type="text" name="q" value="{{ $q }}" placeholder="Cari role…"
-               class="w-full rounded-xl border-slate-300 bg-white shadow-sm pl-10 pr-16 py-2.5 text-sm focus:border-teal-600 focus:ring-teal-600" />
+               class="w-full rounded-xl border-slate-300 bg-white shadow-sm pl-10 pr-16 py-2.5 text-sm focus:border-emerald-600 focus:ring-emerald-600" />
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"/>
         </svg>
         @if(!empty($q))
         <a href="{{ route('admin.roles.index') }}"
-           class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-700">Reset</a>
+           class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-sky-100/90 bg-sky-700 px-2 py-0.5 rounded-lg ring-1 ring-white/30 hover:bg-sky-600">
+          Reset
+        </a>
         @endif
       </div>
       <button type="submit"
@@ -70,7 +73,7 @@
     <div class="overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+          <thead class="bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-b border-slate-200">
             <tr>
               <th class="px-4 py-3 text-left font-semibold">Key</th>
               <th class="px-4 py-3 text-left font-semibold">Nama</th>
@@ -80,7 +83,7 @@
           </thead>
           <tbody class="divide-y divide-slate-100">
             @forelse ($roles as $role)
-            <tr class="hover:bg-slate-50/70">
+            <tr class="hover:bg-emerald-50/40">
               <td class="px-4 py-3">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-lg font-mono text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                   {{ $role->key ?? '—' }}
@@ -105,8 +108,8 @@
                   <div x-cloak x-show="open" @click.outside="open=false" x-transition.origin.top.right
                        class="absolute right-0 top-9 w-44 rounded-xl bg-white shadow-lg ring-1 ring-slate-200 overflow-hidden z-20">
                     <a href="{{ route('admin.roles.edit', $role) }}"
-                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
-                      <svg class="h-4 w-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-sky-50/70">
+                      <svg class="h-4 w-4 text-sky-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9M16.5 3.5a2.12 2.12 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/>
                       </svg>
                       Edit
@@ -130,8 +133,11 @@
             </tr>
             @empty
             <tr>
-              <td colspan="4" class="p-10 text-center text-slate-500">
-                Belum ada role. <a href="{{ route('admin.roles.create') }}" class="text-emerald-700 underline">Buat sekarang</a>.
+              <td colspan="4" class="p-10 text-center text-slate-600">
+                Belum ada role.
+                <a href="{{ route('admin.roles.create') }}" class="font-semibold text-emerald-700 hover:text-emerald-800 underline">
+                  Buat sekarang
+                </a>.
               </td>
             </tr>
             @endforelse
@@ -158,10 +164,16 @@ function confirmDeleteRole(el){
     text: "Apakah kamu yakin ingin menghapus role: " + name + " ?",
     icon: 'warning',
     showCancelButton: true,
+    // serumpun hijau–emas–biru; tetap merah untuk aksi destruktif
     confirmButtonColor: '#dc2626',
-    cancelButtonColor: '#6b7280',
+    cancelButtonColor: '#0ea5e9',
     confirmButtonText: 'Ya, hapus',
-    cancelButtonText: 'Batal'
+    cancelButtonText: 'Batal',
+    customClass: {
+      popup: 'rounded-2xl',
+      confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+      cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+    }
   }).then((result) => {
     if (result.isConfirmed) {
       const form = document.getElementById('delete-role-' + id);

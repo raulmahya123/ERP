@@ -1,54 +1,162 @@
+{{-- resources/views/admin/sites/index.blade.php --}}
 @extends('layouts.app')
 
 @section('title','Sites')
 
 @section('content')
-<div class="space-y-6">
-  <div class="flex items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold">Sites</h1>
-    <a href="{{ route('admin.sites.create') }}" class="px-3 py-2 rounded-md bg-indigo-600 text-white">Create</a>
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+
+  {{-- HEADER (serumpun hijau–emas–biru) --}}
+  <div class="relative overflow-hidden rounded-t-3xl">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.8)_0%,_transparent_60%)]"></div>
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/20 blur-2xl"></div>
+
+    <div class="relative px-6 sm:px-10 py-6 text-white">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+            <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M3 12h18M3 18h18"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">🌍 Sites</h1>
+            <p class="text-white/90 text-sm mt-1">Kelola daftar lokasi operasi (DBK, POS, SBS, HO, dll).</p>
+          </div>
+        </div>
+
+        <a href="{{ route('admin.sites.create') }}"
+           class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold shadow-md ring-1 ring-amber-300/40 hover:bg-amber-300 transition">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Tambah Site
+        </a>
+      </div>
+    </div>
   </div>
 
-  <form method="GET" action="{{ route('admin.sites.index') }}" class="flex items-center gap-2">
-    <input type="text" name="q" value="{{ $q }}" placeholder="Cari code/name..."
-           class="border rounded-md px-3 py-2 w-64">
-    <button class="px-3 py-2 rounded-md border bg-white">Search</button>
-  </form>
-
+  {{-- FLASH --}}
   @if (session('success'))
-    <div class="p-3 rounded bg-green-50 text-green-700 border">{{ session('success') }}</div>
+    <div class="mx-6 my-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200">
+      <div class="text-sm font-medium">{{ session('success') }}</div>
+    </div>
   @endif
 
-  <div class="overflow-x-auto border rounded-md">
-    <table class="min-w-full text-sm">
-      <thead class="bg-slate-50">
-        <tr>
-          <th class="text-left px-4 py-2 border-b">Code</th>
-          <th class="text-left px-4 py-2 border-b">Name</th>
-          <th class="text-right px-4 py-2 border-b">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @forelse($sites as $s)
-          <tr>
-            <td class="px-4 py-2 border-b font-mono">{{ $s->code }}</td>
-            <td class="px-4 py-2 border-b">{{ $s->name }}</td>
-            <td class="px-4 py-2 border-b text-right">
-              <a href="{{ route('admin.sites.edit', $s) }}" class="px-2 py-1 text-indigo-700">Edit</a>
-              <form action="{{ route('admin.sites.destroy', $s) }}" method="POST" class="inline"
-                    onsubmit="return confirm('Hapus site ini?')">
-                @csrf @method('DELETE')
-                <button class="px-2 py-1 text-red-600">Delete</button>
-              </form>
-            </td>
-          </tr>
-        @empty
-          <tr><td colspan="3" class="px-4 py-6 text-center text-slate-500">Belum ada data.</td></tr>
-        @endforelse
-      </tbody>
-    </table>
+  {{-- FILTER BAR --}}
+  <div class="px-6 sm:px-10 py-5 bg-white border-t border-slate-100">
+    <form method="GET" action="{{ route('admin.sites.index') }}" class="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div class="relative w-full sm:w-96">
+        <input type="text" name="q" value="{{ $q ?? request('q') }}" placeholder="Cari code / name..."
+               class="w-full rounded-xl border-slate-300 bg-white shadow-sm pl-10 pr-16 py-2.5 text-sm focus:border-emerald-600 focus:ring-emerald-600" />
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"/>
+        </svg>
+        @if(request()->filled('q'))
+          <a href="{{ route('admin.sites.index') }}"
+             class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-sky-100/90 bg-sky-700 px-2 py-0.5 rounded-lg ring-1 ring-white/30 hover:bg-sky-600">
+            Reset
+          </a>
+        @endif
+      </div>
+
+      <button class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow-md ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
+        Cari
+      </button>
+    </form>
   </div>
 
-  <div>{{ $sites->links() }}</div>
+  {{-- BODY --}}
+  <div class="p-6">
+    <div class="overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-b border-slate-200">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold">Code</th>
+              <th class="text-left px-4 py-3 font-semibold">Name</th>
+              <th class="text-right px-4 py-3 font-semibold w-56">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @forelse($sites as $s)
+              <tr class="hover:bg-emerald-50/40">
+                <td class="px-4 py-3 font-mono text-emerald-700">{{ $s->code }}</td>
+                <td class="px-4 py-3 font-medium text-slate-900">{{ $s->name }}</td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    {{-- Edit --}}
+                    <a href="{{ route('admin.sites.edit', $s) }}"
+                       class="inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-xs font-semibold
+                              bg-emerald-600 text-white shadow ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
+                      Edit
+                    </a>
+
+                    {{-- Delete --}}
+                    <button type="button"
+                            onclick="confirmDeleteSite(this)"
+                            data-id="{{ $s->id }}"
+                            data-name="{{ e($s->name) }}"
+                            class="inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-xs font-semibold
+                                   bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100 transition">
+                      Hapus
+                    </button>
+
+                    <form id="del-site-{{ $s->id }}" action="{{ route('admin.sites.destroy', $s) }}" method="POST" class="hidden">
+                      @csrf @method('DELETE')
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            @empty
+              <tr>
+                <td colspan="3" class="px-4 py-12 text-center text-slate-600">
+                  Belum ada data.
+                  <a href="{{ route('admin.sites.create') }}" class="font-semibold text-emerald-700 hover:text-emerald-800 underline">Buat sekarang</a>.
+                </td>
+              </tr>
+            @endforelse
+          </tbody>
+        </table>
+      </div>
+
+      {{-- Pagination --}}
+      <div class="px-4 py-4 border-t bg-slate-50">
+        {{ $sites->withQueryString()->onEachSide(1)->links() }}
+      </div>
+    </div>
+  </div>
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function confirmDeleteSite(el){
+  const id   = el.dataset.id;
+  const name = el.dataset.name || '';
+  if (typeof Swal === 'undefined') {
+    if (confirm('Hapus site: ' + name + ' ?')) {
+      document.getElementById('del-site-' + id).submit();
+    }
+    return;
+  }
+  Swal.fire({
+    title: 'Hapus Site?',
+    text: "Apakah kamu yakin ingin menghapus site: " + name + " ?",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#0ea5e9',
+    confirmButtonText: 'Ya, hapus',
+    cancelButtonText: 'Batal',
+    customClass: {
+      popup: 'rounded-2xl',
+      confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+      cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+    }
+  }).then((r)=>{ if(r.isConfirmed){ document.getElementById('del-site-'+id).submit(); }});
+}
+</script>
+@endpush
