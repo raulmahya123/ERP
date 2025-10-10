@@ -20,22 +20,30 @@ $rawRole = $user?->role?->key
 
 $norm = Str::of($rawRole)->lower()->replace(['_', '-'], ' ')->squish()->toString();
 $roleKey = [
-  'gm'               => 'gm',
-  'general manager'  => 'gm',
-  'generalmanager'   => 'gm',
-  'manager'          => 'manager',
-  'mgr'              => 'manager',
+  'gm'                         => 'gm',
+  'general manager'            => 'gm',
+  'generalmanager'             => 'gm',
+  'manager'                    => 'manager',
+  'mgr'                        => 'manager',
+  // === HR aliases ===
+  'hr'                         => 'hr',
+  'human resource'             => 'hr',
+  'human resources'            => 'hr',
+  'human capital'              => 'hr',
+  'human capital management'   => 'hr',
+  'hcm'                        => 'hr',
 ][$norm] ?? $norm;
 
-$isGM      = $roleKey === 'gm';
-$isManager = $roleKey === 'manager';
+$isGM       = $roleKey === 'gm';
+$isManager  = $roleKey === 'manager';
+$isHR       = $roleKey === 'hr';
 
 /* =========================
 | Gates
 |=========================*/
 $canManageMaster = Gate::check('manage-master-data');
 $canGrantAccess  = Gate::check('grant-access');
-$showAdminMenu   = ($isGM || $isManager);
+$showAdminMenu   = ($isGM || $isManager); // Admin grup tetap GM/Manager
 
 /* =========================
 | ENTITIES (dinamis)
@@ -120,20 +128,30 @@ $adminGroupActive =
   request()->routeIs('admin.access.users.*') ||
   request()->routeIs('admin.assets.*');
 
+/* === PEOPLE/HCM group active? (Blade-only) === */
+$peopleRoutesActive =
+  request()->routeIs('admin.attendance.*') ||
+  request()->routeIs('admin.timesheets.*') ||
+  request()->routeIs('admin.shift-rosters.*') ||
+  request()->routeIs('admin.shifts.*') ||
+  request()->routeIs('admin.manpower.*') ||
+  request()->routeIs('admin.manpower-plans.*') ||
+  request()->routeIs('admin.manpower-reals.*') ||
+  request()->routeIs('admin.crew-assignments.*');
+
+$peopleGroupOpen = $peopleRoutesActive;
+
 /* =========================
-| Site aktif (prefer session, fallback ke default_site_id user)
+| Site aktif
 |=========================*/
 $currentSite = null;
 try {
-  // kalau session kosong → pakai default site user
   $sid = session('site_id') ?: ($user?->default_site_id ?? null);
-
   if ($sid) {
     $currentSite = DB::table('sites')->where('id', $sid)->first(['id','code','name']);
   }
 } catch (\Throwable $e) {}
 
-/* UI rule: hanya GM bisa switch */
 $canSwitchSite = $isGM;
 @endphp
 
@@ -161,13 +179,11 @@ $canSwitchSite = $isGM;
       </div>
 
       @if (Route::has('sites.select') && $canSwitchSite)
-        {{-- GM boleh ganti --}}
         <a href="{{ route('sites.select') }}"
            class="shrink-0 inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium bg-[--navy] text-white hover:opacity-90">
           Ganti
         </a>
       @elseif (Route::has('sites.select'))
-        {{-- Non-GM terkunci --}}
         <span class="shrink-0 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold bg-slate-100 text-slate-500 ring-1 ring-slate-200"
               title="Hanya GM yang bisa ganti site">🔒 Locked</span>
       @endif
@@ -176,7 +192,7 @@ $canSwitchSite = $isGM;
 
   {{-- Nav --}}
   <nav class="flex-1 overflow-y-auto py-3"
-       x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }}, openMd: true }">
+       x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }}, openMd: true, openPeople: {{ $peopleGroupOpen ? 'true' : 'false' }} }">
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
@@ -234,6 +250,96 @@ $canSwitchSite = $isGM;
       </a>
     @endif
 
+    {{-- ===== PEOPLE: HCM & Manpower (GM & HR only) ===== --}}
+    @if (($isGM || $isHR) && (
+          Route::has('admin.attendance.index') ||
+          Route::has('admin.timesheets.index') ||
+          Route::has('admin.shift-rosters.index') ||
+          Route::has('admin.manpower.dashboard')
+        ))
+      <div class="mt-3 px-5">
+        <button type="button" @click="openPeople=!openPeople"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <span class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16 11c1.657 0 3 1.79 3 4v1H5v-1c0-2.21 1.343-4 3-4m8-5a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            HCM & Manpower
+          </span>
+          <svg class="w-4 h-4 text-slate-500 transform transition" :class="openPeople ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div x-show="openPeople" x-transition.origin.top.left class="mt-2 space-y-1">
+
+          {{-- Attendance --}}
+          @if (Route::has('admin.attendance.index'))
+            <a href="{{ route('admin.attendance.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.attendance.*')) }}">
+              Absensi Harian
+            </a>
+          @endif
+
+          {{-- Timesheet --}}
+          @if (Route::has('admin.timesheets.index'))
+            <a href="{{ route('admin.timesheets.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.timesheets.*')) }}">
+              Timesheet & Lembur
+            </a>
+          @endif
+
+          {{-- Shift Roster --}}
+          @if (Route::has('admin.shift-rosters.index'))
+            <a href="{{ route('admin.shift-rosters.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shift-rosters.*')) }}">
+              Shift Roster
+            </a>
+          @endif
+
+          {{-- Shifts Master --}}
+          @if (Route::has('admin.shifts.index'))
+            <a href="{{ route('admin.shifts.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shifts.*')) }}">
+              Shifts Master
+            </a>
+          @endif
+
+          {{-- Manpower Dashboard --}}
+          @if (Route::has('admin.manpower.dashboard'))
+            <a href="{{ route('admin.manpower.dashboard') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower.dashboard')) }}">
+              Manpower Dashboard
+            </a>
+          @endif
+
+          {{-- Manpower Plans --}}
+          @if (Route::has('admin.manpower-plans.index'))
+            <a href="{{ route('admin.manpower-plans.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-plans.*')) }}">
+              Manpower Plans
+            </a>
+          @endif
+
+          {{-- Manpower Realizations --}}
+          @if (Route::has('admin.manpower-reals.index'))
+            <a href="{{ route('admin.manpower-reals.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-reals.*')) }}">
+              Manpower Realizations
+            </a>
+          @endif
+
+          {{-- Crew Assignments --}}
+          @if (Route::has('admin.crew-assignments.index'))
+            <a href="{{ route('admin.crew-assignments.index') }}"
+               class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.crew-assignments.*')) }}">
+              Mapping Crew
+            </a>
+          @endif
+        </div>
+      </div>
+    @endif
+
     {{-- ===== ADMIN (GM & Manager) ===== --}}
     @if ($showAdminMenu)
       <div class="mt-3 px-5">
@@ -266,7 +372,6 @@ $canSwitchSite = $isGM;
             Divisions
           </a>
 
-          {{-- Commodities (opsional) --}}
           @if (Route::has('admin.commodities.index'))
             <a href="{{ route('admin.commodities.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.commodities.*')) }}">
@@ -274,7 +379,6 @@ $canSwitchSite = $isGM;
             </a>
           @endif
 
-          {{-- Sites (GM only) --}}
           @if ($isGM && Route::has('admin.sites.index'))
             <a href="{{ route('admin.sites.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">
@@ -282,7 +386,6 @@ $canSwitchSite = $isGM;
             </a>
           @endif
 
-          {{-- Konfigurasi Site (GM only) --}}
           @if ($isGM && Route::has('admin.site_config.index'))
             <a href="{{ route('admin.site_config.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
@@ -290,7 +393,6 @@ $canSwitchSite = $isGM;
             </a>
           @endif
 
-          {{-- Assets (GM & Manager) --}}
           @if (($isGM || $isManager) && Route::has('admin.assets.index'))
             @php
               $assetsActive = request()->routeIs('admin.assets.*');
@@ -302,7 +404,6 @@ $canSwitchSite = $isGM;
             </a>
           @endif
 
-          {{-- Audit Logs (GM only) --}}
           @if ($canViewAudit)
             <a href="{{ route('admin.audit.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.audit.*')) }}">
@@ -310,7 +411,6 @@ $canSwitchSite = $isGM;
             </a>
           @endif
 
-          {{-- Kelola Akses (GM only) --}}
           @if ($isGM && $canGrantAccess && Route::has('admin.access.users.index'))
             <a href="{{ route('admin.access.users.index') }}"
                class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
@@ -365,7 +465,7 @@ $canSwitchSite = $isGM;
         </div>
       @endif
 
-    <div class="flex-1 min-w-0">
+      <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
           <div class="text-sm font-semibold text-slate-800 truncate">{{ $user->name ?? 'Guest User' }}</div>
           @if($roleKey)

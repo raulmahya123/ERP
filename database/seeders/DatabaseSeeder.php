@@ -24,37 +24,30 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // ====== 0) Seeders fundamental: Role, Division, User ======
-        // Roles & Divisions dulu supaya UserSeeder bisa set role_id & division_id.
         $this->callIfTablesExist(['roles'],        RoleSeeder::class);
         $this->callIfTablesExist(['divisions'],    DivisionSeeder::class);
         $this->callIfTablesExist(['users','roles','divisions'], UserSeeder::class);
 
         // ====== 1) Sites & Commodities (dipakai banyak module) ======
-        // Sites harus ada sebelum MasterDataSeeder (karena ada site_id di master_records)
         $this->callIfTablesExist(['sites'],        SiteSeeder::class);
-        // Opsional, kalau kamu punya tabel komoditas:
         $this->callIfTablesExist(['commodities'],  CommoditySeeder::class);
 
         // ====== 2) Master Entities + Master Records ======
-        // Butuh: master_entities, master_records, users (created_by), sites (site_id).
         $this->callIfTablesExist(
             ['master_entities','master_records','users','sites'],
             MasterDataSeeder::class
         );
 
         // ====== 3) Permissions utk master_records ======
-        // Butuh: master_record_permissions, master_records, users, roles
         $this->callIfTablesExist(
             ['master_record_permissions','master_records','users','roles'],
             MasterRecordAccessSeeder::class
         );
 
         // ====== 4) Site Configs (opsional) ======
-        // Mis. tabel site_configs & commodities
         $this->callIfTablesExist(['site_configs','sites'], SiteConfigSeeder::class);
 
         // ====== 5) Assets (opsional contoh) ======
-        // Biasanya butuh sites + master_records (asset_categories/units)
         $this->callIfTablesExist(['assets','sites','master_records'], AssetSeeder::class);
 
         // ====== 6) Set default_site_id utk semua user (jika kolomnya ada) ======
@@ -67,6 +60,58 @@ class DatabaseSeeder extends Seeder
         } else {
             $this->command?->warn("Lewati set default_site_id: tabel/kolom belum ada.");
         }
+
+        // ====== 7) HCM & Manpower (fase-2) ======
+        // Shifts
+        $this->callIfTablesExist(['shifts','sites'], ShiftSeeder::class);
+
+        // Shift Rosters
+        $this->callIfTablesExist(
+            ['shift_rosters','shifts','users','sites'],
+            ShiftRosterSeeder::class
+        );
+
+        // Attendances
+        $this->callIfTablesExist(
+            ['attendances','shifts','users','sites'],
+            AttendanceSeeder::class
+        );
+
+        // Timesheets
+        $this->callIfTablesExist(
+            ['timesheets','users','sites'],
+            TimesheetSeeder::class
+        );
+
+        // HR Daily Entries (cuti/izin/sakit/mutasi)
+        $this->callIfTablesExist(
+            ['hr_daily_entries','users','sites'],
+            HrDailyEntrySeeder::class
+        );
+
+        // Manpower Plans
+        $this->callIfTablesExist(
+            ['manpower_plans','sites'],
+            ManpowerPlanSeeder::class
+        );
+
+        // Employment Contracts
+        $this->callIfTablesExist(
+            ['employment_contracts','users','sites'],
+            EmploymentContractSeeder::class
+        );
+
+        // Manpower Realizations (catatan: tabel pakai 'z' sesuai migrasi kamu)
+        $this->callIfTablesExist(
+            ['manpower_realizations','manpower_plans','sites'],
+            ManpowerRealizationSeeder::class
+        );
+
+        // Crew Assignments
+        $this->callIfTablesExist(
+            ['crew_assignments','users','sites'],
+            CrewAssignmentSeeder::class
+        );
 
         $this->command?->info('✅ Database seeding selesai.');
     }
