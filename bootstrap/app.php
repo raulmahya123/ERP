@@ -4,7 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
-// import middleware kustom
+// middleware kustom kamu
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\EnsureSiteSelected;
 
@@ -24,30 +24,28 @@ return Application::configure(basePath: dirname(__DIR__))
             // 'role' => \Spatie\Permission\Middlewares\RoleMiddleware::class,
         ]);
 
-        // (Opsional) Bisa juga menambah middleware global / group di sini sesuai kebutuhan.
+        // (opsional) tambahkan middleware global / group di sini
         // $middleware->append(\Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class);
     })
     ->withProviders([
-        // ===== Provider yang sudah ada =====
+        // ===== Provider kamu sendiri (opsional, jika ada rule Gate tambahan) =====
         App\Providers\GateServiceProvider::class,
 
-        // ===== Wajib untuk Policy approve/reject HrDailyEntry =====
- App\Providers\GateServiceProvider::class,   // punyamu sendiri
-    App\Providers\AuthServiceProvider::class,   // wajib untuk policy
-        // ===== Opsional: kalau kamu pakai Event untuk notifikasi approval =====
+        // ===== WAJIB: mapping policy HrDailyEntry =====
+        App\Providers\AuthServiceProvider::class,
     ])
     ->withExceptions(function (Exceptions $exceptions) {
-        // 403 — AuthorizationException → tampilkan pesan yang ramah
+        // 403 — AuthorizationException
         $exceptions->renderable(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => 'Anda tidak berwenang melakukan aksi ini.',
                 ], 403);
             }
-            return back()->with('error', 'Anda tidak berwenang melakukan aksi ini.')->setStatusCode(403);
+            return redirect()->back()->with('error', 'Anda tidak berwenang melakukan aksi ini.')->setStatusCode(403);
         });
 
-        // 422 — ValidationException → JSON rapi untuk API
+        // 422 — ValidationException
         $exceptions->renderable(function (\Illuminate\Validation\ValidationException $e, $request) {
             if ($request->expectsJson()) {
                 return response()->json([
@@ -57,7 +55,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // (Opsional) 404 untuk model tidak ditemukan
+        // 404 — ModelNotFoundException (opsional)
         $exceptions->renderable(function (\Illuminate\Database\Eloquent\ModelNotFoundException $e, $request) {
             if ($request->expectsJson()) {
                 return response()->json([

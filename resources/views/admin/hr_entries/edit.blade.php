@@ -1,97 +1,46 @@
+{{-- resources/views/admin/hr_entries/edit.blade.php --}}
 @extends('layouts.app')
 @section('title','Edit HR Entry')
 
-@push('styles')
-<style>
-  .btn{ @apply inline-flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium border border-slate-200 bg-white hover:bg-slate-50 }
-  .btn-primary{ @apply bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 }
-  .btn-danger{ @apply bg-rose-600 text-white border-rose-600 hover:bg-rose-700 }
-  .card{ @apply bg-white rounded-xl border border-slate-200 shadow-sm }
-  .card-sec{ @apply p-3 md:p-4 }
-  .input{ @apply w-full border border-slate-300 rounded-md px-3 py-2 text-sm }
-  .select{ @apply w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-white }
-  .chip{ @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium }
-  .chip-pending{ @apply bg-amber-100 text-amber-800 }
-  .chip-approved{ @apply bg-emerald-100 text-emerald-800 }
-  .chip-rejected{ @apply bg-rose-100 text-rose-800 }
-</style>
-@endpush
-
-@push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-@endpush
-
 @section('content')
-<div class="max-w-3xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-4"
+     x-data="{ showApprove:false, showReject:false }">
   <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold text-slate-800">Edit HR Entry</h1>
-      <div class="text-sm text-slate-500">#{{ $entry->id }}</div>
-    </div>
-    <a href="{{ route('admin.hr-entries.index') }}" class="btn">Kembali</a>
+    <h1 class="text-xl font-bold text-slate-800">Edit HR Daily Entry</h1>
+    <a href="{{ route('admin.hr-entries.index') }}" class="px-3 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200">← Back</a>
   </div>
 
-  @if(session('success'))
-    <div class="p-3 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">{{ session('success') }}</div>
-  @endif
-  @if ($errors->any())
-    <div class="p-3 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
-      <div class="font-semibold mb-1">Periksa input:</div>
-      <ul class="list-disc pl-5 text-sm">
-        @foreach ($errors->all() as $error)
-          <li>{{ $error }}</li>
-        @endforeach
-      </ul>
-    </div>
-  @endif
-
-  <div class="card">
-    <form method="POST" action="{{ route('admin.hr-entries.update',$entry) }}" class="card-sec space-y-4">
+  <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+    <form method="POST" action="{{ route('admin.hr-entries.update', $entry) }}">
       @csrf @method('PUT')
-      @include('admin.hr_entries._form', ['types'=>$types, 'entry'=>$entry])
+      @include('admin.hr_entries._form', ['entry'=>$entry, 'types'=>$types, 'activeSiteId'=>$activeSiteId])
 
-      <div class="flex items-center justify-between pt-2">
-        <div class="space-x-2">
-          @php
-            $status = $entry->status ?? 'pending';
-            $cls = [
-              'pending'=>'chip chip-pending',
-              'approved'=>'chip chip-approved',
-              'rejected'=>'chip chip-rejected'
-            ][$status] ?? 'chip chip-pending';
-          @endphp
-          <span class="{{ $cls }}">{{ ucfirst($status) }}</span>
-          @if($entry->approved_by)
-            <span class="text-xs text-slate-500">by {{ $entry->approver?->name ?? '—' }} @if($entry->approved_at) • {{ $entry->approved_at->format('Y-m-d H:i') }} @endif</span>
-          @endif
-        </div>
-        <div class="flex items-center gap-2">
-          @can('approve', $entry)
-            @if(($entry->status ?? 'pending') !== 'approved')
-            <form method="POST" action="{{ route('admin.hr-entries.approve',$entry) }}">
-              @csrf
-              <button class="btn btn-primary" onclick="return confirm('Setujui entry ini?')">Approve</button>
-            </form>
-            @endif
-          @endcan
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button class="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">Update</button>
+        <a href="{{ route('admin.hr-entries.index') }}" class="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200">Cancel</a>
 
-          @can('reject', $entry)
-            @if(($entry->status ?? 'pending') !== 'rejected')
-            <form method="POST" action="{{ route('admin.hr-entries.reject',$entry) }}">
-              @csrf
-              <button class="btn btn-danger" onclick="return confirm('Tolak entry ini?')">Reject</button>
-            </form>
-            @endif
-          @endcan
-
-          <button formaction="{{ route('admin.hr-entries.destroy',$entry) }}" formmethod="POST" class="btn"
-                  onclick="return confirm('Hapus entry ini?')">
-            @csrf @method('DELETE')
-            Hapus
-          </button>
-        </div>
+        @can('approve', $entry)
+          <button type="button" @click="showApprove=true" class="ml-auto px-3 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700">Approve</button>
+        @endcan
+        @can('reject', $entry)
+          <button type="button" @click="showReject=true" class="px-3 py-2 rounded-lg text-sm font-semibold bg-rose-600 text-white hover:bg-rose-700">Reject</button>
+        @endcan
       </div>
     </form>
   </div>
+
+  {{-- Modal approve/reject --}}
+  @include('components.approve-reject-modal', [
+    'id' => 'approveModal',
+    'title' => 'Approve Entry',
+    'open' => 'showApprove',
+    'action' => route('admin.hr-entries.approve', $entry),
+  ])
+  @include('components.approve-reject-modal', [
+    'id' => 'rejectModal',
+    'title' => 'Reject Entry',
+    'open' => 'showReject',
+    'action' => route('admin.hr-entries.reject', $entry),
+  ])
 </div>
 @endsection

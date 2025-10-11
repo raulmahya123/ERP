@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
+use App\Http\Controllers\DashboardController;
 
 // Admin Controllers
 use App\Http\Controllers\Admin\RoleController;
@@ -25,8 +26,6 @@ use App\Http\Controllers\Admin\AssetAssignmentController; // Riwayat penempatan
 
 // Master Data (generic per-entity)
 use App\Http\Controllers\MasterDataController;
-
-use App\Http\Controllers\DashboardController; // dashboard
 
 // HCM / Manpower & Shift (semua Blade)
 use App\Http\Controllers\Admin\ManpowerController as MP;
@@ -62,6 +61,7 @@ Route::redirect('/', '/login')->name('root');
 */
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
     Route::post('/dashboard/assets', [DashboardController::class, 'quickStore'])
         ->middleware('hasrole:gm|manager')
         ->name('dashboard.assets.quick-store');
@@ -172,13 +172,13 @@ Route::middleware(['auth', 'hasrole:gm'])
 | Dashboards per Role
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'hasrole:gm'])->get('/gm',       [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
-Route::middleware(['auth', 'hasrole:manager'])->get('/manager', [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
-Route::middleware(['auth', 'hasrole:foreman'])->get('/foreman', [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
-Route::middleware(['auth', 'hasrole:operator'])->get('/operator', [RoleDashboardController::class, 'operator'])->name('operator.dashboard');
-Route::middleware(['auth', 'hasrole:hse_officer'])->get('/hse', [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
-Route::middleware(['auth', 'hasrole:hr'])->get('/hr', [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
-Route::middleware(['auth', 'hasrole:finance'])->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
+Route::middleware(['auth', 'hasrole:gm'])->get('/gm',           [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
+Route::middleware(['auth', 'hasrole:manager'])->get('/manager',  [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
+Route::middleware(['auth', 'hasrole:foreman'])->get('/foreman',  [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
+Route::middleware(['auth', 'hasrole:operator'])->get('/operator',[RoleDashboardController::class, 'operator'])->name('operator.dashboard');
+Route::middleware(['auth', 'hasrole:hse_officer'])->get('/hse',  [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
+Route::middleware(['auth', 'hasrole:hr'])->get('/hr',            [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
+Route::middleware(['auth', 'hasrole:finance'])->get('/finance',  [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
 
 /*
 |--------------------------------------------------------------------------
@@ -249,62 +249,40 @@ Route::middleware(['auth'])
 
 /*
 |--------------------------------------------------------------------------
-| Assets (GM & Manager) — dedicated module, BUTUH konteks site
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
-    ->prefix('admin')->as('admin.')
-    ->group(function () {
-        Route::resource('assets', AssetController::class)->except(['show']);
-        Route::get('assets/{asset}', [AssetController::class, 'show'])->name('assets.show');
-        Route::post('assets/bulk-delete', [AssetController::class, 'bulkDelete'])->name('assets.bulk-delete');
-
-        Route::get('assets/{asset}/assignments', [AssetAssignmentController::class, 'index'])->name('assets.assignments.index');
-        Route::post('assets/{asset}/assignments', [AssetAssignmentController::class, 'store'])->name('assets.assignments.store');
-        Route::delete('assets/{asset}/assignments/{assignment}', [AssetAssignmentController::class, 'destroy'])->name('assets.assignments.destroy');
-    });
-
-/*
-|--------------------------------------------------------------------------
 | HCM (GM & HR) — Blade-only + site.selected
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
     ->prefix('admin')->name('admin.')->group(function () {
 
-         // Attendance (Blade)
+    // ===== HCM dasar =====
     Route::resource('attendance', AttendanceController::class)
         ->parameters(['attendance' => 'attendance'])
         ->except(['show']);
 
-    // Timesheets (Blade)
     Route::resource('timesheets', TimesheetController::class)
         ->parameters(['timesheets' => 'timesheet'])
         ->except(['show']);
 
-    // Shift Rosters (Blade)
     Route::resource('shift-rosters', ShiftRosterController::class)
         ->parameters(['shift-rosters' => 'shiftRoster'])
         ->except(['show']);
 
-    // Shifts master (Blade)
     Route::resource('shifts', ShiftController::class)
         ->parameters(['shifts' => 'shift'])
         ->except(['show']);
 
-    // Manpower Plans (Blade)
     Route::resource('manpower-plans', ManpowerPlanController::class)
         ->parameters(['manpower-plans' => 'manpowerPlan'])
         ->except(['show']);
 
-    // Manpower Realizations (Blade)
     Route::resource('manpower-reals', ManpowerRealizationController::class)
         ->parameters(['manpower-reals' => 'manpowerRealization'])
         ->except(['show']);
 
     /*
     |--------------------------------------------------------------------------
-    | HR Daily Entries — SEMUA di HrDailyEntryController (1 controller)
+    | HR Daily Entries — HrDailyEntryController
     |--------------------------------------------------------------------------
     */
     Route::resource('hr-entries', HrDailyEntryController::class)
@@ -312,7 +290,7 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         ->except(['show'])
         ->whereUuid(['entry']);
 
-    // Approve / Reject
+    // ---- Approval cepat (single-step legacy)
     Route::post('hr-entries/{entry}/approve', [HrDailyEntryController::class, 'approve'])
         ->middleware('can:approve,entry')
         ->name('hr-entries.approve')
@@ -323,19 +301,16 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         ->name('hr-entries.reject')
         ->whereUuid('entry');
 
-    // ===== Tambahan utilitas — tetap di HrDailyEntryController =====
-
-    // Bulk actions (approve|reject|delete) via checkbox di index
+    // ---- Bulk actions
     Route::post('hr-entries/bulk', [HrDailyEntryController::class, 'bulk'])
         ->middleware('can:bulkAction,App\Models\HrDailyEntry')
         ->name('hr-entries.bulk');
 
-    // Recycle bin (trashed list)
+    // ---- Recycle bin
     Route::get('hr-entries/trashed', [HrDailyEntryController::class, 'trashed'])
         ->middleware('can:viewTrashed,App\Models\HrDailyEntry')
         ->name('hr-entries.trashed');
 
-    // Restore & Force Delete (pakai withTrashed binding; lihat catatan bawah)
     Route::post('hr-entries/{entry}/restore', [HrDailyEntryController::class, 'restore'])
         ->middleware('can:restore,entry')
         ->name('hr-entries.restore')
@@ -346,54 +321,128 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         ->name('hr-entries.force-delete')
         ->whereUuid('entry');
 
-    // Export CSV (mengikuti filter index)
+    // ---- Export & Print
     Route::get('hr-entries/export/csv', [HrDailyEntryController::class, 'exportCsv'])
         ->middleware('can:export,App\Models\HrDailyEntry')
         ->name('hr-entries.export.csv');
 
-    // Print view (opsional)
     Route::get('hr-entries/print', [HrDailyEntryController::class, 'print'])
         ->middleware('can:export,App\Models\HrDailyEntry')
         ->name('hr-entries.print');
 
-    // Download attachment dari meta (contoh key: attachment_id atau file_path)
+    // ---- Attachment meta
     Route::get('hr-entries/{entry}/attachments/{key}', [HrDailyEntryController::class, 'downloadAttachment'])
         ->middleware('can:view,entry')
         ->name('hr-entries.attachments.download')
         ->whereUuid('entry');
 
-    // Endpoint opsi/dynamic form (JSON) — types & kategori GA
+    // ---- Opsi/dynamic form (JSON)
     Route::get('hr-entries/options/types', [HrDailyEntryController::class, 'typesOptions'])
         ->name('hr-entries.options.types');
 
     Route::get('hr-entries/options/ga-categories', [HrDailyEntryController::class, 'gaCategoriesOptions'])
         ->name('hr-entries.options.ga-categories');
 
-    // AJAX search users (untuk select2)
+    // ---- AJAX lookup users
     Route::get('hr-entries/search/users', [HrDailyEntryController::class, 'searchUsers'])
         ->middleware('can:viewAny,App\Models\User')
         ->name('hr-entries.search.users');
-        // Employment Contracts (Blade)
-        Route::resource('contracts', EmploymentContractController::class)
-            ->parameters(['contracts' => 'employmentContract'])
-            ->except(['show']);
 
-        // Crew Assignments (Blade)
-        Route::resource('crew-assignments', CrewAssignmentController::class)
-            ->parameters(['crew-assignments' => 'crewAssignment'])
-            ->except(['show']);
+    // === PUBLIC READ-ONLY untuk render form dinamis di Blade ===
+    // Dipakai oleh resources/views/admin/hr_entries/_form.blade.php
+    Route::get('hr-entries/meta-form-config/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])
+        ->name('hr-entries.meta-form-config');   // route('admin.hr-entries.meta-form-config',['type'=>'leave'])
 
-        // Manpower dashboard + forms (Blade)
-        Route::prefix('manpower')->name('manpower.')->group(function () {
-            Route::get('/', [MP::class, 'dashboard'])->name('dashboard');
-            Route::get('/plans/create',      [MP::class, 'dashboard'])->name('plans.create'); // optional: atau langsung view khusus
-            Route::post('/plan',             [MP::class, 'storePlan'])->name('plan.store');
-            Route::get('/reals/create',      [MP::class, 'dashboard'])->name('reals.create'); // optional
-            Route::post('/realization',      [MP::class, 'storeRealization'])->name('realization.store');
-            Route::get('/assignments',       [MP::class, 'assignments'])->name('assignments.index');
-            Route::post('/assignments',      [MP::class, 'storeAssignment'])->name('assignments.store');
+    Route::get('hr-entries/meta-schema/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])
+        ->name('hr-entries.meta-schema');        // route('admin.hr-entries.meta-schema',['type'=>'leave'])
+
+    // ====== Dynamic CONFIG: Types ======
+    Route::prefix('hr-entries/types')->name('hr-entries.types.')
+        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+            Route::get('/',  [HrDailyEntryController::class, 'typesIndex'])->name('index');
+            Route::post('/', [HrDailyEntryController::class, 'typesStore'])->name('store');
+            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])->name('update');
+            Route::delete('/{type}', [HrDailyEntryController::class, 'typesDestroy'])->name('destroy');
+            Route::post('/reorder', [HrDailyEntryController::class, 'typesReorder'])->name('reorder');
         });
+
+    // ====== Dynamic CONFIG: Meta Schemas ======
+    Route::prefix('hr-entries/meta-schemas')->name('hr-entries.meta-schemas.')
+        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+            Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');
+            Route::get('/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])->name('show');
+            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])->name('upsert');
+            Route::delete('/{type}', [HrDailyEntryController::class, 'metaSchemasDestroy'])->name('destroy');
+        });
+
+    // ====== Dynamic CONFIG: Meta Form Config (manage)
+    Route::prefix('hr-entries/meta-form-config')->name('hr-entries.meta-form.')
+        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+            Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
+            Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])->name('show');
+            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])->name('upsert');
+            Route::delete('/{type}', [HrDailyEntryController::class, 'metaFormConfigDestroy'])->name('destroy');
+        });
+
+    // ====== Dynamic CONFIG: Approval Schemas ======
+    Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')
+        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+            Route::get('/', [HrDailyEntryController::class, 'approvalSchemasIndex'])->name('index');
+            Route::get('/{type}', [HrDailyEntryController::class, 'approvalSchemasShow'])->name('show');
+            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])->name('upsert');
+            Route::delete('/{type}', [HrDailyEntryController::class, 'approvalSchemasDestroy'])->name('destroy');
+        });
+
+    // ====== Approval Flow Actions ======
+    Route::post('hr-entries/{entry}/submit', [HrDailyEntryController::class, 'approvalSubmit'])
+        ->middleware('can:submit,entry')
+        ->name('hr-entries.approval.submit')
+        ->whereUuid('entry');
+
+    Route::post('hr-entries/{entry}/approval/approve', [HrDailyEntryController::class, 'approvalApprove'])
+        ->middleware('can:approve,entry')
+        ->name('hr-entries.approval.approve')
+        ->whereUuid('entry');
+
+    Route::post('hr-entries/{entry}/approval/reject', [HrDailyEntryController::class, 'approvalReject'])
+        ->middleware('can:reject,entry')
+        ->name('hr-entries.approval.reject')
+        ->whereUuid('entry');
+
+    Route::post('hr-entries/{entry}/approval/reset', [HrDailyEntryController::class, 'approvalReset'])
+        ->middleware('can:resetApproval,entry')
+        ->name('hr-entries.approval.reset')
+        ->whereUuid('entry');
+
+    // ====== Dynamic CONFIG: Print Templates ======
+    Route::prefix('hr-entries/print-templates')->name('hr-entries.print-templates.')
+        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+            Route::get('/', [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
+            Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])->name('show');
+            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])->name('upsert');
+            Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])->name('destroy');
+        });
+
+    // ===== Modul HR lain =====
+    Route::resource('contracts', EmploymentContractController::class)
+        ->parameters(['contracts' => 'employmentContract'])
+        ->except(['show']);
+
+    Route::resource('crew-assignments', CrewAssignmentController::class)
+        ->parameters(['crew-assignments' => 'crewAssignment'])
+        ->except(['show']);
+
+    // Dashboard Manpower + forms
+    Route::prefix('manpower')->name('manpower.')->group(function () {
+        Route::get('/', [MP::class, 'dashboard'])->name('dashboard');
+        Route::get('/plans/create', [MP::class, 'dashboard'])->name('plans.create'); // simple reuse
+        Route::post('/plan',        [MP::class, 'storePlan'])->name('plan.store');
+        Route::get('/reals/create', [MP::class, 'dashboard'])->name('reals.create');
+        Route::post('/realization', [MP::class, 'storeRealization'])->name('realization.store');
+        Route::get('/assignments',  [MP::class, 'assignments'])->name('assignments.index');
+        Route::post('/assignments', [MP::class, 'storeAssignment'])->name('assignments.store');
     });
+});
 
 /*
 |--------------------------------------------------------------------------

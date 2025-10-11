@@ -45,6 +45,9 @@ $canManageMaster = Gate::check('manage-master-data');
 $canGrantAccess  = Gate::check('grant-access');
 $showAdminMenu   = ($isGM || $isManager); // Admin grup tetap GM/Manager
 
+/* izin kelola HR dynamic config */
+$canManageHrConfigs = Gate::check('manage', \App\Models\HrDailyEntry::class);
+
 /* =========================
 | ENTITIES (dinamis)
 |=========================*/
@@ -83,8 +86,8 @@ $entities = $meRows->isNotEmpty()
 | Active states
 |=========================*/
 $isMasterOverviewActive = request()->routeIs('admin.master.overview');
-$currentEntity = request()->route('entity'); // route param {entity}
 
+$currentEntity = request()->route('entity'); // route param {entity}
 $activeClasses = function (bool $isActive) {
   return $isActive
     ? 'bg-teal-100/60 text-teal-900 ring-1 ring-teal-200'
@@ -168,10 +171,84 @@ try {
   $pendingApprovals = (int) $pendingQuery->count();
 } catch (\Throwable $e) {}
 
+/* =========================
+| HR types (dinamis untuk Create by Type)
+|=========================*/
+$typesFromController = $types ?? null; // jika controller sudah passing $types
+$typesMap = is_array($typesFromController) && !empty($typesFromController)
+  ? $typesFromController
+  : (function () {
+      try {
+        $row = DB::table('site_configs')->where('key', 'hr.entry_types')->first(['value']);
+        if (!$row) {
+          return [
+            'leave'        => 'Leave',
+            'permit'       => 'Permit',
+            'sick'         => 'Sick',
+            'shift_change' => 'Shift Change',
+            'ga_request'   => 'GA Request',
+            'mcu'          => 'MCU',
+          ];
+        }
+        $val = $row->value;
+        $map = is_string($val) ? json_decode($val, true) : (array) $val;
+        if (!is_array($map) || empty($map)) {
+          return [
+            'leave'        => 'Leave',
+            'permit'       => 'Permit',
+            'sick'         => 'Sick',
+            'shift_change' => 'Shift Change',
+            'ga_request'   => 'GA Request',
+            'mcu'          => 'MCU',
+          ];
+        }
+        // normalisasi
+        $norm = [];
+        foreach ($map as $k => $v) {
+          $key   = Str::of($k)->lower()->snake()->toString();
+          $label = is_string($v) ? $v : (is_array($v) && isset($v['label']) ? (string) $v['label'] : Str::headline($key));
+          $norm[$key] = $label;
+        }
+        return $norm;
+      } catch (\Throwable $e) {
+        return [
+          'leave'        => 'Leave',
+          'permit'       => 'Permit',
+          'sick'         => 'Sick',
+          'shift_change' => 'Shift Change',
+          'ga_request'   => 'GA Request',
+          'mcu'          => 'MCU',
+        ];
+      }
+    })();
+
+/* warna kecil untuk chip "Create by Type" */
+$typeChip = function (string $key) {
+  return match($key) {
+    'leave'        => 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100',
+    'permit'       => 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100',
+    'sick'         => 'bg-rose-50 text-rose-700 ring-rose-200 hover:bg-rose-100',
+    'shift_change' => 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100',
+    'ga_request'   => 'bg-cyan-50 text-cyan-700 ring-cyan-200 hover:bg-cyan-100',
+    'mcu'          => 'bg-indigo-50 text-indigo-700 ring-indigo-200 hover:bg-indigo-100',
+    default        => 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100',
+  };
+};
+
 /* HR sub-menu helpers */
 $hrDailyActive     = request()->routeIs('admin.hr-entries.*');
 $hrContractsActive = request()->routeIs('admin.contracts.*');
 $hrDailyQuery      = request()->query();
+
+/* izin kelola types (opsional untuk menampilkan tombol Manage) */
+$canManageTypes = Gate::check('manage', \App\Models\HrDailyEntry::class) && Route::has('admin.hr-entries.types.index');
+
+/* Active states untuk submenu config */
+$hrCfgActive =
+  request()->routeIs('admin.hr-entries.meta-form.*') ||
+  request()->routeIs('admin.hr-entries.meta-schemas.*') ||
+  request()->routeIs('admin.hr-entries.approval.schemas.*') ||
+  request()->routeIs('admin.hr-entries.print-templates.*');
 @endphp
 
 <aside class="bg-gradient-to-b from-white to-slate-50/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-r border-slate-200 h-screen sticky top-0 flex flex-col w-72 shrink-0 shadow-sm">
@@ -212,7 +289,7 @@ $hrDailyQuery      = request()->query();
 
   {{-- Nav --}}
   <nav class="flex-1 overflow-y-auto py-3"
-       x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }}, openMd: true, openPeople: {{ $peopleGroupOpen ? 'true' : 'false' }}, openHR: {{ ($hrDailyActive||$hrContractsActive) ? 'true' : 'false' }} }">
+       x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }}, openMd: true, openPeople: {{ $peopleGroupOpen ? 'true' : 'false' }}, openHR: {{ ($hrDailyActive||$hrContractsActive||$hrCfgActive) ? 'true' : 'false' }} }">
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
@@ -365,9 +442,42 @@ $hrDailyQuery      = request()->query();
 
                   {{-- Shortcut: Create --}}
                   <a href="{{ route('admin.hr-entries.create') }}"
-                     class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.create')) }}">
+                     class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.create') && !request()->has('type')) }}">
                     • Create
                   </a>
+
+                  {{-- Shortcut: Create by Type (DYNAMIC) --}}
+                  @if(!empty($typesMap))
+                    <div class="mx-3 pl-14 pr-3 mt-0.5 mb-1">
+                      <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Create by Type</div>
+                      <div class="grid grid-cols-2 gap-1.5">
+                        @foreach($typesMap as $tKey => $tLabel)
+                          @php
+                            $key = Str::of($tKey)->lower()->snake()->toString();
+                            $isActiveType = request()->routeIs('admin.hr-entries.create') && request('type') === $key;
+                          @endphp
+                          <a href="{{ route('admin.hr-entries.create', array_merge($hrDailyQuery, ['type'=>$key])) }}"
+                             class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-md text-[12px] font-medium ring-1 transition
+                               {{ $typeChip($key) }}
+                               {{ $isActiveType ? 'outline outline-1 outline-offset-2 outline-teal-400' : '' }}">
+                            {{ $tLabel }}
+                          </a>
+                        @endforeach
+                      </div>
+
+                      @if($canManageTypes)
+                        <div class="mt-2">
+                          <a href="{{ route('admin.hr-entries.types.index') }}"
+                             class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-teal-700">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path d="M4 7h16M4 12h10M4 17h7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Manage Types
+                          </a>
+                        </div>
+                      @endif
+                    </div>
+                  @endif
 
                   {{-- Shortcut: Approvals Queue (status pending) --}}
                   <a href="{{ route('admin.hr-entries.index', array_merge($hrDailyQuery, ['status'=>'pending'])) }}"
@@ -396,6 +506,56 @@ $hrDailyQuery      = request()->query();
                       • Export CSV
                     </a>
                   @endif
+                @endif
+
+                {{-- ===== HR CONFIG (dynamic) ===== --}}
+                @if ($canManageHrConfigs && (
+                      Route::has('admin.hr-entries.meta-form.index') ||
+                      Route::has('admin.hr-entries.meta-schemas.index') ||
+                      Route::has('admin.hr-entries.approval.schemas.index') ||
+                      Route::has('admin.hr-entries.print-templates.index')
+                    ))
+                  <div class="mx-3 pl-12 pr-3 mt-2">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                      HR Config
+                    </div>
+
+                    {{-- Meta Form Config (UI) --}}
+                    @if (Route::has('admin.hr-entries.meta-form.index'))
+                      <a href="{{ route('admin.hr-entries.meta-form.index') }}"
+                         class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-medium transition
+                                {{ $activeClasses(request()->routeIs('admin.hr-entries.meta-form.*')) }}">
+                        • Meta Form Config
+                      </a>
+                    @endif
+
+                    {{-- Meta Schemas (Validation Rules) --}}
+                    @if (Route::has('admin.hr-entries.meta-schemas.index'))
+                      <a href="{{ route('admin.hr-entries.meta-schemas.index') }}"
+                         class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-medium transition
+                                {{ $activeClasses(request()->routeIs('admin.hr-entries.meta-schemas.*')) }}">
+                        • Meta Schemas
+                      </a>
+                    @endif
+
+                    {{-- Approval Schemas --}}
+                    @if (Route::has('admin.hr-entries.approval.schemas.index'))
+                      <a href="{{ route('admin.hr-entries.approval.schemas.index') }}"
+                         class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-medium transition
+                                {{ $activeClasses(request()->routeIs('admin.hr-entries.approval.schemas.*')) }}">
+                        • Approval Schemas
+                      </a>
+                    @endif
+
+                    {{-- Print Templates --}}
+                    @if (Route::has('admin.hr-entries.print-templates.index'))
+                      <a href="{{ route('admin.hr-entries.print-templates.index') }}"
+                         class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-medium transition
+                                {{ $activeClasses(request()->routeIs('admin.hr-entries.print-templates.*')) }}">
+                        • Print Templates
+                      </a>
+                    @endif
+                  </div>
                 @endif
 
                 {{-- Employment Contracts --}}
