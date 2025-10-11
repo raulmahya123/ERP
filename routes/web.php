@@ -272,41 +272,107 @@ Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
 Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
     ->prefix('admin')->name('admin.')->group(function () {
 
-        // Attendance (Blade)
-        Route::resource('attendance', AttendanceController::class)
-            ->parameters(['attendance' => 'attendance'])
-            ->except(['show']);
+         // Attendance (Blade)
+    Route::resource('attendance', AttendanceController::class)
+        ->parameters(['attendance' => 'attendance'])
+        ->except(['show']);
 
-        // Timesheets (Blade)
-        Route::resource('timesheets', TimesheetController::class)
-            ->parameters(['timesheets' => 'timesheet'])
-            ->except(['show']);
+    // Timesheets (Blade)
+    Route::resource('timesheets', TimesheetController::class)
+        ->parameters(['timesheets' => 'timesheet'])
+        ->except(['show']);
 
-        // Shift Rosters (Blade)
-        Route::resource('shift-rosters', ShiftRosterController::class)
-            ->parameters(['shift-rosters' => 'shiftRoster'])
-            ->except(['show']);
+    // Shift Rosters (Blade)
+    Route::resource('shift-rosters', ShiftRosterController::class)
+        ->parameters(['shift-rosters' => 'shiftRoster'])
+        ->except(['show']);
 
-        // Shifts master (Blade)
-        Route::resource('shifts', ShiftController::class)
-            ->parameters(['shifts' => 'shift'])
-            ->except(['show']);
+    // Shifts master (Blade)
+    Route::resource('shifts', ShiftController::class)
+        ->parameters(['shifts' => 'shift'])
+        ->except(['show']);
 
-        // Manpower Plans (Blade)
-        Route::resource('manpower-plans', ManpowerPlanController::class)
-            ->parameters(['manpower-plans' => 'manpowerPlan'])
-            ->except(['show']);
+    // Manpower Plans (Blade)
+    Route::resource('manpower-plans', ManpowerPlanController::class)
+        ->parameters(['manpower-plans' => 'manpowerPlan'])
+        ->except(['show']);
 
-        // Manpower Realizations (Blade)
-        Route::resource('manpower-reals', ManpowerRealizationController::class)
-            ->parameters(['manpower-reals' => 'manpowerRealization'])
-            ->except(['show']);
+    // Manpower Realizations (Blade)
+    Route::resource('manpower-reals', ManpowerRealizationController::class)
+        ->parameters(['manpower-reals' => 'manpowerRealization'])
+        ->except(['show']);
 
-        // HR Daily Entries (Blade)
-        Route::resource('hr-entries', HrDailyEntryController::class)
-            ->parameters(['hr-entries' => 'entry'])
-            ->except(['show']);
+    /*
+    |--------------------------------------------------------------------------
+    | HR Daily Entries — SEMUA di HrDailyEntryController (1 controller)
+    |--------------------------------------------------------------------------
+    */
+    Route::resource('hr-entries', HrDailyEntryController::class)
+        ->parameters(['hr-entries' => 'entry'])
+        ->except(['show'])
+        ->whereUuid(['entry']);
 
+    // Approve / Reject
+    Route::post('hr-entries/{entry}/approve', [HrDailyEntryController::class, 'approve'])
+        ->middleware('can:approve,entry')
+        ->name('hr-entries.approve')
+        ->whereUuid('entry');
+
+    Route::post('hr-entries/{entry}/reject', [HrDailyEntryController::class, 'reject'])
+        ->middleware('can:reject,entry')
+        ->name('hr-entries.reject')
+        ->whereUuid('entry');
+
+    // ===== Tambahan utilitas — tetap di HrDailyEntryController =====
+
+    // Bulk actions (approve|reject|delete) via checkbox di index
+    Route::post('hr-entries/bulk', [HrDailyEntryController::class, 'bulk'])
+        ->middleware('can:bulkAction,App\Models\HrDailyEntry')
+        ->name('hr-entries.bulk');
+
+    // Recycle bin (trashed list)
+    Route::get('hr-entries/trashed', [HrDailyEntryController::class, 'trashed'])
+        ->middleware('can:viewTrashed,App\Models\HrDailyEntry')
+        ->name('hr-entries.trashed');
+
+    // Restore & Force Delete (pakai withTrashed binding; lihat catatan bawah)
+    Route::post('hr-entries/{entry}/restore', [HrDailyEntryController::class, 'restore'])
+        ->middleware('can:restore,entry')
+        ->name('hr-entries.restore')
+        ->whereUuid('entry');
+
+    Route::delete('hr-entries/{entry}/force', [HrDailyEntryController::class, 'forceDelete'])
+        ->middleware('can:forceDelete,entry')
+        ->name('hr-entries.force-delete')
+        ->whereUuid('entry');
+
+    // Export CSV (mengikuti filter index)
+    Route::get('hr-entries/export/csv', [HrDailyEntryController::class, 'exportCsv'])
+        ->middleware('can:export,App\Models\HrDailyEntry')
+        ->name('hr-entries.export.csv');
+
+    // Print view (opsional)
+    Route::get('hr-entries/print', [HrDailyEntryController::class, 'print'])
+        ->middleware('can:export,App\Models\HrDailyEntry')
+        ->name('hr-entries.print');
+
+    // Download attachment dari meta (contoh key: attachment_id atau file_path)
+    Route::get('hr-entries/{entry}/attachments/{key}', [HrDailyEntryController::class, 'downloadAttachment'])
+        ->middleware('can:view,entry')
+        ->name('hr-entries.attachments.download')
+        ->whereUuid('entry');
+
+    // Endpoint opsi/dynamic form (JSON) — types & kategori GA
+    Route::get('hr-entries/options/types', [HrDailyEntryController::class, 'typesOptions'])
+        ->name('hr-entries.options.types');
+
+    Route::get('hr-entries/options/ga-categories', [HrDailyEntryController::class, 'gaCategoriesOptions'])
+        ->name('hr-entries.options.ga-categories');
+
+    // AJAX search users (untuk select2)
+    Route::get('hr-entries/search/users', [HrDailyEntryController::class, 'searchUsers'])
+        ->middleware('can:viewAny,App\Models\User')
+        ->name('hr-entries.search.users');
         // Employment Contracts (Blade)
         Route::resource('contracts', EmploymentContractController::class)
             ->parameters(['contracts' => 'employmentContract'])
