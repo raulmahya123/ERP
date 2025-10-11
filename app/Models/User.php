@@ -8,6 +8,9 @@ use Illuminate\Notifications\Notifiable;
 use App\Models\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
@@ -22,7 +25,8 @@ class User extends Authenticatable
         'password',
         'role_id',
         'division_id',
-        'default_site_id', // <<< penting
+        'default_site_id',   // site default (single-site)
+        'employee_code',     // dipakai di UI dropdown
     ];
 
     protected $hidden = [
@@ -34,30 +38,71 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
     ];
 
+    /** aksesori yang ikut terserialisasi ke array/json (buat UI) */
+    protected $appends = ['display_label'];
+
     /* =========================
      | Relationships
      |=========================*/
-    public function role()
+    public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
     }
 
-    public function division()
+    public function division(): BelongsTo
     {
         return $this->belongsTo(Division::class);
     }
 
-    public function defaultSite()
+    public function defaultSite(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Site::class, 'default_site_id');
+        return $this->belongsTo(Site::class, 'default_site_id');
+    }
+
+    /** Alias agar kode lama yg expect 'site()' tetap aman */
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class, 'default_site_id');
+    }
+
+    /** Multi-site (opsional) via pivot `site_user` */
+    public function sites(): BelongsToMany
+    {
+        return $this->belongsToMany(Site::class, 'site_user', 'user_id', 'site_id')
+                    ->withTimestamps();
     }
 
     /* =========================
      | Query Scopes
      |=========================*/
+    /** Filter user pada site tertentu (default_site_id, plus pivot kalau ada) */
     public function scopeInSite($q, $siteId)
     {
-        return $q->where('default_site_id', $siteId);
+        if (!$siteId) return $q;
+
+        return $q->where(function ($qq) use ($siteId) {
+            // single-site
+            $qq->where('default_site_id', $siteId);
+
+            // multi-site (hanya jika tabel pivot ada)
+            if (Schema::hasTable('site_user')) {
+                $qq->orWhereHas('sites', fn($s) => $s->where('sites.id', $siteId));
+            }
+        });
+    }
+
+    /** Cari berdasarkan nama / email / employee_code */
+    public function scopeSearch($q, ?string $term)
+    {
+        $term = trim((string) $term);
+        if ($term === '') return $q;
+
+        $like = '%'.str_replace(['%','_'], ['\%','\_'], $term).'%';
+        return $q->where(function ($qq) use ($like) {
+            $qq->where('name', 'like', $like)
+               ->orWhere('email', 'like', $like)
+               ->orWhere('employee_code', 'like', $like);
+        });
     }
 
     /* =========================
@@ -105,6 +150,14 @@ class User extends Authenticatable
         return optional($this->defaultSite)->name;
     }
 
+    /** Label siap pakai buat dropdown: "Nama — Kode/Email" */
+    public function getDisplayLabelAttribute(): string
+    {
+        $name = $this->name ?: $this->email;
+        $tag  = $this->employee_code ?: $this->email;
+        return trim($name.' — '.$tag);
+    }
+
     /* =========================
      | Mutators (email & password)
      |=========================*/
@@ -136,8 +189,8 @@ class User extends Authenticatable
 
             try {
                 // Ambil dari SiteConfig.params->default_for_users = true
-                $siteId = \App\Models\SiteConfig::whereJsonContains('params->default_for_users', true)->value('site_id')
-                       ?? \App\Models\Site::orderBy('name')->value('id');
+                $siteId = SiteConfig::whereJsonContains('params->default_for_users', true)->value('site_id')
+                       ?? Site::orderBy('name')->value('id');
 
                 if ($siteId) {
                     $user->default_site_id = $siteId;
