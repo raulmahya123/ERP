@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 class HrDailyEntry extends Model
 {
@@ -35,17 +36,33 @@ class HrDailyEntry extends Model
         'status' => self::STATUS_PENDING,
     ];
 
+    /** Kolom yang bisa di-mass-assign */
     protected $fillable = [
         'id','site_id','user_id','date','type','code','reason',
-        'from_shift_id','to_shift_id','status','approved_by','approved_at',
-        'created_by','updated_by','meta'
+        'from_shift_id','to_shift_id',
+        'status','approved_by','approved_at','approval_notes',
+        'created_by','updated_by',
+        'notes','attachment_id',
+        'meta',
+
+        // ====== VIRTUAL → disimpan ke meta ======
+        'permit_category','hours','start_time','end_time',
+        'leave_type','duration_days','half_day',
+        'doctor_note','inpatient','bpjs_claim','diagnosis',
+        'effective_from',
+        'category','priority','needed_date','needed_time','location',
+        'item_name','quantity','unit','budget_code',
     ];
 
     protected $casts = [
         'date'        => 'date',
-        'meta'        => 'array',
+        'meta'        => 'array',   // GET -> array (decode), SET -> tetap kita kontrol via mutator agar string JSON di DB
         'approved_at' => 'datetime',
         'deleted_at'  => 'datetime',
+    ];
+
+    protected $appends = [
+        'type_label','meta_summary','is_approved','is_rejected','is_pending',
     ];
 
     /** ===== Boot ===== */
@@ -55,10 +72,19 @@ class HrDailyEntry extends Model
             if (empty($m->id)) {
                 $m->id = (string) Str::uuid();
             }
-            // Default status pending bila belum diisi
             if (empty($m->status)) {
                 $m->status = self::STATUS_PENDING;
             }
+            if (empty($m->created_by)) {
+                $m->created_by = Auth::id();
+            }
+            if (empty($m->site_id) && function_exists('session') && session()->has('site_id')) {
+                $m->site_id = session('site_id');
+            }
+        });
+
+        static::updating(function (self $m) {
+            $m->updated_by = Auth::id();
         });
     }
 
@@ -71,29 +97,24 @@ class HrDailyEntry extends Model
 
     /** ===== Accessors ===== */
 
-    /** Label ramah untuk type */
     protected function typeLabel(): Attribute
     {
         return Attribute::get(fn () => self::TYPES[$this->type] ?? Str::of((string)$this->type)->headline()->toString());
     }
 
-    /** Boolean helpers */
     protected function isApproved(): Attribute
     {
         return Attribute::get(fn () => $this->status === self::STATUS_APPROVED);
     }
-
     protected function isRejected(): Attribute
     {
         return Attribute::get(fn () => $this->status === self::STATUS_REJECTED);
     }
-
     protected function isPending(): Attribute
     {
         return Attribute::get(fn () => $this->status === self::STATUS_PENDING);
     }
 
-    /** Ringkasan meta (string sederhana; berguna untuk export/log) */
     protected function metaSummary(): Attribute
     {
         return Attribute::get(function () {
@@ -151,62 +172,104 @@ class HrDailyEntry extends Model
     /** ===== Mutators ===== */
 
     /**
-     * Normalisasi meta: konversi "1"/"true" ke bool untuk kunci boolean yang umum.
-     * Dijalankan saat set attribute 'meta'.
+     * Mutator meta: pastikan yang TERSIMPAN ke DB selalu STRING JSON.
+     * - Jika diberi string -> biarkan apa adanya (anggap sudah JSON).
+     * - Jika diberi array/object -> normalisasi & json_encode.
      */
     protected function meta(): Attribute
     {
         return Attribute::make(
             set: function ($value) {
+                // Jika sudah string, jangan di-decode agar tidak berubah jadi array
                 if (is_string($value)) {
-                    // Jika datang dari textarea/string JSON
-                    $decoded = json_decode($value, true);
-                    $value = json_last_error() === JSON_ERROR_NONE ? $decoded : ['raw' => $value];
+                    return $value;
                 }
-                if (!is_array($value)) return $value;
 
+                // Object -> array
+                if (is_object($value)) {
+                    $value = json_decode(json_encode($value), true) ?: [];
+                }
+
+                if (!is_array($value)) {
+                    // biarkan Eloquent yang meng-handle (tidak akan dipakai juga)
+                    return $value;
+                }
+
+                // Normalisasi boolean-keys
                 $booleanKeys = [
-                    // sick
-                    'doctor_note','inpatient','bpjs_claim',
-                    // leave
-                    'half_day',
+                    'doctor_note','inpatient','bpjs_claim', // sick
+                    'half_day',                              // leave
                 ];
-
                 foreach ($booleanKeys as $key) {
                     if (array_key_exists($key, $value)) {
                         $v = $value[$key];
-                        $value[$key] = filter_var($v, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? in_array($v, [1, '1', 'on', 'yes'], true);
+                        $value[$key] = filter_var($v, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE)
+                            ?? in_array($v, [1, '1', 'on', 'yes', true], true);
                     }
                 }
 
-                return $value;
+                // Simpan sebagai JSON string
+                return json_encode($value, JSON_UNESCAPED_UNICODE);
             }
         );
     }
 
+    /** Helper untuk bikin atribut virtual yang di-proxy ke meta */
+    private function metaProxy(string $metaKey): Attribute
+    {
+        return Attribute::make(
+            // GET: baca dari meta (cast -> array)
+            get: fn () => Arr::get($this->meta ?? [], $metaKey),
+            // SET: tulis ke meta & kembalikan 'meta' sebagai STRING JSON
+            set: function ($value) use ($metaKey) {
+                $meta = $this->meta ?? []; // berkat cast, ini array
+                if ($value === null || $value === '') {
+                    Arr::forget($meta, $metaKey);
+                } else {
+                    Arr::set($meta, $metaKey, $value);
+                }
+                return ['meta' => json_encode($meta, JSON_UNESCAPED_UNICODE)];
+            }
+        );
+    }
+
+    // ====== VIRTUAL ATTRIBUTES (mapping ke JSON meta) ======
+    protected function permitCategory(): Attribute { return $this->metaProxy('permit_category'); }
+    protected function hours(): Attribute           { return $this->metaProxy('hours'); }
+    protected function startTime(): Attribute       { return $this->metaProxy('start_time'); }
+    protected function endTime(): Attribute         { return $this->metaProxy('end_time'); }
+
+    protected function leaveType(): Attribute       { return $this->metaProxy('leave_type'); }
+    protected function durationDays(): Attribute    { return $this->metaProxy('duration_days'); }
+    protected function halfDay(): Attribute         { return $this->metaProxy('half_day'); }
+
+    protected function doctorNote(): Attribute      { return $this->metaProxy('doctor_note'); }
+    protected function inpatient(): Attribute       { return $this->metaProxy('inpatient'); }
+    protected function bpjsClaim(): Attribute       { return $this->metaProxy('bpjs_claim'); }
+    protected function diagnosis(): Attribute       { return $this->metaProxy('diagnosis'); }
+
+    protected function effectiveFrom(): Attribute   { return $this->metaProxy('effective_from'); }
+
+    // GA Request common
+    protected function category(): Attribute        { return $this->metaProxy('category'); }
+    protected function priority(): Attribute        { return $this->metaProxy('priority'); }
+    protected function neededDate(): Attribute      { return $this->metaProxy('needed_date'); }
+    protected function neededTime(): Attribute      { return $this->metaProxy('needed_time'); }
+    protected function location(): Attribute        { return $this->metaProxy('location'); }
+    protected function itemName(): Attribute        { return $this->metaProxy('item_name'); }
+    protected function quantity(): Attribute        { return $this->metaProxy('quantity'); }
+    protected function unit(): Attribute            { return $this->metaProxy('unit'); }
+    protected function budgetCode(): Attribute      { return $this->metaProxy('budget_code'); }
+
     /** ===== Scopes ===== */
-
-    public function scopeForSite($q, ?string $siteId)
-    {
-        return $siteId ? $q->where('site_id', $siteId) : $q;
-    }
-
-    public function scopeType($q, ?string $type)
-    {
-        return $type ? $q->where('type', $type) : $q;
-    }
-
-    public function scopeOnDate($q, ?string $date)
-    {
-        return $date ? $q->whereDate('date', $date) : $q;
-    }
-
+    public function scopeForSite($q, ?string $siteId) { return $siteId ? $q->where('site_id', $siteId) : $q; }
+    public function scopeType($q, ?string $type)      { return $type ? $q->where('type', $type) : $q; }
+    public function scopeOnDate($q, ?string $date)    { return $date ? $q->whereDate('date', $date) : $q; }
     public function scopeBetweenDates($q, ?string $from, ?string $to)
     {
         if ($from && $to) return $q->whereBetween('date', [$from, $to]);
         return $q;
     }
-
     public function scopeSearch($q, ?string $s)
     {
         if (!$s) return $q;
@@ -216,22 +279,31 @@ class HrDailyEntry extends Model
               ->orWhere('code','like',"%{$s}%")
         );
     }
+    public function scopeStatus($q, ?string $status) { return $status ? $q->where('status', $status) : $q; }
+    public function scopePending($q)  { return $q->where('status', self::STATUS_PENDING); }
+    public function scopeApproved($q) { return $q->where('status', self::STATUS_APPROVED); }
+    public function scopeRejected($q) { return $q->where('status', self::STATUS_REJECTED); }
+    public function scopeRecent($q)   { return $q->orderByDesc('date')->orderByDesc('created_at'); }
 
     /** ===== Helpers ===== */
-
-    public function markApproved(string $userId): void
+    public function approve(string $userId, ?string $notes = null): void
     {
         $this->status = self::STATUS_APPROVED;
         $this->approved_by = $userId;
         $this->approved_at = now();
+        if ($notes !== null) $this->approval_notes = $notes;
         $this->save();
     }
 
-    public function markRejected(string $userId): void
+    public function reject(string $userId, ?string $notes = null): void
     {
         $this->status = self::STATUS_REJECTED;
         $this->approved_by = $userId;
         $this->approved_at = now();
+        if ($notes !== null) $this->approval_notes = $notes;
         $this->save();
     }
+
+    public function markApproved(string $userId): void { $this->approve($userId); }
+    public function markRejected(string $userId): void { $this->reject($userId); }
 }
