@@ -287,38 +287,25 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
 
     // === Attendance / Timesheet / Shift roster ===
     Route::resource('attendance', AttendanceController::class)
-        ->parameters(['attendance' => 'attendance'])
-        ->except(['show']);
-
+        ->parameters(['attendance' => 'attendance'])->except(['show']);
     Route::resource('timesheets', TimesheetController::class)
-        ->parameters(['timesheets' => 'timesheet'])
-        ->except(['show']);
-
+        ->parameters(['timesheets' => 'timesheet'])->except(['show']);
     Route::resource('shift-rosters', ShiftRosterController::class)
-        ->parameters(['shift-rosters' => 'shiftRoster'])
-        ->except(['show']);
-
+        ->parameters(['shift-rosters' => 'shiftRoster'])->except(['show']);
     Route::resource('shifts', ShiftController::class)
-        ->parameters(['shifts' => 'shift'])
-        ->except(['show']);
+        ->parameters(['shifts' => 'shift'])->except(['show']);
 
     // === Manpower plan & realization ===
     Route::resource('manpower-plans', ManpowerPlanController::class)
-        ->parameters(['manpower-plans' => 'manpowerPlan'])
-        ->except(['show']);
-
+        ->parameters(['manpower-plans' => 'manpowerPlan'])->except(['show']);
     Route::resource('manpower-reals', ManpowerRealizationController::class)
-        ->parameters(['manpower-reals' => 'manpowerRealization'])
-        ->except(['show']);
+        ->parameters(['manpower-reals' => 'manpowerRealization'])->except(['show']);
 
     /* =========================
-     * HR Daily Types (UI Blade)
-     * =========================
-     * Ditaruh SEBELUM resource hr-entries biar aman.
-     */
+     * HR Daily Types (Blade)
+     * ========================= */
     Route::prefix('hr-entries/types')->name('hr-entries.types.')
-        ->middleware('can:manage,App\Models\HrDailyEntry')
-        ->group(function () {
+        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
             Route::get('/',  [HrDailyEntryController::class, 'typesIndex'])->name('index');
             Route::post('/', [HrDailyEntryController::class, 'typesStore'])->name('store');
             Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])
@@ -329,22 +316,16 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         });
 
     /* =========================
-     * Public (read-only) dynamic form/schema (per type)
-     * ========================= */
-    Route::get('hr-entries/meta-form-config/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])
-        ->name('hr-entries.meta-form-config')->where('type','[A-Za-z0-9_\-]+');
-
-    Route::get('hr-entries/meta-schema/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])
-        ->name('hr-entries.meta-schema')->where('type','[A-Za-z0-9_\-]+');
-
-    /* =========================
-     * Manage: Meta Form Config (index/show/upsert/destroy)
+     * Manage: Meta Form Config (Blade)
      * ========================= */
     Route::prefix('hr-entries/meta-form-config')->name('hr-entries.meta-form.')
         ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
-            Route::get('/manage/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])
-                ->name('show')->where('type','[A-Za-z0-9_\-]+');
+            Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');     // list
+            Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaFormConfigManage'])
+                ->name('manage')->where('type','[A-Za-z0-9_\-]+');                                     // editor (utama)
+            // Backcompat: .show → redirect ke .manage (hindari bentrok dengan 'manage')
+            Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])
+                ->name('show')->where('type','^(?!manage$)[A-Za-z0-9_\-]+$');
             Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])
                 ->name('upsert')->where('type','[A-Za-z0-9_\-]+');
             Route::delete('/{type}', [HrDailyEntryController::class, 'metaFormConfigDestroy'])
@@ -352,13 +333,16 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         });
 
     /* =========================
-     * Manage: Meta Schemas (validasi meta.*)
+     * Manage: Meta Schemas (Blade)
      * ========================= */
     Route::prefix('hr-entries/meta-schema')->name('hr-entries.meta-schema.')
         ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');
-            Route::get('/manage/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])
-                ->name('show')->where('type','[A-Za-z0-9_\-]+');
+            Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');        // list
+            Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaSchemasManage'])
+                ->name('manage')->where('type','[A-Za-z0-9_\-]+');                                     // editor (utama)
+            // Backcompat: .show → redirect ke .manage (hindari 'manage')
+            Route::get('/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])
+                ->name('show')->where('type','^(?!manage$)[A-Za-z0-9_\-]+$');
             Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])
                 ->name('upsert')->where('type','[A-Za-z0-9_\-]+');
             Route::delete('/{type}', [HrDailyEntryController::class, 'metaSchemasDestroy'])
@@ -366,7 +350,7 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         });
 
     /* =========================
-     * Manage: Approval Schemas
+     * Manage: Approval Schemas (Blade)
      * ========================= */
     Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')
         ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
@@ -380,12 +364,12 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         });
 
     /* =========================
-     * Manage: Print Templates
+     * Manage: Print Templates (Blade)
      * ========================= */
     Route::prefix('hr-entries/print-templates')->name('hr-entries.print-templates.')
         ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
             Route::get('/', [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
-            Route::get('/manage/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])
+            Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])
                 ->name('show')->where('type','[A-Za-z0-9_\-]+');
             Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])
                 ->name('upsert')->where('type','[A-Za-z0-9_\-]+');
@@ -397,64 +381,44 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
      * HR Daily Entries (CRUD + actions)
      * ========================= */
     Route::resource('hr-entries', HrDailyEntryController::class)
-        ->parameters(['hr-entries' => 'entry'])
-        ->except(['show'])
-        ->whereUuid(['entry']);
+        ->parameters(['hr-entries' => 'entry'])->except(['show'])->whereUuid(['entry']);
 
-    // --- Approval actions (submit/approve/reject)
     Route::post('hr-entries/{entry}/submit', [HrDailyEntryController::class, 'approvalSubmit'])
         ->middleware('can:submit,entry')->name('hr-entries.submit')->whereUuid('entry');
-
     Route::post('hr-entries/{entry}/approve', [HrDailyEntryController::class, 'approvalApprove'])
         ->middleware('can:approve,entry')->name('hr-entries.approve')->whereUuid('entry');
-
     Route::post('hr-entries/{entry}/reject', [HrDailyEntryController::class, 'approvalReject'])
         ->middleware('can:reject,entry')->name('hr-entries.reject')->whereUuid('entry');
 
-    // --- Bulk, trash, restore, force delete
     Route::post('hr-entries/bulk', [HrDailyEntryController::class, 'bulk'])
         ->middleware('can:bulkAction,App\Models\HrDailyEntry')->name('hr-entries.bulk');
-
     Route::get('hr-entries/trashed', [HrDailyEntryController::class, 'trashed'])
         ->middleware('can:viewTrashed,App\Models\HrDailyEntry')->name('hr-entries.trashed');
-
     Route::post('hr-entries/{entry}/restore', [HrDailyEntryController::class, 'restore'])
         ->middleware('can:restore,entry')->name('hr-entries.restore')->whereUuid('entry');
-
     Route::delete('hr-entries/{entry}/force', [HrDailyEntryController::class, 'forceDelete'])
         ->middleware('can:forceDelete,entry')->name('hr-entries.force-delete')->whereUuid('entry');
 
-    // --- Export & Print
     Route::get('hr-entries/export/csv', [HrDailyEntryController::class, 'exportCsv'])
         ->middleware('can:export,App\Models\HrDailyEntry')->name('hr-entries.export.csv');
-
     Route::get('hr-entries/print', [HrDailyEntryController::class, 'print'])
         ->middleware('can:export,App\Models\HrDailyEntry')->name('hr-entries.print');
 
-    // --- Attachment download
     Route::get('hr-entries/{entry}/attachments/{key}', [HrDailyEntryController::class, 'downloadAttachment'])
         ->middleware('can:view,entry')->name('hr-entries.attachments.download')->whereUuid('entry');
 
-    // --- Options & AJAX helpers
     Route::get('hr-entries/options/types', [HrDailyEntryController::class, 'typesOptions'])
         ->name('hr-entries.options.types');
-
     Route::get('hr-entries/options/ga-categories', [HrDailyEntryController::class, 'gaCategoriesOptions'])
         ->name('hr-entries.options.ga-categories');
-
     Route::get('hr-entries/search/users', [HrDailyEntryController::class, 'searchUsers'])
         ->middleware('can:viewAny,App\Models\User')->name('hr-entries.search.users');
 
-    // === Other HR modules ===
     Route::resource('contracts', EmploymentContractController::class)
-        ->parameters(['contracts' => 'employmentContract'])
-        ->except(['show']);
-
+        ->parameters(['contracts' => 'employmentContract'])->except(['show']);
     Route::resource('crew-assignments', CrewAssignmentController::class)
-        ->parameters(['crew-assignments' => 'crewAssignment'])
-        ->except(['show']);
+        ->parameters(['crew-assignments' => 'crewAssignment'])->except(['show']);
 
-    // === Manpower dashboard & forms ===
     Route::prefix('manpower')->name('manpower.')->group(function () {
         Route::get('/', [MP::class, 'dashboard'])->name('dashboard');
         Route::get('/plans/create', [MP::class, 'dashboard'])->name('plans.create');
@@ -465,6 +429,9 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         Route::post('/assignments', [MP::class, 'storeAssignment'])->name('assignments.store');
     });
 });
+
+
+
 
 /*
 |--------------------------------------------------------------------------

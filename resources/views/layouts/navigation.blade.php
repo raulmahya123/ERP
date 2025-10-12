@@ -126,10 +126,10 @@ try {
 | HR Types (dinamis, no dupe)
 |=========================*/
 $typesDefault = fn() => [
-  'leave'        => 'Leave',
-  'permit'       => 'Permit',
-  'sick'         => 'Sick',
-  'shift_change' => 'Shift Change',
+  'leave'        => 'Cuti',
+  'permit'       => 'Izin',
+  'sick'         => 'Sakit',
+  'shift_change' => 'Pergantian Shift',
   // Disamakan dengan DEFAULT_TYPES di controller
 ];
 
@@ -147,7 +147,7 @@ if (is_array($typesFromController) && !empty($typesFromController)) {
     } else {
       $params = is_string($row->params) ? (json_decode($row->params, true) ?: []) :
                 (is_array($row->params) ? $row->params : (json_decode(json_encode($row->params ?? []), true) ?: []));
-      $map = (array)($params['hr']['entry_types'] ?? []);
+      $map = (array)($params['hr']['entry_types'] ?? []); // fallback key bawaan
       if (!is_array($map) || empty($map)) {
         $typesMap = $typesDefault();
       } else {
@@ -176,7 +176,7 @@ $typeChip = function (string $key) {
   };
 };
 
-/* HR config submenu active? (FIX: meta-schemas -> meta-schema, tambahkan types) */
+/* HR config submenu active? */
 $hrCfgActive =
   request()->routeIs('admin.hr-entries.meta-form.*')        ||
   request()->routeIs('admin.hr-entries.meta-schema.*')      ||
@@ -512,11 +512,13 @@ $hrDailyQuery = request()->query();
                     • Approvals Queue
                   </a>
 
-                  {{-- (Opsional) GA Request filter --}}
-                  <a href="{{ route('admin.hr-entries.index', array_merge($hrDailyQuery, ['type'=>'ga_request'])) }}"
-                     class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition">
-                    • GA Request
-                  </a>
+                  {{-- GA Request filter (jika ada di typesMap) --}}
+                  @if(isset($typesMap['ga_request']))
+                    <a href="{{ route('admin.hr-entries.index', array_merge($hrDailyQuery, ['type'=>'ga_request'])) }}"
+                       class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition">
+                      • GA Request
+                    </a>
+                  @endif
 
                   {{-- Recycle Bin --}}
                   @if (Route::has('admin.hr-entries.trashed'))

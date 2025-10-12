@@ -427,18 +427,32 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  META FORM CONFIG (HTTP endpoints)
+     |  META FORM CONFIG (Blade) — konsisten pakai .manage
      |=========================================================*/
     public function metaFormConfigIndex()
     {
-        return response()->json(['data' => $this->getMetaFormConfig()]);
+        Gate::authorize('manage', HrDailyEntry::class);
+
+        $types = $this->getTypes();
+        $map   = $this->getMetaFormConfig();
+        return view('admin.hr_entries.meta_form.index', compact('types','map'));
     }
 
-    public function metaFormConfigShow(string $type)
+    public function metaFormConfigManage(?string $type = null)
     {
-        $type = Str::of($type)->lower()->snake()->toString();
-        $all  = $this->getMetaFormConfig();
-        return response()->json(['data' => $all[$type] ?? ['fields' => []]]);
+        Gate::authorize('manage', HrDailyEntry::class);
+
+        $type = $type ? Str::of($type)->lower()->snake()->toString() : null;
+        if (!$type) {
+            $types = $this->getTypes();
+            $type  = array_key_first($types);
+        }
+
+        $all    = $this->getMetaFormConfig();
+        $config = $all[$type] ?? ['fields' => []];
+        $json   = json_encode($config['fields'] ?? [], JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
+
+        return view('admin.hr_entries.meta_form.manage', compact('type','config','json'));
     }
 
     public function metaFormConfigUpsert(Request $r, string $type)
@@ -447,24 +461,34 @@ class HrDailyEntryController extends Controller
 
         $type = Str::of($type)->lower()->snake()->toString();
 
-        $data = $r->validate([
-            'fields'                        => ['required','array','min:1'],
-            'fields.*.key'                  => ['required','string','max:60'],
-            'fields.*.label'                => ['required','string','max:120'],
-            'fields.*.type'                 => ['required','string','in:text,textarea,number,date,time,datetime,select,radio,checkbox,file,toggle'],
-            'fields.*.required'             => ['nullable','boolean'],
-            'fields.*.placeholder'          => ['nullable','string','max:190'],
-            'fields.*.help'                 => ['nullable','string','max:190'],
-            'fields.*.default'              => ['nullable'],
-            'fields.*.attrs'                => ['nullable','array'],
-            'fields.*.options'              => ['nullable','array'],
-            'fields.*.options.*.value'      => ['required_with:fields.*.options','string','max:120'],
-            'fields.*.options.*.label'      => ['required_with:fields.*.options','string','max:120'],
-        ]);
+        $fields = [];
+        if ($r->filled('fields_json')) {
+            $fields = json_decode($r->input('fields_json'), true);
+            if (!is_array($fields)) {
+                return back()->withErrors(['fields_json' => 'Format JSON tidak valid.'])->withInput();
+            }
+        } else {
+            $data = $r->validate([
+                'fields'                        => ['required','array','min:1'],
+                'fields.*.key'                  => ['required','string','max:60'],
+                'fields.*.label'                => ['required','string','max:120'],
+                'fields.*.type'                 => ['required','string','in:text,textarea,number,date,time,datetime,select,radio,checkbox,file,toggle'],
+                'fields.*.required'             => ['nullable','boolean'],
+                'fields.*.placeholder'          => ['nullable','string','max:190'],
+                'fields.*.help'                 => ['nullable','string','max:190'],
+                'fields.*.default'              => ['nullable'],
+                'fields.*.attrs'                => ['nullable','array'],
+                'fields.*.options'              => ['nullable','array'],
+                'fields.*.options.*.value'      => ['required_with:fields.*.options','string','max:120'],
+                'fields.*.options.*.label'      => ['required_with:fields.*.options','string','max:120'],
+            ]);
+            $fields = $data['fields'];
+        }
 
         $norm = [];
-        foreach ($data['fields'] as $f) {
-            $k = $f['key'];
+        foreach ($fields as $f) {
+            if (!is_array($f)) continue;
+            $k = $f['key'] ?? '';
             if (Str::startsWith($k, 'meta.')) $k = substr($k, 5);
             $f['key'] = Str::of($k)->lower()->snake()->toString();
             $norm[] = $f;
@@ -474,7 +498,8 @@ class HrDailyEntryController extends Controller
         $all[$type] = ['fields' => array_values($norm)];
         $this->saveMetaFormConfig($all);
 
-        return response()->json(['ok' => true, 'data' => $all[$type]]);
+        return redirect()->route('admin.hr-entries.meta-form.manage', $type)
+            ->with('success', 'Meta Form Config disimpan.');
     }
 
     public function metaFormConfigDestroy(string $type)
@@ -484,26 +509,42 @@ class HrDailyEntryController extends Controller
         $type = Str::of($type)->lower()->snake()->toString();
         $all  = $this->getMetaFormConfig();
         if (!isset($all[$type])) {
-            return response()->json(['message' => 'Meta form config tidak ditemukan.'], 404);
+            return redirect()->route('admin.hr-entries.meta-form.index')
+                ->with('error', 'Meta form config tidak ditemukan.');
         }
         unset($all[$type]);
         $this->saveMetaFormConfig($all);
-        return response()->json(['ok' => true]);
+
+        return redirect()->route('admin.hr-entries.meta-form.index')
+            ->with('success', 'Meta Form Config dihapus.');
     }
 
     /* =========================================================
-     |  META SCHEMAS (HTTP endpoints) – aturan validasi meta.*
+     |  META SCHEMAS (Blade) — konsisten pakai .manage
      |=========================================================*/
     public function metaSchemasIndex()
     {
-        return response()->json(['data' => $this->getMetaSchemas()]);
+        Gate::authorize('manage', HrDailyEntry::class);
+
+        $types = $this->getTypes();
+        $map   = $this->getMetaSchemas();
+        return view('admin.hr_entries.meta_schemas.index', compact('types','map'));
     }
 
-    public function metaSchemasShow(string $type)
+    public function metaSchemasManage(?string $type = null)
     {
-        $type = Str::of($type)->lower()->snake()->toString();
-        $all  = $this->getMetaSchemas();
-        return response()->json(['data' => $all[$type] ?? []]);
+        Gate::authorize('manage', HrDailyEntry::class);
+
+        $type = $type ? Str::of($type)->lower()->snake()->toString() : null;
+        if (!$type) {
+            $types = $this->getTypes();
+            $type  = array_key_first($types);
+        }
+
+        $rules = $this->getMetaSchemas()[$type] ?? [];
+        $json  = json_encode($rules, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);
+
+        return view('admin.hr_entries.meta_schemas.manage', compact('type','rules','json'));
     }
 
     public function metaSchemasUpsert(Request $r, string $type)
@@ -512,22 +553,33 @@ class HrDailyEntryController extends Controller
 
         $type = Str::of($type)->lower()->snake()->toString();
 
-        $raw = $r->input('rules', []);
-        if (!is_array($raw) || empty($raw)) {
-            return response()->json(['message' => 'rules wajib berupa object map.'], 422);
-        }
-
         $normalized = [];
-        foreach ($raw as $k => $rule) {
-            $kk = Str::startsWith($k, 'meta.') ? $k : 'meta.'.Str::of($k)->lower()->snake()->toString();
-            $normalized[$kk] = is_string($rule) ? array_values(array_filter(explode('|', $rule))) : (array) $rule;
+        if ($r->filled('rules_json')) {
+            $raw = json_decode($r->input('rules_json'), true);
+            if (!is_array($raw)) {
+                return back()->withErrors(['rules_json' => 'Format JSON tidak valid.'])->withInput();
+            }
+            foreach ($raw as $k => $rule) {
+                $kk = Str::startsWith($k, 'meta.') ? $k : 'meta.'.Str::of($k)->lower()->snake()->toString();
+                $normalized[$kk] = is_string($rule) ? array_values(array_filter(explode('|', $rule))) : (array) $rule;
+            }
+        } else {
+            $raw = $r->input('rules', []);
+            if (!is_array($raw) || empty($raw)) {
+                return back()->withErrors(['rules_json' => 'Isi aturan pada JSON textarea.'])->withInput();
+            }
+            foreach ($raw as $k => $rule) {
+                $kk = Str::startsWith($k, 'meta.') ? $k : 'meta.'.Str::of($k)->lower()->snake()->toString();
+                $normalized[$kk] = is_string($rule) ? array_values(array_filter(explode('|', $rule))) : (array) $rule;
+            }
         }
 
         $all = $this->getMetaSchemas();
         $all[$type] = $normalized;
         $this->saveMetaSchemas($all);
 
-        return response()->json(['ok' => true, 'data' => $normalized]);
+        return redirect()->route('admin.hr-entries.meta-schema.manage', $type)
+            ->with('success', 'Meta Schema disimpan.');
     }
 
     public function metaSchemasDestroy(string $type)
@@ -537,15 +589,18 @@ class HrDailyEntryController extends Controller
         $type = Str::of($type)->lower()->snake()->toString();
         $all  = $this->getMetaSchemas();
         if (!isset($all[$type])) {
-            return response()->json(['message' => 'Meta schema tidak ditemukan.'], 404);
+            return redirect()->route('admin.hr-entries.meta-schema.index')
+                ->with('error', 'Meta schema tidak ditemukan.');
         }
         unset($all[$type]);
         $this->saveMetaSchemas($all);
-        return response()->json(['ok' => true]);
+
+        return redirect()->route('admin.hr-entries.meta-schema.index')
+            ->with('success', 'Meta Schema dihapus.');
     }
 
     /* =========================================================
-     |  APPROVAL FLOW (pakai config dinamis jg)
+     |  APPROVAL FLOW (pakai config dinamis jg) — Blade
      |=========================================================*/
     private function getApprovalSchemas(): array
     {
@@ -560,14 +615,22 @@ class HrDailyEntryController extends Controller
 
     public function approvalSchemasIndex()
     {
-        return response()->json(['data' => $this->getApprovalSchemas()]);
+        Gate::authorize('manage', HrDailyEntry::class);
+
+        $types = $this->getTypes();
+        $map   = $this->getApprovalSchemas();
+        return view('admin.hr_entries.approval_schemas.index', compact('types','map'));
     }
 
     public function approvalSchemasShow(string $type)
     {
-        $type = Str::of($type)->lower()->snake()->toString();
-        $all  = $this->getApprovalSchemas();
-        return response()->json(['data' => $all[$type] ?? ['stages' => []]]);
+        Gate::authorize('manage', HrDailyEntry::class);
+
+        $type   = Str::of($type)->lower()->snake()->toString();
+        $config = $this->getApprovalSchemas()[$type] ?? ['stages' => []];
+        $json   = json_encode($config, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
+
+        return view('admin.hr_entries.approval_schemas.manage', compact('type','config','json'));
     }
 
     public function approvalSchemasUpsert(Request $r, string $type)
@@ -577,23 +640,32 @@ class HrDailyEntryController extends Controller
         $type = Str::of($type)->lower()->snake()->toString();
         $allowed = $this->allowedTypesFromDb();
         if (!in_array($type, $allowed, true)) {
-            return response()->json(['message' => 'Type tidak didukung enum DB.'], 422);
+            return back()->withErrors(['type' => 'Type tidak didukung enum DB.']);
         }
 
-        $data = $r->validate([
-            'stages' => ['required', 'array', 'min:1'],
-            'stages.*.key'              => ['required', 'string', 'max:40'],
-            'stages.*.label'            => ['required', 'string', 'max:80'],
-            'stages.*.roles'            => ['required', 'array', 'min:1'],
-            'stages.*.roles.*'          => ['string', 'max:40'],
-            'stages.*.all_must_approve' => ['nullable', 'boolean'],
-        ]);
+        if ($r->filled('stages_json')) {
+            $parsed = json_decode($r->input('stages_json'), true);
+            if (!is_array($parsed) || !isset($parsed['stages'])) {
+                return back()->withErrors(['stages_json'=>'JSON harus berisi key "stages".'])->withInput();
+            }
+            $data = ['stages' => array_values($parsed['stages'])];
+        } else {
+            $data = $r->validate([
+                'stages' => ['required', 'array', 'min:1'],
+                'stages.*.key'              => ['required', 'string', 'max:40'],
+                'stages.*.label'            => ['required', 'string', 'max:80'],
+                'stages.*.roles'            => ['required', 'array', 'min:1'],
+                'stages.*.roles.*'          => ['string', 'max:40'],
+                'stages.*.all_must_approve' => ['nullable', 'boolean'],
+            ]);
+        }
 
         $all = $this->getApprovalSchemas();
         $all[$type] = $data;
         $this->saveApprovalSchemas($all);
 
-        return response()->json(['ok' => true, 'data' => $data]);
+        return redirect()->route('admin.hr-entries.approval.schemas.show', $type)
+            ->with('success', 'Approval schema disimpan.');
     }
 
     public function approvalSchemasDestroy(string $type)
@@ -603,11 +675,14 @@ class HrDailyEntryController extends Controller
         $type = Str::of($type)->lower()->snake()->toString();
         $all  = $this->getApprovalSchemas();
         if (!isset($all[$type])) {
-            return response()->json(['message' => 'Approval schema tidak ditemukan.'], 404);
+            return redirect()->route('admin.hr-entries.approval.schemas.index')
+                ->with('error', 'Approval schema tidak ditemukan.');
         }
         unset($all[$type]);
         $this->saveApprovalSchemas($all);
-        return response()->json(['ok' => true]);
+
+        return redirect()->route('admin.hr-entries.approval.schemas.index')
+            ->with('success', 'Approval schema dihapus.');
     }
 
     public function approvalSubmit(Request $r, HrDailyEntry $entry)
@@ -685,7 +760,7 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  PRINT TEMPLATES (dinamis key)
+     |  PRINT TEMPLATES (dinamis key) — Blade
      |=========================================================*/
     private function getPrintTemplates(): array
     {
@@ -700,14 +775,23 @@ class HrDailyEntryController extends Controller
 
     public function printTemplatesIndex()
     {
-        return response()->json(['data' => $this->getPrintTemplates()]);
+        Gate::authorize('manage', HrDailyEntry::class);
+
+        $types = $this->getTypes();
+        $map   = $this->getPrintTemplates();
+        return view('admin.hr_entries.print_templates.index', compact('types','map'));
     }
 
     public function printTemplatesShow(string $type)
     {
+        Gate::authorize('manage', HrDailyEntry::class);
+
         $type = Str::of($type)->lower()->snake()->toString();
         $all  = $this->getPrintTemplates();
-        return response()->json(['data' => $all[$type] ?? ['view' => '', 'paper' => '', 'orientation' => '', 'columns' => [], 'header' => '', 'footer' => '']]);
+        $tpl  = $all[$type] ?? ['view' => '', 'paper' => 'A4', 'orientation' => 'portrait', 'columns' => [], 'header' => '', 'footer' => ''];
+        $json = json_encode($tpl, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);
+
+        return view('admin.hr_entries.print_templates.manage', compact('type','tpl','json'));
     }
 
     public function printTemplatesUpsert(Request $r, string $type)
@@ -716,31 +800,38 @@ class HrDailyEntryController extends Controller
 
         $type = Str::of($type)->lower()->snake()->toString();
 
-        $data = $r->validate([
-            'view'        => ['nullable', 'string', 'max:190'],
-            'paper'       => ['nullable', 'string', 'max:30'],
-            'orientation' => ['nullable', 'string', 'in:portrait,landscape'],
-            'header'      => ['nullable', 'string', 'max:190'],
-            'footer'      => ['nullable', 'string', 'max:190'],
-            'columns'     => ['nullable', 'array'],
-            'columns.*.key'   => ['required_with:columns', 'string', 'max:190'],
-            'columns.*.label' => ['required_with:columns', 'string', 'max:190'],
-        ]);
+        if ($r->filled('template_json')) {
+            $def = json_decode($r->input('template_json'), true);
+            if (!is_array($def)) {
+                return back()->withErrors(['template_json' => 'Format JSON tidak valid.'])->withInput();
+            }
+        } else {
+            $def = $r->validate([
+                'view'        => ['nullable', 'string', 'max:190'],
+                'paper'       => ['nullable', 'string', 'max:30'],
+                'orientation' => ['nullable', 'string', 'in:portrait,landscape'],
+                'header'      => ['nullable', 'string', 'max:190'],
+                'footer'      => ['nullable', 'string', 'max:190'],
+                'columns'     => ['nullable', 'array'],
+                'columns.*.key'   => ['required_with:columns', 'string', 'max:190'],
+                'columns.*.label' => ['required_with:columns', 'string', 'max:190'],
+            ]);
+        }
 
         $all = $this->getPrintTemplates();
-        $def = $all[$type] ?? [];
+        $cur = $all[$type] ?? [];
+        $cur['view']        = $def['view']        ?? ($cur['view']        ?? '');
+        $cur['paper']       = $def['paper']       ?? ($cur['paper']       ?? 'A4');
+        $cur['orientation'] = $def['orientation'] ?? ($cur['orientation'] ?? 'portrait');
+        $cur['header']      = $def['header']      ?? ($cur['header']      ?? '');
+        $cur['footer']      = $def['footer']      ?? ($cur['footer']      ?? '');
+        if (isset($def['columns'])) $cur['columns'] = array_values($def['columns']);
 
-        $def['view']        = $data['view']        ?? ($def['view']        ?? '');
-        $def['paper']       = $data['paper']       ?? ($def['paper']       ?? '');
-        $def['orientation'] = $data['orientation'] ?? ($def['orientation'] ?? '');
-        $def['header']      = $data['header']      ?? ($def['header']      ?? '');
-        $def['footer']      = $data['footer']      ?? ($def['footer']      ?? '');
-        if (isset($data['columns'])) $def['columns'] = array_values($data['columns']);
-
-        $all[$type] = $def;
+        $all[$type] = $cur;
         $this->savePrintTemplates($all);
 
-        return response()->json(['ok' => true, 'data' => $def]);
+        return redirect()->route('admin.hr-entries.print-templates.show', $type)
+            ->with('success', 'Print template disimpan.');
     }
 
     public function printTemplatesDestroy(string $type)
@@ -750,11 +841,14 @@ class HrDailyEntryController extends Controller
         $type = Str::of($type)->lower()->snake()->toString();
         $all  = $this->getPrintTemplates();
         if (!isset($all[$type])) {
-            return response()->json(['message' => 'Print template tidak ditemukan.'], 404);
+            return redirect()->route('admin.hr-entries.print-templates.index')
+                ->with('error', 'Print template tidak ditemukan.');
         }
         unset($all[$type]);
         $this->savePrintTemplates($all);
-        return response()->json(['ok' => true]);
+
+        return redirect()->route('admin.hr-entries.print-templates.index')
+            ->with('success', 'Print template dihapus.');
     }
 
     public function print(Request $r)
@@ -937,7 +1031,7 @@ class HrDailyEntryController extends Controller
                     'site_id' => $payload['site_id'],
                     'user_id' => $payload['user_id'],
                     'date'    => $payload['date'],
-                    'type'    => $payload['type'],
+                    'type'    => $payload['type'], // FIX: jangan 'type    '
                     'code'    => $payload['code'],
                 ],
                 Arr::except($payload, ['site_id','user_id','date','type','code'])

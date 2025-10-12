@@ -1,26 +1,48 @@
-{{-- resources/views/admin/hr_entries/meta_form/index.blade.php --}}
 @extends('layouts.app')
-@section('title','Meta Form Configs')
+
+@section('title', 'HR Meta Form Config')
 
 @section('content')
-<div class="max-w-5xl mx-auto space-y-4">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold text-slate-800">Meta Form Configs</h1>
-    <a href="{{ route('admin.hr-entries.index') }}" class="px-3 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200">← Back</a>
+<div class="max-w-5xl mx-auto p-6">
+  <h1 class="text-xl font-semibold mb-4">HR Meta Form Config</h1>
+
+  <div class="bg-white rounded-lg border p-4">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left border-b">
+          <th class="py-2">Type</th>
+          <th class="py-2">Fields</th>
+          <th class="py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($types as $key => $label)
+          @php
+            $fields = $map[$key]['fields'] ?? [];
+            $count  = is_array($fields) ? count($fields) : 0;
+          @endphp
+          <tr class="border-b">
+            <td class="py-2 align-top">
+              <div class="font-medium">{{ $label }}</div>
+              <div class="text-xs text-slate-500">{{ $key }}</div>
+            </td>
+            <td class="py-2 align-top">
+              <span class="text-xs px-2 py-1 rounded bg-slate-100">{{ $count }} field</span>
+            </td>
+            <td class="py-2 align-top text-right">
+              <a href="{{ route('admin.hr-entries.meta-form.manage', $key) }}"
+                 class="inline-flex items-center px-3 py-1.5 text-xs rounded bg-teal-600 text-white hover:bg-teal-700">
+                Manage
+              </a>
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
   </div>
 
-  <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-    <ul class="grid grid-cols-1 md:grid-cols-2 gap-3">
-      @foreach($types as $k=>$label)
-        <li class="p-3 rounded-lg border border-slate-200">
-          <div class="text-sm font-semibold text-slate-800">{{ $label }}</div>
-          <div class="text-xs text-slate-500">Key: {{ $k }}</div>
-          <div class="mt-2">
-            <a href="{{ route('admin.hr-entries.meta-form.show', $k) }}" class="px-3 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">Configure</a>
-          </div>
-        </li>
-      @endforeach
-    </ul>
+  <div class="mt-4">
+    <a href="{{ route('admin.hr-entries.index') }}" class="text-sm text-slate-600 hover:text-teal-700">← Kembali ke HR Entries</a>
   </div>
 </div>
 @endsection
