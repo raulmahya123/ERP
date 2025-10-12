@@ -4,24 +4,60 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Shift;
+use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ShiftController extends Controller
 {
+    /** Resolusi site aktif: request → session → user → first site */
+    private function resolveActiveSiteId(Request $r): ?string
+    {
+        if ($r->filled('site_id')) {
+            $sid = (string) $r->input('site_id');
+            session(['site_id' => $sid]);
+            return $sid;
+        }
+        if (session()->has('site_id')) {
+            return (string) session('site_id');
+        }
+        $userSid = optional($r->user())->site_id;
+        if ($userSid) {
+            session(['site_id' => (string) $userSid]);
+            return (string) $userSid;
+        }
+        $first = Site::orderBy('name')->value('id');
+        if ($first) {
+            session(['site_id' => (string) $first]);
+            return (string) $first;
+        }
+        return null;
+    }
+
     public function index(Request $r)
     {
+        $perPage      = max(1, min(200, (int) $r->input('per_page', 50)));
+        $activeSiteId = $this->resolveActiveSiteId($r);
+
         $q = Shift::query()
-            ->when($r->site_id ?? session('site_id'), fn($q,$sid)=>$q->where('site_id',$sid))
+            ->when($activeSiteId, fn($qb, $sid) => $qb->where('site_id', $sid))
+            ->when($r->filled('q'), function ($qb) use ($r) {
+                $term = strtolower((string) $r->input('q'));
+                $qb->where(function ($w) use ($term) {
+                    $w->whereRaw('LOWER(code) like ?', ["%{$term}%"])
+                      ->orWhereRaw('LOWER(name) like ?', ["%{$term}%"]);
+                });
+            })
             ->orderBy('code');
 
-        // UI: table + filter; API: json list
+        // UI → view, API → JSON (paginated)
         if (! $r->wantsJson()) {
-            $shifts = $q->paginate(50)->appends($r->query());
-            return view('admin.shifts.index', compact('shifts'));
+            $shifts = $q->paginate($perPage)->withQueryString();
+            $sites  = Site::orderBy('name')->get(['id','code','name']);
+            return view('admin.shifts.index', compact('shifts','sites','activeSiteId'));
         }
 
-        return response()->json($q->get());
+        return response()->json($q->paginate($perPage));
     }
 
     public function create()
@@ -31,8 +67,14 @@ class ShiftController extends Controller
 
     public function store(Request $r)
     {
+        // Pakai site aktif kalau site_id tidak dikirim
+        $siteId = $r->input('site_id') ?: $this->resolveActiveSiteId($r);
+        if ($siteId && !$r->filled('site_id')) {
+            $r->merge(['site_id' => $siteId]);
+        }
+
         $data = $r->validate([
-            'site_id'       => ['nullable','uuid'],
+            'site_id'       => ['required','uuid'],
             'code'          => ['required','string','max:20'],
             'name'          => ['required','string','max:50'],
             'start_at'      => ['required','date_format:H:i'],
@@ -45,7 +87,7 @@ class ShiftController extends Controller
         $data['id'] = (string) Str::uuid();
 
         Shift::updateOrCreate(
-            ['site_id' => $data['site_id'] ?? session('site_id'), 'code' => $data['code']],
+            ['site_id' => $data['site_id'], 'code' => $data['code']],
             collect($data)->except(['id','site_id','code'])->toArray()
         );
 

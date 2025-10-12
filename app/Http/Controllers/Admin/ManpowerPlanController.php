@@ -4,42 +4,123 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ManpowerPlan;
+use App\Models\Site;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ManpowerPlanController extends Controller
 {
+    /** Slot shift baku */
+    private array $slots = ['A','B','C','D','NON'];
+
+    /* ===========================
+     * Helpers: Active Site / Resolve Site
+     * =========================== */
+    private function resolveActiveSiteId(Request $r): ?string
+    {
+        if ($r->filled('site_id')) {
+            $sid = (string) $r->input('site_id');
+            session(['site_id' => $sid]);
+            return $sid;
+        }
+        if (session()->has('site_id')) {
+            return (string) session('site_id');
+        }
+        $userSid = optional($r->user())->site_id;
+        if ($userSid) {
+            session(['site_id' => (string) $userSid]);
+            return (string) $userSid;
+        }
+        $first = Site::orderBy('name')->value('id');
+        if ($first) {
+            session(['site_id' => (string) $first]);
+            return (string) $first;
+        }
+        return null;
+    }
+
+    /** Coba resolve site dari site_id / site_code / site_name; fallback ke active site */
+    private function resolveSiteIdFromRequest(Request $r): ?string
+    {
+        if ($r->filled('site_id')) return (string) $r->input('site_id');
+
+        if ($r->filled('site_code')) {
+            $id = Site::where('code', $r->input('site_code'))->value('id');
+            if ($id) return (string) $id;
+        }
+
+        if ($r->filled('site_name')) {
+            $term = Str::lower($r->input('site_name'));
+            $id = Site::whereRaw('LOWER(name) like ?', ["%{$term}%"])
+                ->orderBy('name')->value('id');
+            if ($id) return (string) $id;
+        }
+
+        return $this->resolveActiveSiteId($r);
+    }
+
+    /** ===========================
+     * Index
+     * =========================== */
     public function index(Request $r)
     {
+        $perPage       = max(1, min(200, (int) $r->input('per_page', 25)));
+        $activeSiteId  = $this->resolveActiveSiteId($r);
+
         $q = ManpowerPlan::query()
-            ->when($r->site_id ?? session('site_id'), fn($qq,$sid)=>$qq->where('site_id',$sid))
+            ->when($activeSiteId, fn($qq,$sid)=>$qq->where('site_id',$sid))
             ->when($r->date, fn($qq,$d)=>$qq->whereDate('date',$d))
             ->when($r->shift_slot, fn($qq,$s)=>$qq->where('shift_slot',$s))
-            ->when($r->department, fn($qq,$d)=>$qq->where('department',$d))
-            ->orderByDesc('date');
+            ->when($r->filled('department'), function (Builder $qq) use ($r) {
+                $term = Str::lower($r->input('department'));
+                $qq->whereRaw('LOWER(department) like ?', ["%{$term}%"]);
+            })
+            // fulltext ringan
+            ->when($r->filled('q'), function (Builder $qq) use ($r) {
+                $term = Str::lower($r->q);
+                $qq->where(function (Builder $w) use ($term) {
+                    $w->whereRaw('LOWER(department) like ?', ["%{$term}%"])
+                      ->orWhereRaw('LOWER(note) like ?', ["%{$term}%"]);
+                });
+            })
+            ->orderByDesc('date')->orderBy('department');
 
-        $plans = $q->paginate($r->integer('per_page', 25))->appends($r->query());
+        $plans = $q->paginate($perPage)->withQueryString();
 
         if (! $r->wantsJson()) {
-            $shiftSlots = ['A','B','C','D','NON'];
-            return view('admin.manpower_plans.index', compact('plans','shiftSlots'));
+            $shiftSlots = $this->slots;
+            $sites      = Site::orderBy('name')->get(['id','code','name']);
+            return view('admin.manpower_plans.index', compact('plans','shiftSlots','sites','activeSiteId'));
         }
 
         return response()->json($plans);
     }
 
+    /** ===========================
+     * Create
+     * =========================== */
     public function create()
     {
-        $shiftSlots = ['A','B','C','D','NON'];
+        $shiftSlots = $this->slots;
         return view('admin.manpower_plans.create', compact('shiftSlots'));
     }
 
+    /** ===========================
+     * Store
+     * =========================== */
     public function store(Request $r)
     {
+        // Auto-resolve site kalau tidak kirim UUID
+        $resolvedSiteId = $this->resolveSiteIdFromRequest($r);
+        if ($resolvedSiteId && !$r->filled('site_id')) {
+            $r->merge(['site_id' => $resolvedSiteId]);
+        }
+
         $data = $r->validate([
             'site_id'            => ['required','uuid'],
             'date'               => ['required','date'],
-            'shift_slot'         => ['required','in:A,B,C,D,NON'],
+            'shift_slot'         => ['required','in:'.implode(',', $this->slots)],
             'department'         => ['required','string','max:50'],
             'planned_headcount'  => ['required','integer','min:0'],
             'planned_operators'  => ['nullable','integer','min:0'],
@@ -59,7 +140,7 @@ class ManpowerPlanController extends Controller
                 'shift_slot' => $data['shift_slot'],
                 'department' => $data['department'],
             ],
-            collect($data)->except(['site_id','date','shift_slot','department'])->toArray()
+            collect($data)->except(['id','site_id','date','shift_slot','department'])->toArray()
         );
 
         if (! $r->wantsJson()) {
@@ -69,12 +150,18 @@ class ManpowerPlanController extends Controller
         return response()->json(['ok'=>true]);
     }
 
+    /** ===========================
+     * Edit
+     * =========================== */
     public function edit(ManpowerPlan $manpowerPlan)
     {
-        $shiftSlots = ['A','B','C','D','NON'];
+        $shiftSlots = $this->slots;
         return view('admin.manpower_plans.edit', ['plan'=>$manpowerPlan,'shiftSlots'=>$shiftSlots]);
     }
 
+    /** ===========================
+     * Update
+     * =========================== */
     public function update(Request $r, ManpowerPlan $manpowerPlan)
     {
         $data = $r->validate([
@@ -96,6 +183,9 @@ class ManpowerPlanController extends Controller
         return response()->json($manpowerPlan->refresh());
     }
 
+    /** ===========================
+     * Destroy
+     * =========================== */
     public function destroy(Request $r, ManpowerPlan $manpowerPlan)
     {
         $manpowerPlan->delete();

@@ -12,13 +12,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 
+// Prefer Eloquent for master records if available
+$masterModelFqcn = '\App\Models\MasterRecord';
+
 /* ===== Icons ===== */
 $icoChart = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3v18M6 8v13M16 13v8M21 6v15" />
 </svg>';
 $icoUsers = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-        d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1
+        d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 0 1 4-4h1
            m8-6a4 4 0 11-8 0 4 4 0 018 0" />
 </svg>';
 $icoMoney = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -62,13 +65,28 @@ $icons = [
 
 $masterTotals = [];
 try {
-    $q = DB::table('master_records')
-          ->select('entity', DB::raw('COUNT(*) as total'))
-          ->groupBy('entity');
-    if ($currentSiteId && Schema::hasColumn('master_records', 'site_id')) {
-        $q->where('site_id', $currentSiteId);
+    if (class_exists($masterModelFqcn)) {
+        /** @var \Illuminate\Database\Eloquent\Model $m */
+        $m = new $masterModelFqcn();
+        $table = $m->getTable();
+
+        $rows = $m->newQuery()
+            ->select('entity')
+            ->selectRaw('COUNT(*) as total')
+            ->when($currentSiteId && Schema::hasColumn($table, 'site_id'),
+                fn($q) => $q->where('site_id', $currentSiteId))
+            ->groupBy('entity')
+            ->get();
+    } else {
+        // Fallback (DB builder)
+        $rows = DB::table('master_records')
+            ->select('entity', DB::raw('COUNT(*) as total'))
+            ->when($currentSiteId && Schema::hasColumn('master_records', 'site_id'),
+                fn($q) => $q->where('site_id', $currentSiteId))
+            ->groupBy('entity')
+            ->get();
     }
-    $rows = $q->get();
+
     $counts = [];
     foreach ($rows as $r) { $counts[$r->entity] = (int) $r->total; }
     foreach ($allowedEntities as $e) { $masterTotals[$e] = $counts[$e] ?? 0; }
@@ -80,31 +98,35 @@ $totalSum = max(1, array_sum($masterTotals));
 
 <style>[x-cloak]{display:none}</style>
 
-{{-- ================= HERO (serumpun hijau-emas-biru) ================= --}}
-<div class="relative overflow-hidden rounded-3xl shadow-xl ring-1 ring-emerald-900/10 mb-6">
-  <div class="absolute inset-0 bg-[radial-gradient(120%_100%_at_0%_0%,rgba(255,255,255,.35)_0%,transparent_50%)]"></div>
-  <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+{{-- ================= HERO (emerald→teal→sky with icon tile) ================= --}}
+<div class="relative overflow-hidden rounded-3xl shadow ring-1 ring-black/5 mb-6 text-white bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
+  <div class="absolute inset-0 opacity-25 bg-[radial-gradient(120%_100%_at_0%_0%,rgba(255,255,255,.35)_0%,transparent_50%)]"></div>
   <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/20 blur-2xl"></div>
 
-  <div class="relative px-6 sm:px-10 py-6 sm:py-7 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    <div class="space-y-1">
-      <h1 class="text-2xl sm:text-[28px] font-extrabold tracking-tight drop-shadow-sm flex items-center gap-2">
-        <span class="inline-flex items-center rounded-full bg-white/20 text-white px-3 py-1 text-xs font-semibold ring-1 ring-white/30">GM</span>
-        <span>Executive Overview</span>
-      </h1>
-      <p class="text-white/90 text-sm">Ringkasan eksekutif lintas site: produksi, revenue, kas, dan master data.</p>
+  <div class="relative px-6 sm:px-10 py-6 sm:py-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <span class="inline-grid place-content-center h-11 w-11 rounded-xl bg-white/15 ring-1 ring-white/20 shadow-sm">
+        {!! $icoChart !!}
+      </span>
+      <div class="space-y-1">
+        <h1 class="text-2xl sm:text-[28px] font-extrabold tracking-tight drop-shadow-sm flex items-center gap-2">
+          <span class="inline-flex items-center rounded-full bg-white/20 text-white px-3 py-1 text-xs font-semibold ring-1 ring-white/30">GM</span>
+          <span>Executive Overview</span>
+        </h1>
+        <p class="text-white/90 text-sm">Ringkasan eksekutif lintas site: produksi, revenue, kas, dan master data.</p>
+      </div>
     </div>
 
     <div class="flex items-center gap-2">
       @if (Route::has('admin.users.index'))
       <a href="{{ route('admin.users.index') }}"
-         class="px-4 py-2 rounded-xl bg-white/10 text-white ring-1 ring-white/30 hover:bg-white/15 backdrop-blur-sm text-sm font-semibold transition shadow-sm">
+         class="px-4 py-2.5 rounded-xl bg-white/10 text-white ring-1 ring-white/30 hover:bg-white/15 backdrop-blur-sm text-sm font-semibold transition shadow-sm">
         Kelola Users
       </a>
       @endif
       @if (Route::has('admin.divisions.index'))
       <a href="{{ route('admin.divisions.index') }}"
-         class="px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 text-sm shadow-md ring-1 ring-amber-300/40 transition">
+         class="px-4 py-2.5 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 text-sm shadow-md ring-1 ring-amber-300/40 transition">
         Kelola Divisions
       </a>
       @endif
@@ -112,22 +134,29 @@ $totalSum = max(1, array_sum($masterTotals));
   </div>
 </div>
 
+{{-- ================= FLASH ================= --}}
+@if(session('success'))
+  <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3 mb-4">
+    {{ session('success') }}
+  </div>
+@endif
+
 {{-- ================= KPI CARDS (5 kolom) ================= --}}
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
 
   {{-- Production --}}
   <a href="#"
-     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-600 to-teal-700 text-white">
+     class="p-4 rounded-2xl shadow hover:-translate-y-1 transition bg-gradient-to-r from-emerald-600 to-teal-700 text-white">
     <div class="flex items-start justify-between">
       <div>
-        <div class="text-xs/5 opacity-90">Production (MT)</div>
+        <div class="text-xs opacity-90">Production (MT)</div>
         <div class="flex items-center gap-2">
           <div class="text-3xl font-black tracking-tight">124,5K</div>
           <span class="inline-flex items-center gap-1 rounded-full bg-white text-emerald-700 text-[11px] font-bold px-2 py-0.5 shadow">
             ▲ 3.2%
           </span>
         </div>
-        <div class="text-xs/5 opacity-90">This month vs target <b>92%</b></div>
+        <div class="text-xs opacity-90">This month vs target <b>92%</b></div>
       </div>
       <div class="grid place-items-center w-10 h-10 rounded-full bg-white/20 ring-1 ring-white/30">{!! $icoChart !!}</div>
     </div>
@@ -138,17 +167,17 @@ $totalSum = max(1, array_sum($masterTotals));
 
   {{-- Revenue --}}
   <a href="#"
-     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-500 to-emerald-700 text-white">
+     class="p-4 rounded-2xl shadow hover:-translate-y-1 transition bg-gradient-to-r from-emerald-500 to-emerald-700 text-white">
     <div class="flex items-start justify-between">
       <div>
-        <div class="text-xs/5 opacity-90">Revenue</div>
+        <div class="text-xs opacity-90">Revenue</div>
         <div class="flex items-center gap-2">
           <div class="text-3xl font-black tracking-tight">$ 8.2M</div>
           <span class="inline-flex items-center gap-1 rounded-full bg-white text-emerald-700 text-[11px] font-bold px-2 py-0.5 shadow">
             ▲ 12.4%
           </span>
         </div>
-        <div class="text-xs/5 opacity-90">MTD performance</div>
+        <div class="text-xs opacity-90">MTD performance</div>
       </div>
       <div class="grid place-items-center w-10 h-10 rounded-full bg-white/20 ring-1 ring-white/30">{!! $icoMoney !!}</div>
     </div>
@@ -159,17 +188,17 @@ $totalSum = max(1, array_sum($masterTotals));
 
   {{-- Cash --}}
   <a href="#"
-     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-teal-600 to-sky-700 text-white">
+     class="p-4 rounded-2xl shadow hover:-translate-y-1 transition bg-gradient-to-r from-teal-600 to-sky-700 text-white">
     <div class="flex items-start justify-between">
       <div>
-        <div class="text-xs/5 opacity-90">Cash Position</div>
+        <div class="text-xs opacity-90">Cash Position</div>
         <div class="flex items-center gap-2">
           <div class="text-3xl font-black tracking-tight">$ 3.1M</div>
           <span class="inline-flex items-center gap-1 rounded-full bg-white text-amber-700 text-[11px] font-bold px-2 py-0.5 shadow">
             ▼ 1.8%
           </span>
         </div>
-        <div class="text-xs/5 opacity-90">As of today</div>
+        <div class="text-xs opacity-90">As of today</div>
       </div>
       <div class="grid place-items-center w-10 h-10 rounded-full bg-white/20 ring-1 ring-white/30">{!! $icoMoney !!}</div>
     </div>
@@ -181,14 +210,14 @@ $totalSum = max(1, array_sum($masterTotals));
   {{-- Total Users --}}
   @php $usersHref = Route::has('admin.users.index') ? route('admin.users.index') : '#'; @endphp
   <a href="{{ $usersHref }}"
-     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-sky-500 to-sky-700 text-white">
+     class="p-4 rounded-2xl shadow hover:-translate-y-1 transition bg-gradient-to-r from-sky-500 to-sky-700 text-white">
     <div class="flex items-start justify-between">
       <div>
-        <div class="text-xs/5 opacity-90">Total Users</div>
+        <div class="text-xs opacity-90">Total Users</div>
         <div class="flex items-center gap-2">
           <div class="text-3xl font-black tracking-tight">{{ $totalUsers }}</div>
         </div>
-        <div class="text-xs/5 opacity-90">
+        <div class="text-xs opacity-90">
           {{ Route::has('admin.users.index') ? 'Go to Users' : 'Registered accounts' }}
         </div>
       </div>
@@ -202,14 +231,14 @@ $totalSum = max(1, array_sum($masterTotals));
   {{-- Total Divisions --}}
   @php $divHref = Route::has('admin.divisions.index') ? route('admin.divisions.index') : '#'; @endphp
   <a href="{{ $divHref }}"
-     class="p-4 rounded-2xl shadow-xl hover:-translate-y-1 transition bg-gradient-to-r from-emerald-600 to-teal-700 text-white">
+     class="p-4 rounded-2xl shadow hover:-translate-y-1 transition bg-gradient-to-r from-emerald-600 to-teal-700 text-white">
     <div class="flex items-start justify-between">
       <div>
-        <div class="text-xs/5 opacity-90">Total Divisions</div>
+        <div class="text-xs opacity-90">Total Divisions</div>
         <div class="flex items-center gap-2">
           <div class="text-3xl font-black tracking-tight">{{ $totalDivisions }}</div>
         </div>
-        <div class="text-xs/5 opacity-90">
+        <div class="text-xs opacity-90">
           {{ Route::has('admin.divisions.index') ? 'Go to Divisions' : 'Active divisions' }}
         </div>
       </div>
@@ -223,10 +252,10 @@ $totalSum = max(1, array_sum($masterTotals));
 </div>
 
 {{-- ================= QUICK ACTION ================= --}}
-<div class="mt-4 p-4 rounded-2xl shadow-xl bg-gradient-to-r from-[#0b1b3f] via-[#0e7a6b] to-[#f4d35e] text-white ring-1 ring-white/10">
+<div class="mt-4 p-4 rounded-2xl shadow bg-gradient-to-r from-[#0b1b3f] via-[#0e7a6b] to-[#f4d35e] text-white ring-1 ring-white/10">
   <div class="flex items-start justify-between">
     <div>
-      <div class="text-xs/5 text-white/90">Quick Action</div>
+      <div class="text-xs text-white/90">Quick Action</div>
       <div class="text-xl font-extrabold">Create New</div>
       <div class="text-xs text-white/85 mt-1">Add user, role, division, or daily report</div>
     </div>
@@ -322,8 +351,7 @@ $totalSum = max(1, array_sum($masterTotals));
               <div class="text-xs text-slate-500">items</div>
             </div>
             <div class="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
-              <i class="block h-full" style="width: {{ $pct }}%;"
-                 class="bg-gradient-to-r from-amber-300 to-yellow-400"></i>
+              <i class="block h-full bg-gradient-to-r from-amber-300 to-yellow-400" style="width: {{ $pct }}%;"></i>
             </div>
             <div class="mt-2 text-xs text-slate-500">{{ $pct }}% dari total master</div>
           </div>

@@ -1,86 +1,93 @@
 {{-- resources/views/admin/hr_entries/_filters.blade.php --}}
 @php
-  $statusOpts = [
-    '' => 'All Status',
-    'pending' => 'Pending',
-    'approved' => 'Approved',
-    'rejected' => 'Rejected',
-  ];
+  $activeSiteId   = $activeSiteId ?? request('site_id', session('site_id'));
+  $activeSite     = collect($sites ?? [])->firstWhere('id', $activeSiteId);
+  $activeSiteText = $activeSite
+      ? ($activeSite->code ? ($activeSite->code.' — '.$activeSite->name) : $activeSite->name)
+      : '—';
 @endphp
 
-<form method="GET" action="{{ route('admin.hr-entries.index') }}"
-      class="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/60 p-3 md:p-4 shadow-sm">
-  <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
-
-    {{-- Type --}}
-    <label class="block">
-      <span class="text-[12px] font-semibold text-slate-600">Type</span>
-      <select name="type" class="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
-        <option value="">All Types</option>
-        @foreach($types as $k => $lbl)
-          <option value="{{ $k }}" @selected(request('type')===$k)>{{ $lbl }}</option>
-        @endforeach
-      </select>
-    </label>
-
-    {{-- Status --}}
-    <label class="block">
-      <span class="text-[12px] font-semibold text-slate-600">Status</span>
-      <select name="status" class="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
-        @foreach($statusOpts as $k => $lbl)
-          <option value="{{ $k }}" @selected(request('status')===$k)>{{ $lbl }}</option>
-        @endforeach
-      </select>
-    </label>
-
-    {{-- Date From --}}
-    <label class="block">
-      <span class="text-[12px] font-semibold text-slate-600">Date From</span>
-      <input type="date" name="date_from" value="{{ request('date_from') }}"
-             class="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
-    </label>
-
-    {{-- Date To --}}
-    <label class="block">
-      <span class="text-[12px] font-semibold text-slate-600">Date To</span>
-      <input type="date" name="date_to" value="{{ request('date_to') }}"
-             class="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
-    </label>
-
-    {{-- Keyword --}}
-    <label class="block md:col-span-2">
-      <span class="text-[12px] font-semibold text-slate-600">Keyword</span>
-      <input type="text" name="q" value="{{ request('q') }}" placeholder="Cari code / reason / user…"
-             class="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-teal-500 focus:ring-teal-500">
-    </label>
+<form method="get" class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6 grid md:grid-cols-12 gap-3 items-end">
+  {{-- SITE (LOCKED) --}}
+  <div class="md:col-span-3">
+    <label class="block text-xs text-slate-600 mb-1">Site <span class="text-slate-400">(terkunci)</span></label>
+    <div class="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 text-sm text-emerald-800">
+      <svg class="h-4 w-4"><use href="#i-map-pin"/></svg>
+      <span class="truncate">{{ $activeSiteText }}</span>
+      <span class="ml-auto inline-flex items-center gap-1 text-xs text-emerald-700">
+        <svg class="h-3.5 w-3.5"><use href="#i-lock"/></svg> Terkunci
+      </span>
+    </div>
+    <input type="hidden" name="site_id" value="{{ $activeSiteId }}">
   </div>
 
-  <div class="mt-3 flex items-center justify-between">
-    <div class="text-[11px] text-slate-500">
-      @if($activeSiteId)
-        <span class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-emerald-700 ring-1 ring-emerald-200">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          Active Site:
-          <span class="font-semibold">{{ $activeSiteId }}</span>
-        </span>
-      @else
-        <span class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-          No active site
-        </span>
-      @endif
-    </div>
+  {{-- DATE --}}
+  <div class="md:col-span-3 relative">
+    <label class="block text-xs text-slate-600 mb-1">Tanggal</label>
+    <span class="absolute left-3 top-9 text-emerald-600/80">
+      <svg class="h-4 w-4"><use href="#i-calendar"/></svg>
+    </span>
+    <input type="date" name="date" value="{{ request('date') }}"
+           class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+  </div>
 
-    <div class="flex items-center gap-2">
-      <a href="{{ route('admin.hr-entries.index') }}"
-         class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200">
-        Reset
-      </a>
-      <button type="submit"
-              class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">
-        <svg class="w-4 h-4" viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M21 12H3M3 12l6-6m-6 6l6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Apply
-      </button>
-    </div>
+  {{-- TYPE --}}
+  <div class="md:col-span-2 relative">
+    <label class="block text-xs text-slate-600 mb-1">Type</label>
+    <span class="absolute left-3 top-9 text-emerald-600/80">
+      <svg class="h-4 w-4"><use href="#i-tag"/></svg>
+    </span>
+    <select name="type"
+            class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500">
+      <option value="">— Semua —</option>
+      @foreach($types as $t)
+        <option value="{{ $t }}" @selected(request('type')===$t)>{{ Str::upper($t) }}</option>
+      @endforeach
+    </select>
+  </div>
+
+  {{-- STATUS --}}
+  <div class="md:col-span-2">
+    <label class="block text-xs text-slate-600 mb-1">Status</label>
+    <select name="status"
+            class="w-full border border-emerald-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500">
+      <option value="">— Semua —</option>
+      @foreach(['pending','approved','rejected','cancelled'] as $st)
+        <option value="{{ $st }}" @selected(request('status')===$st)>{{ Str::ucfirst($st) }}</option>
+      @endforeach
+    </select>
+  </div>
+
+  {{-- USER (name / code) --}}
+  <div class="md:col-span-2 relative">
+    <label class="block text-xs text-slate-600 mb-1">User</label>
+    <span class="absolute left-3 top-9 text-emerald-600/80">
+      <svg class="h-4 w-4"><use href="#i-user"/></svg>
+    </span>
+    <input type="text" name="user" value="{{ request('user') }}"
+           class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500"
+           placeholder="nama atau employee code">
+  </div>
+
+  {{-- KEYWORD --}}
+  <div class="md:col-span-4 relative">
+    <label class="block text-xs text-slate-600 mb-1">Cari</label>
+    <span class="absolute left-3 top-9 text-emerald-600/80">
+      <svg class="h-4 w-4"><use href="#i-search"/></svg>
+    </span>
+    <input type="text" name="q" value="{{ request('q') }}"
+           class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500"
+           placeholder="alasan / keterangan / nomor dokumen">
+  </div>
+
+  {{-- ACTIONS --}}
+  <div class="md:col-span-12 flex gap-2 justify-end">
+    <button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 ring-1 ring-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-300">
+      <svg class="h-4 w-4"><use href="#i-search"/></svg> Filter
+    </button>
+    <a href="{{ route('admin.hr-entries.index') }}"
+       class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-50 bg-white">
+      <svg class="h-4 w-4"><use href="#i-rotate"/></svg> Reset
+    </a>
   </div>
 </form>
