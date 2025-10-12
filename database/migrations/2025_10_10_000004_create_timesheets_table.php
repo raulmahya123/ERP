@@ -20,9 +20,18 @@ return new class extends Migration {
             $t->string('activity_code', 50)->index(); // drilling, hauling, fueling, maintenance
             $t->string('activity_desc')->nullable();
             $t->decimal('hours', 4, 2)->default(0);          // jam kerja (00.00–99.99)
-            $t->decimal('overtime_hours', 4, 2)->default(0); // lembur
+            $t->decimal('overtime_hours', 4, 2)->default(0); // lembur (> 8 jam)
             $t->string('cost_center')->nullable();
             $t->json('meta')->nullable();
+
+            // Link ke attendance (biar tahu ini auto dari absen)
+            $t->uuid('attendance_id')->nullable()->index();
+
+            // APPROVAL LEMBUR (langsung di tabel ini, tanpa tabel tambahan)
+            $t->enum('ot_status', ['none','pending','approved','rejected'])->default('none')->index();
+            $t->string('ot_reason')->nullable();
+            $t->uuid('ot_approved_by')->nullable()->index();
+            $t->timestamp('ot_approved_at')->nullable();
 
             $t->timestamps();
 
@@ -37,6 +46,10 @@ return new class extends Migration {
             $t->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
             $t->foreign('shift_id')->references('id')->on('shifts')->nullOnDelete();
             $t->foreign('equipment_id')->references('id')->on('assets')->nullOnDelete();
+
+            // FK tambahan
+            $t->foreign('attendance_id')->references('id')->on('attendances')->nullOnDelete();
+            $t->foreign('ot_approved_by')->references('id')->on('users')->nullOnDelete();
         });
     }
 

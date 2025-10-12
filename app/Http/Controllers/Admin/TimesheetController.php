@@ -3,215 +3,116 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Timesheet;
-use App\Models\Site;
-use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Models\{Timesheet, Attendance, Asset, Shift, User, Site};
 
 class TimesheetController extends Controller
 {
-    /** Resolusi site aktif: request → session → user → first site */
-    private function resolveActiveSiteId(Request $r): ?string
-    {
-        if ($r->filled('site_id')) {
-            $sid = (string) $r->input('site_id');
-            session(['site_id' => $sid]);
-            return $sid;
-        }
-        if (session()->has('site_id')) {
-            return (string) session('site_id');
-        }
-        $userSid = optional($r->user())->site_id;
-        if ($userSid) {
-            session(['site_id' => (string) $userSid]);
-            return (string) $userSid;
-        }
-        $first = Site::orderBy('name')->value('id');
-        if ($first) {
-            session(['site_id' => (string) $first]);
-            return (string) $first;
-        }
-        return null;
-    }
-
-    /** Coba resolve site_id dari site_id / site_code / site_name; fallback active site */
-    private function resolveSiteIdFromRequest(Request $r): ?string
-    {
-        if ($r->filled('site_id')) return (string) $r->input('site_id');
-
-        if ($r->filled('site_code')) {
-            $id = Site::where('code', $r->input('site_code'))->value('id');
-            if ($id) return (string) $id;
-        }
-
-        if ($r->filled('site_name')) {
-            $term = Str::lower($r->input('site_name'));
-            $id = Site::whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                ->orderBy('name')->value('id');
-            if ($id) return (string) $id;
-        }
-
-        return $this->resolveActiveSiteId($r);
-    }
-
-    /** Coba resolve user_id dari user_id / employee_code / user_name */
-    private function resolveUserIdFromRequest(Request $r): ?string
-    {
-        if ($r->filled('user_id')) return (string) $r->input('user_id');
-
-        if ($r->filled('employee_code')) {
-            $id = User::where('employee_code', $r->input('employee_code'))->value('id');
-            if ($id) return (string) $id;
-        }
-
-        if ($r->filled('user_name')) {
-            $term = Str::lower($r->input('user_name'));
-            $id = User::whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                ->orderBy('name')->value('id');
-            if ($id) return (string) $id;
-        }
-
-        return null;
-    }
-
+    /** List + filter */
     public function index(Request $r)
     {
-        $perPage      = max(1, min(200, (int) $r->input('per_page', 25)));
-        $activeSiteId = $this->resolveActiveSiteId($r);
+        // resolve & lock site (request -> session)
+        $siteId = $r->input('site_id', session('site_id'));
+        if ($siteId) {
+            session(['site_id' => $siteId]);
+        } else {
+            $siteId = session('site_id');
+        }
+
+        $perPage = max(1, min(200, (int) $r->input('per_page', 20)));
 
         $q = Timesheet::query()
             ->with([
-                'user:id,name,employee_code',
+                'user:id,name,email,employee_code',
+                'shift:id,code,name',
                 'equipment:id,code,name',
-                'shift:id,name',
                 'site:id,code,name',
             ])
-            // site dikunci (active)
-            ->when($activeSiteId, fn ($qb, $sid) => $qb->where('site_id', $sid))
+            ->when($siteId, fn ($q) => $q->where('site_id', $siteId))
 
-            // USER: dukung UUID atau nama/kode pada param user_id
-            ->when($r->filled('user_id'), function (Builder $qb) use ($r) {
-                $u = trim((string) $r->input('user_id'));
-                $isUuid = preg_match(
-                    '/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/',
-                    $u
-                );
-                if ($isUuid) {
-                    $qb->where('user_id', $u);
+            // user_id bisa berisi UUID / nama / employee_code
+            ->when($r->filled('user_id'), function ($q) use ($r) {
+                $v = (string) $r->input('user_id');
+                if (Str::isUuid($v)) {
+                    $q->where('user_id', $v);
                 } else {
-                    $term = Str::lower($u);
-                    $qb->whereHas('user', function (Builder $uq) use ($term) {
+                    $term = Str::lower($v);
+                    $q->whereHas('user', function ($uq) use ($term) {
                         $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"])
                            ->orWhereRaw('LOWER(employee_code) like ?', ["%{$term}%"]);
                     });
                 }
             })
 
-            // filter eksplisit lain
-            ->when($r->equipment_id, fn ($qb, $e) => $qb->where('equipment_id', $e))
-            ->when($r->activity_code, fn ($qb, $ac) => $qb->where('activity_code', 'like', "%{$ac}%"))
-            ->when($r->date, fn ($qb, $d) => $qb->whereDate('work_date', $d))
+            // range tanggal
+            ->when($r->filled('date_from'), fn ($q, $v) => $q->whereDate('work_date', '>=', $v))
+            ->when($r->filled('date_to'),   fn ($q, $v) => $q->whereDate('work_date', '<=', $v))
 
-            // filter user by name / employee_code via param "user" (opsional)
-            ->when($r->filled('user'), function (Builder $qb) use ($r) {
-                $term = Str::lower($r->input('user'));
-                $qb->whereHas('user', function (Builder $uq) use ($term) {
-                    $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                       ->orWhereRaw('LOWER(employee_code) like ?', ["%{$term}%"]);
-                });
+            // activity_code LIKE (case-insensitive)
+            ->when($r->filled('activity_code'), function ($q, $v) {
+                $term = Str::lower($v);
+                $q->whereRaw('LOWER(activity_code) like ?', ["%{$term}%"]);
             })
 
-            // filter equipment by code/name (opsional non-UUID)
-            ->when($r->filled('equipment'), function (Builder $qb) use ($r) {
-                $term = Str::lower($r->input('equipment'));
-                $qb->whereHas('equipment', function (Builder $eq) use ($term) {
-                    $eq->whereRaw('LOWER(code) like ?', ["%{$term}%"])
-                       ->orWhereRaw('LOWER(name) like ?', ["%{$term}%"]);
-                });
-            })
+            ->orderByDesc('work_date')
+            ->orderByDesc('created_at');
 
-            // fulltext ringan: q
-            ->when($r->filled('q'), function (Builder $qb) use ($r) {
-                $term = Str::lower($r->q);
-                $qb->where(function (Builder $w) use ($term) {
-                    $w->whereHas('user', fn ($uq) =>
-                          $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                             ->orWhereRaw('LOWER(employee_code) like ?', ["%{$term}%"]))
-                      ->orWhereHas('shift', fn ($sq) =>
-                          $sq->whereRaw('LOWER(name) like ?', ["%{$term}%"]))
-                      ->orWhereHas('equipment', fn ($eq) =>
-                          $eq->whereRaw('LOWER(code) like ?', ["%{$term}%"])
-                             ->orWhereRaw('LOWER(name) like ?', ["%{$term}%"]))
-                      ->orWhereRaw('LOWER(activity_code) like ?', ["%{$term}%"])
-                      ->orWhereRaw('LOWER(activity_desc) like ?', ["%{$term}%"])
-                      ->orWhereRaw('LOWER(cost_center) like ?', ["%{$term}%"]);
-                });
-            })
-            ->orderByDesc('work_date');
+        $rows = $q->paginate($perPage)->withQueryString();
 
-        if (!$r->wantsJson()) {
-            $timesheets = $q->paginate($perPage)->withQueryString();
-            // kirim data site utk label di UI
-            $sites = Site::orderBy('name')->get(['id','code','name']);
-            return view('admin.timesheets.index', compact('timesheets','sites','activeSiteId'));
-        }
+        // data pendukung untuk header/filter di Blade
+        $sites        = Site::orderBy('name')->get(['id','code','name']);
+        $activeSiteId = $siteId;
 
-        return response()->json($q->paginate($perPage));
+        // badge jumlah OT pending (site-aware)
+        $pendingOT = Timesheet::query()
+            ->when($siteId, fn ($qq) => $qq->where('site_id', $siteId))
+            ->where('overtime_hours', '>', 0)
+            ->where('ot_status', 'pending')
+            ->count();
+
+        return view('admin.timesheets.index', compact('rows','sites','activeSiteId','pendingOT'));
     }
 
     public function create()
     {
-        // kalau perlu dropdown, bisa load sites/users/equipments di sini
         return view('admin.timesheets.create');
     }
 
     public function store(Request $r)
     {
-        // Auto-resolve site & user kalau tidak kirim UUID
-        $resolvedSiteId = $this->resolveSiteIdFromRequest($r);
-        if ($resolvedSiteId && !$r->filled('site_id')) {
-            $r->merge(['site_id' => $resolvedSiteId]);
-        }
-
-        $resolvedUserId = $this->resolveUserIdFromRequest($r);
-        if ($resolvedUserId && !$r->filled('user_id')) {
-            $r->merge(['user_id' => $resolvedUserId]);
-        }
+        $siteId = $r->input('site_id', session('site_id'));
 
         $data = $r->validate([
-            'site_id'        => ['required','uuid'],
-            'user_id'        => ['required','uuid'],
-            'shift_id'       => ['nullable','uuid'],
-            'equipment_id'   => ['nullable','uuid'],
+            'user_id'        => ['required','uuid','exists:users,id'],
+            'shift_id'       => ['nullable','uuid','exists:shifts,id'],
+            'equipment_id'   => ['nullable','uuid','exists:assets,id'],
             'work_date'      => ['required','date'],
             'activity_code'  => ['required','string','max:50'],
             'activity_desc'  => ['nullable','string'],
-            'hours'          => ['nullable','numeric','min:0'],
-            'overtime_hours' => ['nullable','numeric','min:0'],
-            'cost_center'    => ['nullable','string','max:50'],
+            'hours'          => ['required','numeric','min:0','max:99.99'],
+            'overtime_hours' => ['required','numeric','min:0','max:99.99'],
+            'cost_center'    => ['nullable','string','max:191'],
             'meta'           => ['nullable','array'],
         ]);
 
-        $data['id'] = (string) Str::uuid();
+        $ts = new Timesheet($data);
+        $ts->site_id = $siteId;
 
-        Timesheet::updateOrCreate(
-            [
-                'site_id'       => $data['site_id'],
-                'user_id'       => $data['user_id'],
-                'work_date'     => $data['work_date'],
-                'activity_code' => $data['activity_code'],
-                'equipment_id'  => $data['equipment_id'] ?? null,
-            ],
-            collect($data)->except(['id','site_id','user_id','work_date','activity_code','equipment_id'])->toArray()
-        );
-
-        if (!$r->wantsJson()) {
-            return redirect()->route('admin.timesheets.index')->with('success','Timesheet disimpan.');
+        // set OT status inline
+        if (($ts->overtime_hours ?? 0) > 0) {
+            $ts->ot_status = 'pending';
+            $ts->ot_reason = $r->input('ot_reason', 'Submitted manually');
+        } else {
+            $ts->ot_status = 'none';
+            $ts->ot_reason = null;
         }
 
-        return response()->json(['ok'=>true]);
+        $ts->save();
+
+        return redirect()->route('admin.timesheets.index')->with('success','Timesheet created.');
     }
 
     public function edit(Timesheet $timesheet)
@@ -222,30 +123,107 @@ class TimesheetController extends Controller
     public function update(Request $r, Timesheet $timesheet)
     {
         $data = $r->validate([
+            'shift_id'       => ['nullable','uuid','exists:shifts,id'],
+            'equipment_id'   => ['nullable','uuid','exists:assets,id'],
+            'work_date'      => ['required','date'],
+            'activity_code'  => ['required','string','max:50'],
             'activity_desc'  => ['nullable','string'],
-            'hours'          => ['nullable','numeric','min:0'],
-            'overtime_hours' => ['nullable','numeric','min:0'],
-            'cost_center'    => ['nullable','string','max:50'],
+            'hours'          => ['required','numeric','min:0','max:99.99'],
+            'overtime_hours' => ['required','numeric','min:0','max:99.99'],
+            'cost_center'    => ['nullable','string','max:191'],
             'meta'           => ['nullable','array'],
         ]);
 
-        $timesheet->update($data);
+        $timesheet->fill($data);
 
-        if (!$r->wantsJson()) {
-            return back()->with('success','Timesheet diperbarui.');
+        // jaga status OT
+        if (($timesheet->overtime_hours ?? 0) > 0) {
+            if ($timesheet->ot_status !== 'approved') {
+                $timesheet->ot_status = 'pending'; // reset ke pending kalau belum approved
+            }
+        } else {
+            $timesheet->ot_status      = 'none';
+            $timesheet->ot_reason      = null;
+            $timesheet->ot_approved_by = null;
+            $timesheet->ot_approved_at = null;
         }
 
-        return response()->json($timesheet->refresh());
+        $timesheet->save();
+
+        return redirect()->route('admin.timesheets.index')->with('success','Timesheet updated.');
     }
 
-    public function destroy(Request $r, Timesheet $timesheet)
+    public function destroy(Timesheet $timesheet)
     {
         $timesheet->delete();
+        return back()->with('success','Timesheet deleted.');
+    }
 
-        if (!$r->wantsJson()) {
-            return back()->with('success','Timesheet dihapus.');
+    /* =========================
+     * OVERTIME ACTIONS
+     * ========================= */
+
+    /** List semua OT (pending/approved/rejected) */
+    public function otIndex(Request $r)
+    {
+        $siteId = $r->input('site_id', session('site_id'));
+
+        $rows = Timesheet::with(['user:id,name,email'])
+            ->when($siteId, fn ($q) => $q->where('site_id', $siteId))
+            ->where('overtime_hours','>',0)
+            ->orderByRaw("FIELD(ot_status,'pending','rejected','approved')")
+            ->orderByDesc('work_date')
+            ->paginate(max(1, min(200, (int) $r->input('per_page', 20))))
+            ->withQueryString();
+
+        return view('admin.overtime.index', compact('rows'));
+    }
+
+    /** Karyawan/HR submit OT dari timesheet */
+    public function otSubmit(Request $r, Timesheet $timesheet)
+    {
+        if (($timesheet->overtime_hours ?? 0) <= 0) {
+            return back()->with('error','Tidak ada lembur pada timesheet ini.');
+        }
+        if ($timesheet->ot_status === 'approved') {
+            return back()->with('error','Lembur sudah disetujui.');
         }
 
-        return response()->json(['ok'=>true]);
+        $timesheet->ot_status = 'pending';
+        $timesheet->ot_reason = $r->input('ot_reason', $timesheet->ot_reason ?: 'Submitted');
+        $timesheet->save();
+
+        return back()->with('success','Lembur disubmit (pending).');
+    }
+
+    /** Approve OT */
+    public function otApprove(Request $r, Timesheet $timesheet)
+    {
+        if (($timesheet->overtime_hours ?? 0) <= 0) {
+            return back()->with('error','Tidak ada lembur pada timesheet ini.');
+        }
+
+        $timesheet->ot_status      = 'approved';
+        $timesheet->ot_approved_by = $r->user()->id ?? null;
+        $timesheet->ot_approved_at = now();
+        $timesheet->save();
+
+        return back()->with('success','Lembur disetujui.');
+    }
+
+    /** Reject OT */
+    public function otReject(Request $r, Timesheet $timesheet)
+    {
+        if (($timesheet->overtime_hours ?? 0) <= 0) {
+            return back()->with('error','Tidak ada lembur pada timesheet ini.');
+        }
+
+        $timesheet->ot_status      = 'rejected';
+        $timesheet->ot_approved_by = null;
+        $timesheet->ot_approved_at = null;
+        $timesheet->ot_reason      = $r->input('ot_reason', 'Rejected');
+        $timesheet->save();
+
+        return back()->with('success','Lembur ditolak.');
     }
 }

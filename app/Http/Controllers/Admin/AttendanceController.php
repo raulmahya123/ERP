@@ -3,151 +3,237 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Attendance;
-use App\Models\Site;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use App\Models\{Attendance, Location, Timesheet, Shift};
 
 class AttendanceController extends Controller
 {
-    /** Resolve & persist default active site_id (request → session → user → first site) */
-    private function resolveActiveSiteId(Request $r): ?string
-    {
-        if ($r->filled('site_id')) {
-            $sid = (string) $r->input('site_id');
-            session(['site_id' => $sid]);
-            return $sid;
-        }
-
-        if (session()->has('site_id')) {
-            return (string) session('site_id');
-        }
-
-        $userSid = optional($r->user())->site_id;
-        if ($userSid) {
-            session(['site_id' => (string) $userSid]);
-            return (string) $userSid;
-        }
-
-        $first = Site::orderBy('name')->value('id');
-        if ($first) {
-            session(['site_id' => (string) $first]);
-            return (string) $first;
-        }
-
-        return null;
-    }
-
     public function index(Request $r)
     {
-        $perPage       = max(1, min(200, (int) $r->input('per_page', 25)));
-        $activeSiteId  = $this->resolveActiveSiteId($r);
+        $siteId = $r->input('site_id', session('site_id'));
 
-        $q = Attendance::query()
-            ->with([
-                'user:id,name,employee_code',
-                'shift:id,name',
-                'site:id,code,name',
+        $q = Attendance::with([
+                'user:id,name,email,employee_code',
+                'shift:id,code,name',
+                'locationIn:id,name',
+                'locationOut:id,name'
             ])
-            ->when($activeSiteId, fn ($q, $sid) => $q->where('site_id', $sid))
-            ->when($r->date, fn ($q, $d) => $q->whereDate('work_date', $d))
-            ->when($r->filled('q'), function (Builder $qb) use ($r) {
-                $term = Str::lower($r->q);
-                $qb->where(function (Builder $w) use ($term) {
-                    $w->whereHas('user',  fn ($uq) => $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"]))
-                      ->orWhereHas('shift', fn ($sq) => $sq->whereRaw('LOWER(name) like ?', ["%{$term}%"]))
-                      ->orWhereRaw('LOWER(source) like ?', ["%{$term}%"])
-                      ->orWhereRaw('LOWER(status) like ?', ["%{$term}%"]);
+            ->when($siteId, fn($q) => $q->where('site_id', $siteId))
+
+            // kompatibel dgn filter lama
+            ->when($r->user_id, fn($q, $v) => $q->where('user_id', $v))
+            ->when($r->date_from, fn($q, $v) => $q->whereDate('work_date', '>=', $v))
+            ->when($r->date_to, fn($q, $v)   => $q->whereDate('work_date', '<=', $v))
+
+            // kompatibel dgn filter baru di view (date tunggal + user string)
+            ->when($r->date, fn($q, $d) => $q->whereDate('work_date', $d))
+            ->when($r->user, function ($q, $v) {
+                $like = '%'.$v.'%';
+                $q->where(function ($w) use ($like) {
+                    $w->whereHas('user', function ($u) use ($like) {
+                        $u->where('name', 'like', $like)
+                          ->orWhere('employee_code', 'like', $like)
+                          ->orWhere('email', 'like', $like);
+                    })
+                    // tetap izinkan cari langsung pakai UUID di kolom user_id
+                    ->orWhere('user_id', 'like', $like);
                 });
             })
-            ->when($r->filled('source'), fn ($q, $src) => $q->where('source', $src))
-            ->when($r->filled('status'), fn ($q, $st) => $q->where('status', $st))
-            ->when($r->filled('check_in_from'), fn ($q, $t) => $q->whereTime('check_in_at', '>=', $t))
-            ->when($r->filled('check_out_to'), fn ($q, $t) => $q->whereTime('check_out_at', '<=', $t))
-            ->orderByDesc('work_date')->orderByDesc('check_in_at');
+            ->orderByDesc('work_date')
+            ->orderByDesc('check_in_at');
 
-        $attendances = $q->paginate($perPage)->withQueryString();
+        $rows = $q->paginate(20)->withQueryString();
 
-        if (! $r->wantsJson()) {
-            $sites = Site::orderBy('name')->get(['id','code','name']);
-            return view('admin.attendance.index', compact('attendances','sites','activeSiteId'));
+        // === tambahan: kirim shifts utk dropdown "Input Absensi" ===
+        $shifts = Shift::query()
+            ->when($siteId, fn($q) => $q->where('site_id', $siteId))
+            ->orderBy('code')
+            ->get(['id','code','start_at','end_at']);
+
+        // (opsional) kirim sites utk label site di header; aman kalau tabel tidak ada
+        $sites = collect();
+        try {
+            if (DB::getSchemaBuilder()->hasTable('sites')) {
+                $sites = DB::table('sites')->select('id','code','name')->get();
+            }
+        } catch (\Throwable $e) {
+            // abaikan
         }
 
-        return response()->json($attendances);
+        return view('admin.attendance.index', [
+            'rows'         => $rows,
+            'shifts'       => $shifts,
+            'sites'        => $sites,
+            'activeSiteId' => $siteId,
+        ]);
     }
 
     public function create()
     {
-        $sites = Site::orderBy('name')->get(['id','code','name']);
-        return view('admin.attendance.create', compact('sites'));
+        // optional: sediakan master utk form create
+        $siteId = session('site_id');
+        $shifts = Shift::query()
+            ->when($siteId, fn($q) => $q->where('site_id', $siteId))
+            ->orderBy('code')
+            ->get(['id','code','start_at','end_at']);
+        $locations = Location::query()->orderBy('name')->get(['id','name']);
+
+        return view('admin.attendance.create', compact('shifts','locations'));
     }
 
     public function store(Request $r)
     {
-        // defaultkan site_id ke active site kalau tidak dikirim form/API
-        $activeSiteId = $this->resolveActiveSiteId($r);
-        if (! $r->filled('site_id') && $activeSiteId) {
-            $r->merge(['site_id' => $activeSiteId]);
-        }
+        $siteId = $r->input('site_id', session('site_id'));
 
         $data = $r->validate([
-            'site_id'       => ['required', 'uuid'],
-            'user_id'       => ['required', 'uuid'],
-            'work_date'     => ['required', 'date'],
-            'shift_id'      => ['nullable', 'uuid'],
-            'source'        => ['required', 'in:manual,fingerprint,mobile_gps'],
-            'check_in_at'   => ['nullable', 'date'],
-            'check_out_at'  => ['nullable', 'date'],
-            'status'        => ['nullable', 'string'],
+            'user_id'             => ['required','uuid','exists:users,id'],
+            'work_date'           => ['required','date'],
+            'shift_id'            => ['nullable','uuid','exists:shifts,id'],
+            'source'              => ['required','in:manual,fingerprint,mobile_gps'],
+            'check_in_at'         => ['nullable','date'],
+            'check_out_at'        => ['nullable','date','after_or_equal:check_in_at'],
+            'location_in_id'      => ['nullable','uuid','exists:locations,id'],
+            'location_out_id'     => ['nullable','uuid','exists:locations,id'],
+            'gps_in_lat'          => ['nullable','numeric','between:-90,90'],
+            'gps_in_lng'          => ['nullable','numeric','between:-180,180'],
+            'gps_out_lat'         => ['nullable','numeric','between:-90,90'],
+            'gps_out_lng'         => ['nullable','numeric','between:-180,180'],
+            'device_id'           => ['nullable','string','max:191'],
+            'late_minutes'        => ['nullable','integer','min:0'],
+            'early_leave_minutes' => ['nullable','integer','min:0'],
+            'status'              => ['required','in:present,absent,leave,permit,sick,off,unknown'],
+            'flags'               => ['nullable','array'],
         ]);
 
-        $data['id'] = (string) Str::uuid();
+        $att = new Attendance($data);
+        $att->site_id = $siteId;
 
-        Attendance::updateOrCreate(
-            [
-                'site_id'   => $data['site_id'],
-                'user_id'   => $data['user_id'],
-                'work_date' => $data['work_date'],
-            ],
-            collect($data)->except(['id','site_id','user_id','work_date'])->toArray()
-        );
-
-        if (! $r->wantsJson()) {
-            return redirect()->route('admin.attendance.index')->with('success', 'Data absensi disimpan.');
+        // hitung work_minutes kalau ada in/out (ambil break_minutes shift secara aman)
+        if (!empty($att->check_in_at) && !empty($att->check_out_at)) {
+            $total = $att->check_out_at->diffInMinutes($att->check_in_at);
+            $break = 0;
+            if (!empty($att->shift_id)) {
+                $break = (int) (DB::table('shifts')->where('id', $att->shift_id)->value('break_minutes') ?? 0);
+            }
+            $att->work_minutes = max(0, $total - $break);
         }
 
-        return response()->json(['ok' => true]);
+        $att->save();
+
+        // sinkron timesheet 'attendance' opsional (kalau admin isi in/out lengkap)
+        if ($att->check_in_at && $att->check_out_at) {
+            $hours = round(($att->work_minutes ?? 0) / 60, 2);
+            $ot    = max(0, round($hours - 8.00, 2));
+            Timesheet::updateOrCreate(
+                [
+                    'site_id'       => $siteId,
+                    'user_id'       => $att->user_id,
+                    'work_date'     => $att->work_date,
+                    'activity_code' => 'attendance',
+                    'equipment_id'  => null,
+                ],
+                [
+                    'shift_id'       => $att->shift_id,
+                    'activity_desc'  => 'Admin set',
+                    'hours'          => $hours,
+                    'overtime_hours' => $ot,
+                    'attendance_id'  => $att->id,
+                    'ot_status'      => $ot > 0 ? 'pending' : 'none',
+                ]
+            );
+        }
+
+        return redirect()->route('admin.attendance.index')->with('success','Attendance created.');
     }
 
     public function edit(Attendance $attendance)
     {
-        $sites = Site::orderBy('name')->get(['id','code','name']);
-        return view('admin.attendance.edit', compact('attendance','sites'));
+        // optional: sediakan master utk form edit
+        $siteId   = $attendance->site_id ?? session('site_id');
+        $shifts   = Shift::query()
+                        ->when($siteId, fn($q) => $q->where('site_id', $siteId))
+                        ->orderBy('code')->get(['id','code','start_at','end_at']);
+        $locations= Location::query()->orderBy('name')->get(['id','name']);
+
+        return view('admin.attendance.edit', compact('attendance','shifts','locations'));
     }
 
     public function update(Request $r, Attendance $attendance)
     {
-        $attendance->update($r->only([
-            'check_in_at', 'check_out_at', 'status', 'source', 'flags',
-            'late_minutes', 'early_leave_minutes', 'overtime_minutes', 'work_minutes'
-        ]));
+        $data = $r->validate([
+            'shift_id'            => ['nullable','uuid','exists:shifts,id'],
+            'source'              => ['required','in:manual,fingerprint,mobile_gps'],
+            'check_in_at'         => ['nullable','date'],
+            'check_out_at'        => ['nullable','date','after_or_equal:check_in_at'],
+            'location_in_id'      => ['nullable','uuid','exists:locations,id'],
+            'location_out_id'     => ['nullable','uuid','exists:locations,id'],
+            'gps_in_lat'          => ['nullable','numeric','between:-90,90'],
+            'gps_in_lng'          => ['nullable','numeric','between:-180,180'],
+            'gps_out_lat'         => ['nullable','numeric','between:-90,90'],
+            'gps_out_lng'         => ['nullable','numeric','between:-180,180'],
+            'device_id'           => ['nullable','string','max:191'],
+            'late_minutes'        => ['nullable','integer','min:0'],
+            'early_leave_minutes' => ['nullable','integer','min:0'],
+            'status'              => ['required','in:present,absent,leave,permit,sick,off,unknown'],
+            'flags'               => ['nullable','array'],
+        ]);
 
-        if (! $r->wantsJson()) {
-            return redirect()->back()->with('success', 'Data absensi diperbarui.');
+        $attendance->fill($data);
+
+        // Recalc work_minutes jika ada in/out (pakai break_minutes shift)
+        if ($attendance->check_in_at && $attendance->check_out_at) {
+            $total = $attendance->check_out_at->diffInMinutes($attendance->check_in_at);
+            $break = 0;
+            if (!empty($attendance->shift_id)) {
+                $break = (int) (DB::table('shifts')->where('id', $attendance->shift_id)->value('break_minutes') ?? 0);
+            }
+            $attendance->work_minutes = max(0, $total - $break);
         }
 
-        return response()->json($attendance->refresh());
+        $attendance->save();
+
+        // Sync timesheet 'attendance'
+        if ($attendance->check_in_at && $attendance->check_out_at) {
+            $hours = round(($attendance->work_minutes ?? 0) / 60, 2);
+            $ot    = max(0, round($hours - 8.00, 2));
+
+            $ts = Timesheet::updateOrCreate(
+                [
+                    'site_id'       => $attendance->site_id,
+                    'user_id'       => $attendance->user_id,
+                    'work_date'     => $attendance->work_date,
+                    'activity_code' => 'attendance',
+                    'equipment_id'  => null,
+                ],
+                [
+                    'shift_id'       => $attendance->shift_id,
+                    'activity_desc'  => 'Admin update',
+                    'hours'          => $hours,
+                    'overtime_hours' => $ot,
+                    'attendance_id'  => $attendance->id,
+                ]
+            );
+
+            if ($ot > 0) {
+                if ($ts->ot_status !== 'approved') {
+                    $ts->ot_status = 'pending';
+                }
+            } else {
+                $ts->ot_status      = 'none';
+                $ts->ot_reason      = null;
+                $ts->ot_approved_by = null;
+                $ts->ot_approved_at = null;
+            }
+            $ts->save();
+        }
+
+        return redirect()->route('admin.attendance.index')->with('success','Attendance updated.');
     }
 
-    public function destroy(Request $r, Attendance $attendance)
+    public function destroy(Attendance $attendance)
     {
         $attendance->delete();
-
-        if (! $r->wantsJson()) {
-            return redirect()->back()->with('success', 'Data absensi dihapus.');
-        }
-
-        return response()->json(['ok' => true]);
+        return back()->with('success','Attendance deleted.');
     }
 }

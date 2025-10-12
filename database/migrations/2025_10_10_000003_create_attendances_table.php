@@ -8,33 +8,59 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('attendances', function (Blueprint $t) {
             $t->uuid('id')->primary();
-            $t->uuid('site_id')->index();
-            $t->uuid('user_id')->index();
-            $t->date('work_date')->index();
-            $t->uuid('shift_id')->nullable()->index();
 
-            // sumber input: manual, fingerprint, mobile_gps
+            // Context
+            $t->foreignUuid('site_id')->constrained('sites')->cascadeOnDelete();
+            $t->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
+            $t->date('work_date')->index();
+            $t->foreignUuid('shift_id')->nullable()->constrained('shifts')->nullOnDelete();
+
+            // Sumber input
             $t->enum('source', ['manual','fingerprint','mobile_gps'])->index();
 
+            // Waktu absen
             $t->dateTime('check_in_at')->nullable();
             $t->dateTime('check_out_at')->nullable();
 
-            $t->decimal('gps_in_lat',10,7)->nullable();
-            $t->decimal('gps_in_lng',10,7)->nullable();
-            $t->decimal('gps_out_lat',10,7)->nullable();
-            $t->decimal('gps_out_lng',10,7)->nullable();
-            $t->string('device_id')->nullable(); // id mesin atau device mobile
+            // Lokasi referensi (FK ke locations)
+            $t->foreignUuid('location_in_id')->nullable()->constrained('locations')->nullOnDelete();
+            $t->foreignUuid('location_out_id')->nullable()->constrained('locations')->nullOnDelete();
+
+            // Koordinat aktual user
+            $t->decimal('gps_in_lat', 10, 7)->nullable();
+            $t->decimal('gps_in_lng', 10, 7)->nullable();
+            $t->decimal('gps_out_lat', 10, 7)->nullable();
+            $t->decimal('gps_out_lng', 10, 7)->nullable();
+
+            // Jarak & geofence (100m default di tabel locations)
+            $t->unsignedInteger('distance_in_m')->nullable();
+            $t->unsignedInteger('distance_out_m')->nullable();
+            $t->boolean('outside_geofence_in')->default(false);
+            $t->boolean('outside_geofence_out')->default(false);
+
+            // Perangkat
+            $t->string('device_id')->nullable();
+
+            // Durasi & performa (tanpa overtime_minutes)
             $t->unsignedSmallInteger('late_minutes')->default(0);
             $t->unsignedSmallInteger('early_leave_minutes')->default(0);
-            $t->unsignedSmallInteger('overtime_minutes')->default(0);
             $t->unsignedSmallInteger('work_minutes')->default(0);
 
-            $t->enum('status', ['present','absent','leave','permit','sick','off','unknown'])->default('unknown')->index();
-            $t->json('flags')->nullable(); // ["late","overtime_high","no_checkout","abnormal"]
+            // Status hari itu
+            $t->enum('status', ['present','absent','leave','permit','sick','off','unknown'])
+              ->default('unknown')->index();
+
+            // Flag tambahan
+            $t->json('flags')->nullable();
 
             $t->timestamps();
-            $t->unique(['site_id','user_id','work_date']);
+
+            // Unik: 1 user / site / tanggal
+            $t->unique(['site_id','user_id','work_date'], 'uniq_attendances_site_user_date');
         });
     }
-    public function down(): void { Schema::dropIfExists('attendances'); }
+
+    public function down(): void {
+        Schema::dropIfExists('attendances');
+    }
 };

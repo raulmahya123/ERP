@@ -27,10 +27,10 @@ use App\Http\Controllers\Admin\AssetAssignmentController; // Riwayat/transfer as
 // Master Data (generic per-entity)
 use App\Http\Controllers\MasterDataController;
 
-// HCM / Manpower & Shift
+// HCM / Manpower & Shift (ADMIN area)
 use App\Http\Controllers\Admin\ManpowerController as MP;
-use App\Http\Controllers\Admin\AttendanceController;
-use App\Http\Controllers\Admin\TimesheetController;
+use App\Http\Controllers\Admin\AttendanceController;         // CRUD attendance (admin)
+use App\Http\Controllers\Admin\TimesheetController;          // CRUD timesheets + OT actions (admin)
 use App\Http\Controllers\Admin\ShiftRosterController;
 use App\Http\Controllers\Admin\ShiftController;
 use App\Http\Controllers\Admin\ManpowerPlanController;
@@ -38,6 +38,12 @@ use App\Http\Controllers\Admin\ManpowerRealizationController;
 use App\Http\Controllers\Admin\HrDailyEntryController;
 use App\Http\Controllers\Admin\EmploymentContractController;
 use App\Http\Controllers\Admin\CrewAssignmentController;
+
+// === Employee-side GPS Tap (Check-In/Out) ===
+use App\Http\Controllers\AttendanceController as AttendanceTapController;
+
+// === (Opsional) CRUD Lokasi untuk geofence ===
+use App\Http\Controllers\Admin\LocationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,6 +75,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile',  [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // === Employee-side: Absen GPS (tap) + Check-In/Out (pakai default site di session) ===
+    Route::get('/attendance/tap',        [AttendanceTapController::class, 'tapPage'])->name('attendance.tap');
+    Route::post('/attendance/check-in',  [AttendanceTapController::class, 'checkIn'])->name('attendance.checkin');
+    Route::post('/attendance/check-out', [AttendanceTapController::class, 'checkOut'])->name('attendance.checkout');
 });
 
 /*
@@ -262,14 +273,12 @@ Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
 
         // Nested assignments di bawah assets → admin.assets.assignments.*
         Route::prefix('assets/{asset}')->as('assets.')->whereUuid(['asset'])->group(function () {
-            Route::get('assignments',            [AssetAssignmentController::class, 'index'])->name('assignments.index');
-            Route::get('assignments/create',     [AssetAssignmentController::class, 'create'])->name('assignments.create');
-            Route::post('assignments',           [AssetAssignmentController::class, 'store'])->name('assignments.store');
-            // (opsional) detail atau penghapusan assignment tertentu:
-            // Route::delete('assignments/{assignment}', [AssetAssignmentController::class,'destroy'])->name('assignments.destroy');
+            Route::get('assignments',        [AssetAssignmentController::class, 'index'])->name('assignments.index');
+            Route::get('assignments/create', [AssetAssignmentController::class, 'create'])->name('assignments.create');
+            Route::post('assignments',       [AssetAssignmentController::class, 'store'])->name('assignments.store');
         });
 
-        // (opsional) resource flat untuk admin.asset-assignments.* (tidak bentrok dengan nested)
+        // (opsional) resource flat → admin.asset-assignments.*
         Route::resource('asset-assignments', AssetAssignmentController::class)
             ->parameters(['asset-assignments' => 'assetAssignment'])
             ->except(['show']);
@@ -280,8 +289,6 @@ Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
 | HCM (GM & HR) — Blade-only + site.selected
 |--------------------------------------------------------------------------
 */
-
-
 Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
     ->prefix('admin')->name('admin.')->group(function () {
 
@@ -294,6 +301,19 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         ->parameters(['shift-rosters' => 'shiftRoster'])->except(['show']);
     Route::resource('shifts', ShiftController::class)
         ->parameters(['shifts' => 'shift'])->except(['show']);
+
+    // === Overtime flow (berbasis TIMESHEETS: kolom ot_status/ot_approved_by/ot_approved_at) ===
+    Route::get('overtime', [TimesheetController::class, 'otIndex'])->name('overtime.index');
+    Route::post('timesheets/{timesheet}/ot/submit',  [TimesheetController::class, 'otSubmit'])
+        ->whereUuid('timesheet')->name('timesheets.ot.submit');
+    Route::post('timesheets/{timesheet}/ot/approve', [TimesheetController::class, 'otApprove'])
+        ->whereUuid('timesheet')->name('timesheets.ot.approve');
+    Route::post('timesheets/{timesheet}/ot/reject',  [TimesheetController::class, 'otReject'])
+        ->whereUuid('timesheet')->name('timesheets.ot.reject');
+
+    // === Locations (opsional) — CRUD titik geofence (name, lat/lng, radius 100m) ===
+    Route::resource('locations', LocationController::class)
+        ->parameters(['locations' => 'location'])->except(['show']);
 
     // === Manpower plan & realization ===
     Route::resource('manpower-plans', ManpowerPlanController::class)
@@ -320,10 +340,9 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
      * ========================= */
     Route::prefix('hr-entries/meta-form-config')->name('hr-entries.meta-form.')
         ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');     // list
+            Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
             Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaFormConfigManage'])
-                ->name('manage')->where('type','[A-Za-z0-9_\-]+');                                     // editor (utama)
-            // Backcompat: .show → redirect ke .manage (hindari bentrok dengan 'manage')
+                ->name('manage')->where('type','[A-Za-z0-9_\-]+');
             Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])
                 ->name('show')->where('type','^(?!manage$)[A-Za-z0-9_\-]+$');
             Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])
@@ -337,10 +356,9 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
      * ========================= */
     Route::prefix('hr-entries/meta-schema')->name('hr-entries.meta-schema.')
         ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');        // list
+            Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');
             Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaSchemasManage'])
-                ->name('manage')->where('type','[A-Za-z0-9_\-]+');                                     // editor (utama)
-            // Backcompat: .show → redirect ke .manage (hindari 'manage')
+                ->name('manage')->where('type','[A-Za-z0-9_\-]+');
             Route::get('/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])
                 ->name('show')->where('type','^(?!manage$)[A-Za-z0-9_\-]+$');
             Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])
@@ -429,9 +447,6 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         Route::post('/assignments', [MP::class, 'storeAssignment'])->name('assignments.store');
     });
 });
-
-
-
 
 /*
 |--------------------------------------------------------------------------

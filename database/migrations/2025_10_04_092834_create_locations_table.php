@@ -6,28 +6,33 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('locations', function (Blueprint $t) {
             $t->uuid('id')->primary();
+
+            // Sederhana: simpan site_id tanpa FK dulu biar gak ribet dependensi
+            $t->uuid('site_id')->index();
+
             $t->string('name');
+
+            // Koordinat (ikuti urutan yang kamu pakai)
             $t->decimal('longitude', 10, 7); // contoh: 106.8451300
-            $t->decimal('latitude', 10, 7);  // contoh:  -6.2146200
-            $t->unsignedSmallInteger('years_of_collab')->nullable(); // berapa tahun kerja sama
-            $t->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $t->decimal('latitude',  10, 7); // contoh:  -6.2146200
+
+            // Geofence default 100 m
+            $t->unsignedSmallInteger('geofence_radius_m')->default(100);
+
             $t->timestamps();
 
-            $t->unique(['name', 'latitude', 'longitude']); // anti-duplikat
-            $t->index(['latitude', 'longitude']);
+            // Unik per site biar gak dobel nama lokasi di site yang sama
+            $t->unique(['site_id','name'], 'uniq_locations_site_name');
+
+            // Index bantu pencarian berdasar koordinat
+            $t->index(['latitude','longitude'], 'idx_locations_latlng');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('locations');

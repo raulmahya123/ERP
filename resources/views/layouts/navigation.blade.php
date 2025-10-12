@@ -75,9 +75,13 @@ $activeClasses = fn (bool $isActive) => $isActive
 /* Routes active flags */
 $hrDailyActive     = request()->routeIs('admin.hr-entries.*');
 $hrContractsActive = request()->routeIs('admin.contracts.*');
+
+/* Tambah coverage: locations & overtime */
 $peopleRoutesActive =
   request()->routeIs('admin.attendance.*')      ||
   request()->routeIs('admin.timesheets.*')      ||
+  request()->routeIs('admin.overtime.*')        ||
+  request()->routeIs('admin.locations.*')       ||
   request()->routeIs('admin.shift-rosters.*')   ||
   request()->routeIs('admin.shifts.*')          ||
   request()->routeIs('admin.manpower.*')        ||
@@ -120,6 +124,16 @@ try {
   $pendingQuery = DB::table('hr_daily_entries')->whereNull('deleted_at')->where('status','pending');
   if ($currentSite?->id) $pendingQuery->where('site_id', $currentSite->id);
   $pendingApprovals = (int) $pendingQuery->count();
+} catch (\Throwable $e) {}
+
+/* =========================
+| Overtime pending (timesheets)
+|=========================*/
+$pendingOT = 0;
+try {
+  $otQuery = DB::table('timesheets')->where('overtime_hours','>',0)->where('ot_status','pending');
+  if ($currentSite?->id) $otQuery->where('site_id', $currentSite->id);
+  $pendingOT = (int) $otQuery->count();
 } catch (\Throwable $e) {}
 
 /* =========================
@@ -245,6 +259,7 @@ $hrDailyQuery = request()->query();
     {{-- Quick Shortcuts --}}
     @if (
       Route::has('sites.select') ||
+      Route::has('attendance.tap') ||
       Route::has('admin.hr-entries.create') ||
       Route::has('admin.hr-entries.index') ||
       (($isGM || $isManager) && Route::has('admin.assets.index')) ||
@@ -268,19 +283,18 @@ $hrDailyQuery = request()->query();
             </a>
           @endif
 
-          {{-- New HR Entry --}}
-          @if (Route::has('admin.hr-entries.create'))
-            <a href="{{ route('admin.hr-entries.create') }}"
+          {{-- Absen GPS (tap) --}}
+          @if (Route::has('attendance.tap'))
+            <a href="{{ route('attendance.tap') }}"
                class="group p-3 rounded-xl bg-white ring-1 ring-slate-200 hover:ring-emerald-200 hover:bg-emerald-50 transition shadow-sm flex flex-col items-center">
               <svg class="w-5 h-5 text-emerald-600 group-hover:text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M8 7h8m-8 4h5M6 3h12a2 2 0 012 2v9a7 7 0 11-14 0V5a2 2 0 012-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 17v4m-2-2h4" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11z"/><circle cx="12" cy="10" r="3"/>
               </svg>
-              <span class="mt-1 text-[11px] font-semibold text-slate-700">New HR</span>
+              <span class="mt-1 text-[11px] font-semibold text-slate-700">Absen</span>
             </a>
           @endif
 
-          {{-- Approvals Queue --}}
+          {{-- Approvals Queue (HR Daily) --}}
           @if (Route::has('admin.hr-entries.index'))
             <a href="{{ route('admin.hr-entries.index', ['status'=>'pending']) }}"
                class="group relative p-3 rounded-xl bg-white ring-1 ring-slate-200 hover:ring-amber-200 hover:bg-amber-50 transition shadow-sm flex flex-col items-center">
@@ -367,6 +381,8 @@ $hrDailyQuery = request()->query();
     @if (($isGM || $isHR) && (
           Route::has('admin.attendance.index')      ||
           Route::has('admin.timesheets.index')      ||
+          Route::has('admin.overtime.index')        ||
+          Route::has('admin.locations.index')       ||
           Route::has('admin.shift-rosters.index')   ||
           Route::has('admin.manpower.dashboard')    ||
           Route::has('admin.hr-entries.index')      ||
@@ -392,8 +408,28 @@ $hrDailyQuery = request()->query();
 
           @if (Route::has('admin.timesheets.index'))
             <a href="{{ route('admin.timesheets.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.timesheets.*')) }}">
-              Timesheet & Lembur
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.timesheets.*') && !request()->routeIs('admin.overtime.*')) }}">
+              Timesheet &amp; Lembur
+            </a>
+          @endif
+
+          {{-- Overtime Queue (baru) --}}
+          @if (Route::has('admin.overtime.index'))
+            <a href="{{ route('admin.overtime.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.overtime.*')) }}">
+              Overtime Queue
+              @if($pendingOT > 0)
+                <span class="ml-2 inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full bg-rose-100 text-rose-800 ring-1 ring-rose-200">
+                  {{ $pendingOT }}
+                </span>
+              @endif
+            </a>
+          @endif
+
+          @if (Route::has('admin.locations.index'))
+            <a href="{{ route('admin.locations.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.locations.*')) }}">
+              Lokasi &amp; Geofence
             </a>
           @endif
 
