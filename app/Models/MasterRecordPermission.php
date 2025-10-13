@@ -28,6 +28,14 @@ class MasterRecordPermission extends Model
         'can_delete',
     ];
 
+    /** Default attributes */
+    protected $attributes = [
+        'can_view'     => false,
+        'can_download' => false,
+        'can_update'   => false,
+        'can_delete'   => false,
+    ];
+
     /** Casting */
     protected $casts = [
         'id'               => 'string',
@@ -120,40 +128,24 @@ class MasterRecordPermission extends Model
         };
     }
 
-    /** Static helper: grant permission untuk (recordId, userId) */
+    /** Static helper: grant/update permission untuk (recordId, userId) – tanpa DB facade */
     public static function grant(
         string $recordId,
         string $userId,
         array $abilities = ['view' => true]
     ): self {
-        // upsert by unique (master_record_id, user_id)
         $values = [
             'can_view'     => (bool) ($abilities['view']     ?? false),
             'can_download' => (bool) ($abilities['download'] ?? false),
             'can_update'   => (bool) ($abilities['update']   ?? false),
             'can_delete'   => (bool) ($abilities['delete']   ?? false),
-            'updated_at'   => now(),
         ];
 
-        // coba dapatkan existing
-        $existing = static::query()
-            ->forRecord($recordId)
-            ->forUser($userId)
-            ->first();
-
-        if ($existing) {
-            $existing->fill($values)->save();
-
-            return $existing;
-        }
-
-        // create baru
-        return static::create(array_merge([
-            'master_record_id' => $recordId,
-            'user_id'          => $userId,
-            'id'               => (string) Str::uuid(),
-            'created_at'       => now(),
-        ], $values));
+        // updateOrCreate akan memicu event creating → UUID otomatis
+        return static::updateOrCreate(
+            ['master_record_id' => $recordId, 'user_id' => $userId],
+            $values
+        );
     }
 
     /** Static helper: revoke permission untuk (recordId, userId) */
@@ -175,32 +167,50 @@ class MasterRecordPermission extends Model
      */
     public static function syncForRecord(string $recordId, array $rows): void
     {
-        // Hapus semua dulu → insert ulang (sederhana, konsisten)
-        static::query()->forRecord($recordId)->delete();
+        // Ambil user_id yang sudah ada
+        $existingUserIds = static::query()
+            ->forRecord($recordId)
+            ->pluck('user_id')
+            ->all();
 
-        if (empty($rows)) {
-            return;
-        }
-
+        // Normalisasi rows & siapkan upsert
         $now = now();
+        $incomingUserIds = [];
         $payload = [];
+
         foreach ($rows as $r) {
+            $uid = (string) $r['user_id'];
+            $incomingUserIds[] = $uid;
+
             $payload[] = [
-                'id'               => (string) Str::uuid(),
+                // id tidak perlu diisi: akan dibuat otomatis via creating()
                 'master_record_id' => $recordId,
-                'user_id'          => (string) $r['user_id'],
+                'user_id'          => $uid,
                 'can_view'         => (bool) ($r['view']     ?? $r['can_view']     ?? false),
                 'can_download'     => (bool) ($r['download'] ?? $r['can_download'] ?? false),
                 'can_update'       => (bool) ($r['update']   ?? $r['can_update']   ?? false),
                 'can_delete'       => (bool) ($r['delete']   ?? $r['can_delete']   ?? false),
-                'created_at'       => $now,
+                'created_at'       => $now, // dipakai hanya saat insert
                 'updated_at'       => $now,
             ];
         }
 
-        // gunakan insert chunked untuk skala besar
-        foreach (array_chunk($payload, 1000) as $chunk) {
-            static::query()->insert($chunk);
+        // Hapus yang tidak ada di incoming
+        $toDelete = array_diff($existingUserIds, $incomingUserIds);
+        if (!empty($toDelete)) {
+            static::query()
+                ->forRecord($recordId)
+                ->whereIn('user_id', $toDelete)
+                ->delete();
+        }
+
+        if (!empty($payload)) {
+            // Upsert by unique (master_record_id, user_id)
+            static::query()->upsert(
+                $payload,
+                ['master_record_id', 'user_id'],
+                ['can_view', 'can_download', 'can_update', 'can_delete', 'updated_at']
+            );
         }
     }
 }

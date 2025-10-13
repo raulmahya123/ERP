@@ -14,7 +14,7 @@ use App\Models\ManpowerRealization;
 use App\Models\CrewAssignment;
 use App\Models\Site;
 use App\Models\User;
-use App\Models\Equipment;
+use App\Models\Asset as Equipment;
 
 class ManpowerController extends Controller
 {

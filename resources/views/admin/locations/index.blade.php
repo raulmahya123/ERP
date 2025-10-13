@@ -45,16 +45,18 @@
 @php
   use Illuminate\Support\Str;
 
-  $filters = [
-    'q' => request('q'),
-  ];
+  $filters = ['q' => request('q')];
+  $qParams = array_filter([
+    'site_id' => $activeSiteId ?? request('site_id', session('site_id')),
+    'q'       => $filters['q'] ?? null,
+  ], fn($v) => filled($v));
 
   $fmtCoord = function ($lat, $lng) {
     if (is_null($lat) || is_null($lng)) return '—';
     return number_format((float)$lat, 7) . ', ' . number_format((float)$lng, 7);
   };
 
-  // opsional: tampilkan label site aktif jika controller mengirim $sites + $activeSiteId
+  // label site aktif (terkunci)
   $activeSiteId = $activeSiteId ?? request('site_id', session('site_id'));
   $activeSite   = collect($sites ?? [])->firstWhere('id', $activeSiteId);
   $activeSiteLabel = $activeSite
@@ -82,7 +84,7 @@
         <p class="text-white/85 text-sm">Kelola titik lokasi untuk absen (check-in/out). Koordinat ditampilkan hingga 7 desimal.</p>
       </div>
       @if (Route::has('admin.locations.create'))
-        <a href="{{ route('admin.locations.create') }}"
+        <a href="{{ route('admin.locations.create', $qParams) }}"
            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 ring-1 ring-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-300">
           <svg class="h-4 w-4"><use href="#i-plus"/></svg>
           Tambah Lokasi
@@ -121,7 +123,7 @@
         <svg class="h-4 w-4"><use href="#i-search"/></svg>
         Apply
       </button>
-      <a href="{{ route('admin.locations.index') }}"
+      <a href="{{ route('admin.locations.index', ['site_id' => $activeSiteId]) }}"
          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-50 bg-white">
         <svg class="h-4 w-4"><use href="#i-refresh-cw"/></svg>
         Reset
@@ -156,8 +158,10 @@
               {{-- Nama --}}
               <td class="px-4 py-3">
                 <div class="font-medium text-slate-800">{{ $row->name }}</div>
-                @if(!empty($row->years_of_collab))
-                  <div class="text-xs text-slate-500">{{ $row->years_of_collab }} thn kerja sama</div>
+                @if(!empty($row->geofence_radius_m))
+                  <div class="mt-1 inline-flex items-center gap-1 text-[11px] text-emerald-700 ring-1 ring-emerald-200 bg-emerald-50 px-2 py-0.5 rounded">
+                    Geofence: {{ (int)$row->geofence_radius_m }} m
+                  </div>
                 @endif
               </td>
 
@@ -182,21 +186,27 @@
 
               {{-- Site --}}
               <td class="px-4 py-3">
-                <div class="text-slate-800">{{ $row->site->code ?? '—' }}</div>
-                <div class="text-xs text-slate-500">{{ $row->site->name ?? '' }}</div>
+                @php
+                  $code = data_get($row, 'site.code');
+                  $name = data_get($row, 'site.name');
+                @endphp
+                <div class="text-slate-800">{{ $code ?? '—' }}</div>
+                <div class="text-xs text-slate-500">
+                  {{ $name ?? ($row->site_id ? 'ID: '.Str::limit($row->site_id,8,'…') : '') }}
+                </div>
               </td>
 
               {{-- Dibuat --}}
               <td class="px-4 py-3">
                 <div class="text-slate-800">{{ optional($row->created_at)->format('d M Y') ?? '—' }}</div>
-                <div class="text-xs text-slate-500">By: {{ $row->creator->name ?? '—' }}</div>
+                <div class="text-xs text-slate-500">By: {{ data_get($row,'creator.name','—') }}</div>
               </td>
 
               {{-- Actions --}}
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end gap-2">
                   @if (Route::has('admin.locations.edit'))
-                    <a href="{{ route('admin.locations.edit', $row) }}"
+                    <a href="{{ route('admin.locations.edit', array_merge(['location'=>$row->id], $qParams)) }}"
                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold ring-1 ring-slate-200 hover:bg-slate-50">
                       <svg class="h-3.5 w-3.5"><use href="#i-edit"/></svg> Edit
                     </a>
@@ -204,6 +214,9 @@
                   <form method="POST" action="{{ route('admin.locations.destroy', $row) }}"
                         onsubmit="return confirm('Hapus lokasi ini?');">
                     @csrf @method('DELETE')
+                    @if(!empty($activeSiteId))
+                      <input type="hidden" name="site_id" value="{{ $activeSiteId }}">
+                    @endif
                     <button type="submit"
                             class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700">
                       <svg class="h-3.5 w-3.5"><use href="#i-trash"/></svg> Delete
@@ -219,7 +232,10 @@
                   <div class="mx-auto h-14 w-14 rounded-2xl grid place-content-center ring-1 ring-emerald-100 bg-white shadow mb-3">
                     <svg class="h-7 w-7 text-emerald-500"><use href="#i-search"/></svg>
                   </div>
-                  Belum ada lokasi. <a class="text-teal-700 hover:underline" href="{{ route('admin.locations.create') }}">Tambah lokasi</a>.
+                  Belum ada lokasi.
+                  @if (Route::has('admin.locations.create'))
+                    <a class="text-teal-700 hover:underline" href="{{ route('admin.locations.create', $qParams) }}">Tambah lokasi</a>.
+                  @endif
                 </div>
               </td>
             </tr>
@@ -235,7 +251,7 @@
         dari <span class="font-medium">{{ $rows->total() }}</span> data
       </div>
       <div class="text-sm">
-        {{ method_exists($rows,'withQueryString') ? $rows->withQueryString()->onEachSide(1)->links() : $rows->onEachSide(1)->links() }}
+        {{ $rows->withQueryString()->onEachSide(1)->links() }}
       </div>
     </div>
   </div>

@@ -43,16 +43,24 @@
 </svg>
 
 @php
-  use Illuminate\Support\Str;
-  $activeSiteId = $activeSiteId ?? request('site_id', session('site_id'));
-  $activeSite   = collect($sites ?? [])->firstWhere('id', $activeSiteId);
-  $activeSiteLabel = $activeSite
-      ? ($activeSite->code ? ($activeSite->code.' — '.$activeSite->name) : $activeSite->name)
-      : ($activeSiteId ? 'ID: '.Str::limit($activeSiteId, 12, '…') : '—');
+  // dari controller: $activeSite (id, code, name), $activeSiteId, $users (id, name, employee_code)
+  $siteObj        = $activeSite ?? null;
+  $activeSiteId   = ($siteObj->id ?? null) ?? ($activeSiteId ?? request('site_id', session('site_id')));
+  $activeSiteLabel = $siteObj
+      ? ($siteObj->code ? ($siteObj->code.' — '.$siteObj->name) : $siteObj->name)
+      : 'Terkunci ke site aktif';
+
+  // repopulate user_name mengikuti format option datalist: "name — employee_code"
+  $usersCol     = collect($users ?? []);
+  $oldUserId    = old('user_id');
+  $oldUserModel = $oldUserId ? $usersCol->firstWhere('id', $oldUserId) : null;
+  $oldUserLabel = $oldUserModel
+      ? ($oldUserModel->name.($oldUserModel->employee_code ? ' — '.$oldUserModel->employee_code : ''))
+      : old('user_name');
 @endphp
 
 <div class="max-w-3xl mx-auto space-y-6">
-  {{-- Header / Hero (konsisten emerald→teal→sky + icon kiri) --}}
+  {{-- Header / Hero --}}
   <div class="relative overflow-hidden rounded-3xl text-white shadow ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,rgba(255,255,255,.85)_0%,transparent_60%)]"></div>
     <div class="relative px-6 md:px-8 py-6 flex items-center justify-between gap-4">
@@ -83,10 +91,10 @@
 
   {{-- Form --}}
   <div class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6">
-    <form id="contract-form" method="post" action="{{ route('admin.contracts.store') }}" class="grid gap-4">
+    <form id="contract-form" method="post" action="{{ route('admin.contracts.store') }}" class="grid gap-4" autocomplete="off">
       @csrf
 
-      {{-- SITE (LOCKED) --}}
+      {{-- SITE (LOCKED, tanpa UUID di UI) --}}
       <div>
         <label class="block text-xs text-slate-600 mb-1">Site <span class="text-slate-400">(terkunci)</span></label>
         <div class="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 text-sm text-emerald-800">
@@ -100,25 +108,32 @@
         @error('site_id') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
       </div>
 
-      {{-- USER (datalist nama → kirim UUID) --}}
+      {{-- USER (tampil nama; kirim UUID via hidden) --}}
       <div>
         <label class="block text-xs text-slate-600 mb-1">User</label>
         <div class="relative">
           <span class="absolute left-3 top-2.5 text-emerald-600/80">
             <svg class="h-4 w-4"><use href="#i-user"/></svg>
           </span>
-          <input name="user_id"
+          {{-- visible: user_name (tanpa UUID) --}}
+          <input id="user-name-input"
+                 name="user_name"
                  list="users-list"
-                 value="{{ old('user_id') }}"
-                 placeholder="Ketik nama lalu pilih (terisi UUID)"
+                 value="{{ $oldUserLabel }}"
+                 placeholder="Ketik nama lalu pilih"
                  class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+          {{-- hidden: user_id (UUID dikirim dari pilihan) --}}
+          <input type="hidden" id="user-id-hidden" name="user_id" value="{{ old('user_id') }}">
         </div>
+
         <datalist id="users-list">
           @foreach(($users ?? collect()) as $u)
-            <option value="{{ $u->id }}">{{ $u->name }}{{ $u->employee_code ? ' — '.$u->employee_code : '' }}</option>
+            {{-- value yang terlihat = nama (+kode), UUID disimpan di data-id --}}
+            <option data-id="{{ $u->id }}" value="{{ $u->name }}{{ $u->employee_code ? ' — '.$u->employee_code : '' }}"></option>
           @endforeach
         </datalist>
-        <p class="mt-1 text-[11px] text-slate-500">Nilai yang terkirim adalah UUID; tampilan memudahkan dengan nama.</p>
+
+        <p class="mt-1 text-[11px] text-slate-500">Pilih dari daftar—UUID tidak ditampilkan, tapi akan dikirim tersembunyi.</p>
         @error('user_id') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
       </div>
 
@@ -203,7 +218,7 @@
         <textarea name="meta_json"
                   class="w-full min-h-[96px] border border-emerald-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   placeholder='{"doc_no":"...", "notes":"..."}'>{{ old('meta_json') }}</textarea>
-        <p class="text-[11px] text-slate-500 mt-1">Jika diisi, akan diubah menjadi <code>meta</code> (array) saat submit.</p>
+        <p class="text-[11px] text-slate-500 mt-1">Jika diisi, akan diubah menjadi <code>meta[...]</code> (array) saat submit.</p>
         @error('meta') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
       </div>
 
@@ -224,21 +239,93 @@
 
 @push('scripts')
 <script>
-  // meta_json → meta[] sebelum submit (pakai id form biar aman)
-  document.getElementById('contract-form')?.addEventListener('submit', function(e){
-    const ta = this.querySelector('[name="meta_json"]');
+(function(){
+  const $form = document.getElementById('contract-form');
+  if(!$form) return;
+
+  // === USER: map dari label (nama/kode) -> user_id (UUID) via datalist option[data-id]
+  const $userName = document.getElementById('user-name-input');
+  const $userId   = document.getElementById('user-id-hidden');
+  const $dl       = document.getElementById('users-list');
+
+  function resolveUserIdFromLabel(label){
+    if(!$dl) return null;
+    const opts = Array.from($dl.options || []);
+    const found = opts.find(o => (o.value || '').trim() === (label || '').trim());
+    return found ? (found.dataset.id || null) : null;
+  }
+
+  function syncUserId(){
+    const uid = resolveUserIdFromLabel($userName.value);
+    if(uid){ $userId.value = uid; }
+  }
+
+  $userName?.addEventListener('change', syncUserId);
+  $userName?.addEventListener('blur', syncUserId);
+  $userName?.addEventListener('input', function(){
+    // bila user mengetik ulang, kosongkan user_id hingga valid lagi
+    $userId.value = '';
+  });
+
+  // === META JSON -> meta[...] inputs (array)
+  function appendMetaInputsFromJSON(jsonText){
+    if(!jsonText) return;
+    let data;
+    try{
+      data = JSON.parse(jsonText);
+    }catch(e){
+      throw new Error('Meta harus berupa JSON yang valid');
+    }
+    Array.from($form.querySelectorAll('input[name^="meta["]')).forEach(el => el.remove());
+
+    const create = (name, value) => {
+      const inp = document.createElement('input');
+      inp.type = 'hidden';
+      inp.name = name;
+      inp.value = String(value ?? '');
+      $form.appendChild(inp);
+    };
+
+    const walk = (obj, path='meta') => {
+      if (Array.isArray(obj)) {
+        obj.forEach((v,i)=> walk(v, `${path}[${i}]`));
+      } else if (obj !== null && typeof obj === 'object') {
+        Object.entries(obj).forEach(([k,v]) => walk(v, `${path}[${k}]`));
+      } else {
+        create(path, obj);
+      }
+    };
+
+    walk(data);
+  }
+
+  // === Submit handler
+  $form.addEventListener('submit', function(e){
+    // pastikan user_id terisi dari pilihan
+    if($userName && !$userId.value){
+      const uid = resolveUserIdFromLabel($userName.value);
+      if(uid){
+        $userId.value = uid;
+      } else {
+        e.preventDefault();
+        alert('Silakan pilih user dari daftar agar sistem mendapatkan UUID nya.');
+        $userName.focus();
+        return;
+      }
+    }
+
+    // proses meta_json (optional)
+    const ta = $form.querySelector('[name="meta_json"]');
     if(ta && ta.value.trim()){
       try{
-        const parsed = JSON.parse(ta.value);
-        const hidden = document.createElement('input');
-        hidden.type='hidden'; hidden.name='meta'; hidden.value=JSON.stringify(parsed);
-        this.appendChild(hidden);
+        appendMetaInputsFromJSON(ta.value);
         ta.disabled = true; // cegah kirim meta_json mentah
       }catch(err){
-        alert('Meta harus berupa JSON yang valid');
         e.preventDefault();
+        alert(err.message || 'Meta harus berupa JSON yang valid');
       }
     }
   });
+})();
 </script>
 @endpush

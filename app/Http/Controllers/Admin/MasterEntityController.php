@@ -1,6 +1,6 @@
 <?php
-
 // app/Http/Controllers/Admin/MasterEntityController.php
+
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
@@ -25,19 +25,18 @@ class MasterEntityController extends Controller
     public function store(Request $r)
     {
         $data = $r->validate([
-            'key'        => ['required', 'regex:/^[a-z0-9_]+$/', 'max:50', Rule::unique('master_entities', 'key')],
-            'label'      => ['required', 'string', 'max:100'],
-            'enabled'    => ['nullable', 'boolean'],
-            'sort'       => ['nullable', 'integer', 'min:0'],
-            'schema'     => ['nullable'], // json string boleh
-            'icon'       => ['nullable', 'string', 'max:255'],
-            'color_from' => ['nullable', 'string', 'max:50'],
-            'color_to'   => ['nullable', 'string', 'max:50'],
+            'key'        => ['required','regex:/^[a-z0-9_]+$/','max:50', Rule::unique('master_entities','key')],
+            'label'      => ['required','string','max:100'],
+            'enabled'    => ['nullable','boolean'],
+            'sort'       => ['nullable','integer','min:0'],
+            'schema'     => ['nullable'], // json string/array
+            'icon'       => ['nullable','string','max:255'],
+            'color_from' => ['nullable','string','max:50'],
+            'color_to'   => ['nullable','string','max:50'],
         ]);
 
-        // Normalize
         $data['key']     = Str::slug($data['key'], '_');
-        $data['enabled'] = $r->boolean('enabled'); // default false jika kosong
+        $data['enabled'] = $r->boolean('enabled');
 
         if (is_string($data['schema'] ?? null)) {
             $data['schema'] = json_decode($data['schema'], true);
@@ -56,17 +55,16 @@ class MasterEntityController extends Controller
     public function update(Request $r, MasterEntity $master_entity)
     {
         $data = $r->validate([
-            'key'        => ['required', 'regex:/^[a-z0-9_]+$/', 'max:50', Rule::unique('master_entities', 'key')->ignore($master_entity->id)],
-            'label'      => ['required', 'string', 'max:100'],
-            'enabled'    => ['nullable', 'boolean'],
-            'sort'       => ['nullable', 'integer', 'min:0'],
+            'key'        => ['required','regex:/^[a-z0-9_]+$/','max:50', Rule::unique('master_entities','key')->ignore($master_entity->id)],
+            'label'      => ['required','string','max:100'],
+            'enabled'    => ['nullable','boolean'],
+            'sort'       => ['nullable','integer','min:0'],
             'schema'     => ['nullable'],
-            'icon'       => ['nullable', 'string', 'max:255'],
-            'color_from' => ['nullable', 'string', 'max:50'],
-            'color_to'   => ['nullable', 'string', 'max:50'],
+            'icon'       => ['nullable','string','max:255'],
+            'color_from' => ['nullable','string','max:50'],
+            'color_to'   => ['nullable','string','max:50'],
         ]);
 
-        // Normalize
         $data['key']     = Str::slug($data['key'], '_');
         $data['enabled'] = $r->boolean('enabled');
 
@@ -81,29 +79,23 @@ class MasterEntityController extends Controller
 
     public function destroy(Request $r, MasterEntity $master_entity)
     {
-        $count = \DB::table('master_records')
-            ->where('master_entity_id', $master_entity->id)
-            ->count();
+        $relatedCount = $master_entity->masterRecords()->count();
 
-        if ($count > 0 && ! $r->boolean('force')) {
+        if ($relatedCount > 0 && ! $r->boolean('force')) {
             return back()->withErrors([
-                'delete' => "Entity masih dipakai oleh {$count} record. Nonaktifkan (enabled=0) atau pindahkan data terlebih dulu. ".
-                            "Atau centang 'Force delete' untuk menghapus beserta datanya.",
+                'delete' => "Entity masih dipakai oleh {$relatedCount} record. Nonaktifkan (enabled=0) atau pindahkan data terlebih dulu. Atau centang 'Force delete' untuk menghapus beserta datanya.",
             ]);
         }
 
-        \DB::transaction(function () use ($master_entity) {
-            $ids = \DB::table('master_records')
-                ->where('master_entity_id', $master_entity->id)
-                ->pluck('id');
+        // Hapus relasi via Eloquent (tanpa DB facade)
+        $master_entity->load(['masterRecords.permissions']);
 
-            if ($ids->isNotEmpty()) {
-                \DB::table('master_record_permissions')->whereIn('master_record_id', $ids)->delete();
-                \DB::table('master_records')->whereIn('id', $ids)->delete();
-            }
+        foreach ($master_entity->masterRecords as $rec) {
+            $rec->permissions()->delete();
+            $rec->delete();
+        }
 
-            $master_entity->delete();
-        });
+        $master_entity->delete();
 
         return redirect()->route('admin.master_entities.index')->with('status', 'Entity deleted.');
     }

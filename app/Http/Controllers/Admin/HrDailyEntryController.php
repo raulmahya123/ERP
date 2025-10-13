@@ -43,11 +43,66 @@ class HrDailyEntryController extends Controller
         catch (\Throwable $e) { return false; }
     }
 
+    /** Site label helper: balikin [$siteObj, $label] */
+    private function resolveSite(?string $siteId): array
+    {
+        if (!$siteId) return [null, '—'];
+        $site = DB::table('sites')->select('id','code','name')->where('id',$siteId)->first();
+        $label = $site ? ($site->code ? ($site->code.' — '.$site->name) : $site->name) : $siteId;
+        return [$site, $label];
+    }
+
+    /** Stringkan rule (array -> pipe string) */
+    private function ruleStr($rule): string
+    {
+        return is_array($rule) ? implode('|', $rule) : (string)$rule;
+    }
+
+    /** Bangun field default dari metaRulesBuiltin(type) kalau belum ada meta-form config */
+    private function buildFieldsFromRules(?string $type): array
+    {
+        $fields = [];
+        foreach ($this->metaRulesBuiltin($type) as $key => $rule) {
+            if (!str_starts_with($key, 'meta.')) continue;
+            $k = substr($key, 5);
+            $s = strtolower($this->ruleStr($rule));
+
+            $f = [
+                'key'      => Str::of($k)->lower()->snake()->toString(),
+                'label'    => Str::headline(str_replace('_',' ',$k)),
+                'type'     => 'text',
+                'required' => str_contains($s, 'required'),
+            ];
+
+            // Type inference sederhana
+            if (str_contains($s,'boolean')) {
+                $f['type'] = 'toggle';
+            } elseif (str_contains($s,'date_format:h:i')) {
+                $f['type'] = 'time';
+            } elseif (str_contains($s,'date')) {
+                $f['type'] = 'date';
+            } elseif (str_contains($s,'numeric') || str_contains($s,'integer')) {
+                $f['type'] = 'number';
+            } elseif (preg_match('/\bin:([^|]+)/', $s, $m)) {
+                $f['type'] = 'select';
+                $opts = collect(explode(',', $m[1]))->map(fn($v)=>[
+                    'value'=> trim($v),
+                    'label'=> Str::headline(trim($v))
+                ])->values()->all();
+                $f['options'] = $opts;
+            } elseif (str_contains($k,'attachment')) {
+                $f['type'] = 'file';
+            } elseif (str_contains($k,'notes') || str_contains($k,'reason')) {
+                $f['type'] = 'textarea';
+            }
+
+            $fields[] = $f;
+        }
+        return $fields;
+    }
+
     /* =========================================================
      |  CONFIG dinamis: params->hr
-     |   - hr.config_keys.{suffix} (opsional per-site)
-     |   - fallback: entry_{suffix}
-     |   suffix: types|meta_schemas|meta_form|approval_schemas|print_templates
      |=========================================================*/
     private function getSiteConfigRowForHr(?string $siteId = null): ?object
     {
@@ -919,9 +974,10 @@ class HrDailyEntryController extends Controller
         $entries = $q->paginate($r->integer('per_page', 25))->appends($r->query());
 
         if (!$r->wantsJson()) {
-            $types = $this->getTypes();
+            $types        = $this->getTypes();
             $activeSiteId = $this->activeSiteId($r);
-            return view('admin.hr_entries.index', compact('entries', 'types', 'activeSiteId'));
+            [$activeSite, $activeSiteLabel] = $this->resolveSite($activeSiteId);
+            return view('admin.hr_entries.index', compact('entries', 'types', 'activeSiteId', 'activeSite', 'activeSiteLabel'));
         }
         return response()->json($entries);
     }
@@ -929,6 +985,7 @@ class HrDailyEntryController extends Controller
     public function create(Request $r)
     {
         $activeSiteId = $r->input('site_id', session('site_id'));
+        [$activeSite, $activeSiteLabel] = $this->resolveSite($activeSiteId);
 
         $types = $this->getTypes();
 
@@ -943,7 +1000,18 @@ class HrDailyEntryController extends Controller
             ->orderBy('code')
             ->get();
 
-        return view('admin.hr_entries.create', compact('types', 'activeSiteId', 'users', 'shifts'));
+        // Meta form fallback dari builtin rules
+        $metaForm     = $this->getMetaFormConfig();
+        $resolvedType = old('type') ?: array_key_first($types);
+        $metaFields   = $metaForm[$resolvedType]['fields'] ?? [];
+        if (empty($metaFields)) {
+            $metaFields = $this->buildFieldsFromRules($resolvedType);
+        }
+
+        return view('admin.hr_entries.create', compact(
+            'types', 'activeSiteId', 'activeSite', 'activeSiteLabel',
+            'users', 'shifts', 'metaForm', 'resolvedType', 'metaFields'
+        ));
     }
 
     /** AJAX lookup user */
@@ -951,7 +1019,7 @@ class HrDailyEntryController extends Controller
     {
         $q   = trim((string) $r->input('q', ''));
         $sid = $r->input('site_id', session('site_id'));
-        $like = '%'.str_replace(['%','_'], ['\%','\_'], $q).'%';
+        $like = '%'.str_replace(['%','_'], ['\%','\_'], $q).'%' ;
 
         $usersQ = User::select('id','name','email','employee_code')
             ->when($q !== '', function ($qb) use ($like) {
@@ -1031,7 +1099,7 @@ class HrDailyEntryController extends Controller
                     'site_id' => $payload['site_id'],
                     'user_id' => $payload['user_id'],
                     'date'    => $payload['date'],
-                    'type'    => $payload['type'], // FIX: jangan 'type    '
+                    'type'    => $payload['type'],
                     'code'    => $payload['code'],
                 ],
                 Arr::except($payload, ['site_id','user_id','date','type','code'])
@@ -1048,10 +1116,19 @@ class HrDailyEntryController extends Controller
     {
         $types        = $this->getTypes();
         $activeSiteId = $this->activeSiteId($r);
+        [$activeSite, $activeSiteLabel] = $this->resolveSite($activeSiteId);
+
         $metaForm     = $this->getMetaFormConfig();
         $resolvedType = old('type', $entry->type ?? '');
+        $metaFields   = $metaForm[$resolvedType]['fields'] ?? [];
+        if (empty($metaFields)) {
+            $metaFields = $this->buildFieldsFromRules($resolvedType);
+        }
 
-        return view('admin.hr_entries.edit', compact('entry', 'types', 'activeSiteId', 'metaForm', 'resolvedType'));
+        return view('admin.hr_entries.edit', compact(
+            'entry', 'types', 'activeSiteId', 'activeSite', 'activeSiteLabel',
+            'metaForm', 'resolvedType', 'metaFields'
+        ));
     }
 
     public function update(Request $r, HrDailyEntry $entry)
@@ -1223,10 +1300,34 @@ class HrDailyEntryController extends Controller
         $meta = (array) ($entry->meta ?? []);
         $val  = $meta[$key] ?? null;
 
-        if (is_string($val) && Storage::disk('public')->exists($val)) {
-            return Storage::disk('public')->download($val);
+        // Optional: nama file yang lebih ramah (ambil dari meta: {key}_name)
+        $downloadName = (string) ($meta[$key.'_name'] ?? basename((string) $val) ?: 'attachment');
+
+        if (is_string($val) && $val !== '') {
+            // CASE 1: Disk public driver local → gunakan absolute path + response()->download()
+            if (config('filesystems.disks.public.driver', 'local') === 'local') {
+                $absolutePath = storage_path('app/public/' . ltrim($val, '/'));
+                if (is_file($absolutePath)) {
+                    return response()->download($absolutePath, $downloadName);
+                }
+            }
+
+            // CASE 2: Non-local (mis. S3) atau file tidak langsung accessible → stream via readStream
+            $disk = Storage::disk('public');
+            if ($disk->exists($val)) {
+                $stream = $disk->readStream($val);
+                if (is_resource($stream)) {
+                    return response()->streamDownload(function () use ($stream) {
+                        fpassthru($stream);
+                        if (is_resource($stream)) {
+                            fclose($stream);
+                        }
+                    }, $downloadName);
+                }
+            }
         }
-        if ($key === 'attachment_id' && is_string($val)) {
+
+        if ($key === 'attachment_id' && is_string($val) && $val !== '') {
             return back()->with('error', 'Resolver attachment_id belum diimplementasikan.');
         }
         return back()->with('error', 'Lampiran tidak ditemukan.');

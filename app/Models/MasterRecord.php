@@ -20,7 +20,8 @@ class MasterRecord extends Model
     /** Mass-assignable fields */
     protected $fillable = [
         'id',
-        'entity',
+        'master_entity_id', // ⬅️ ganti dari 'entity' ke FK id
+        'site_id',          // opsional (multi-site)
         'name',
         'code',
         'description',
@@ -30,9 +31,11 @@ class MasterRecord extends Model
 
     /** Casting */
     protected $casts = [
-        'id'         => 'string',
-        'created_by' => 'string',
-        'extra'      => 'array',   // simpan/ambil sebagai array JSON
+        'id'               => 'string',
+        'master_entity_id' => 'string',
+        'site_id'          => 'string',
+        'created_by'       => 'string',
+        'extra'            => 'array', // simpan/ambil sebagai array JSON
     ];
 
     /** Route binding pakai UUID */
@@ -41,19 +44,40 @@ class MasterRecord extends Model
         return 'id';
     }
 
-    /** Auto-generate UUID saat create */
+    /** Auto-generate UUID & normalisasi kecil saat create/save */
     protected static function booted(): void
     {
         static::creating(function (self $model) {
             if (empty($model->{$model->getKeyName()})) {
                 $model->{$model->getKeyName()} = (string) Str::uuid();
             }
+            if (is_string($model->extra ?? null)) {
+                $model->extra = json_decode($model->extra, true);
+            }
+            $model->code = is_string($model->code ?? null)
+                ? trim($model->code)
+                : $model->code;
+        });
+
+        static::saving(function (self $model) {
+            if (is_string($model->extra ?? null)) {
+                $model->extra = json_decode($model->extra, true);
+            }
+            $model->code = is_string($model->code ?? null)
+                ? trim($model->code)
+                : $model->code;
         });
     }
 
     /* =========================================================
      |  Relationships
      |=========================================================*/
+
+    /** Entity induk (FK: master_entity_id) */
+    public function entity()
+    {
+        return $this->belongsTo(MasterEntity::class, 'master_entity_id');
+    }
 
     /** Pembuat record (users.id = UUID) */
     public function creator()
@@ -79,10 +103,23 @@ class MasterRecord extends Model
      |  Query Scopes
      |=========================================================*/
 
-    /** Filter berdasarkan entity */
+    /** Filter berdasarkan entity: terima UUID (id) atau key */
     public function scopeEntity(Builder $q, string $entity): Builder
     {
-        return $q->where('entity', $entity);
+        $isUuid = (bool) preg_match(
+            '/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/',
+            $entity
+        );
+
+        return $isUuid
+            ? $q->where('master_entity_id', $entity)
+            : $q->whereHas('entity', fn (Builder $w) => $w->where('key', $entity));
+    }
+
+    /** Filter per site (opsional) */
+    public function scopeSite(Builder $q, ?string $siteId): Builder
+    {
+        return $siteId ? $q->where('site_id', $siteId) : $q;
     }
 
     /** Pencarian sederhana name/code/description */
@@ -98,10 +135,13 @@ class MasterRecord extends Model
         });
     }
 
-    /** Cari berdasarkan code dalam entity yg sama */
+    /**
+     * Cari berdasarkan code dalam entity yang sama.
+     * $entity bisa UUID (id) atau key.
+     */
     public function scopeCode(Builder $q, string $entity, string $code): Builder
     {
-        return $q->where('entity', $entity)->where('code', $code);
+        return $q->entity($entity)->where('code', $code);
     }
 
     /**

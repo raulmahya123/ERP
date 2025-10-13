@@ -40,7 +40,9 @@ $isHR      = $roleKey === 'hr';
 $canManageMaster   = Gate::check('manage-master-data');
 $canGrantAccess    = Gate::check('grant-access');
 $canManageHrConfig = Gate::check('manage', \App\Models\HrDailyEntry::class);
-$showAdminMenu     = ($isGM || $isManager);
+
+$canPeopleMenu = ($isGM || $isHR);              // punya akses ke People/HCM?
+$canAdminMenu  = ($isGM || $isManager);         // punya akses ke Admin?
 
 /* =========================
 | Entities (dinamis, aman)
@@ -100,7 +102,9 @@ $adminGroupActive =
   request()->routeIs('admin.site_config.*')  ||
   request()->routeIs('admin.audit.*')        ||
   request()->routeIs('admin.access.users.*') ||
-  request()->routeIs('admin.assets.*');
+  request()->routeIs('admin.assets.*')       ||
+  request()->routeIs('admin.asset-assignments.*') ||
+  request()->routeIs('admin.assets.assignments.*');
 
 /* =========================
 | Site aktif & env
@@ -137,60 +141,8 @@ try {
 } catch (\Throwable $e) {}
 
 /* =========================
-| HR Types (dinamis, no dupe)
+| HR CONFIG submenu active?
 |=========================*/
-$typesDefault = fn() => [
-  'leave'        => 'Cuti',
-  'permit'       => 'Izin',
-  'sick'         => 'Sakit',
-  'shift_change' => 'Pergantian Shift',
-  // Disamakan dengan DEFAULT_TYPES di controller
-];
-
-$typesFromController = $types ?? null; // jika controller sudah passing $types
-if (is_array($typesFromController) && !empty($typesFromController)) {
-  $typesMap = $typesFromController;
-} else {
-  // (Opsional) ambil dari site_configs->params->hr->entry_types jika ada
-  try {
-    $row = DB::table('site_configs')
-      ->when($currentSite?->id, fn($q)=>$q->where('site_id',$currentSite->id))
-      ->orderBy('created_at')->first(['params']);
-    if (!$row) {
-      $typesMap = $typesDefault();
-    } else {
-      $params = is_string($row->params) ? (json_decode($row->params, true) ?: []) :
-                (is_array($row->params) ? $row->params : (json_decode(json_encode($row->params ?? []), true) ?: []));
-      $map = (array)($params['hr']['entry_types'] ?? []); // fallback key bawaan
-      if (!is_array($map) || empty($map)) {
-        $typesMap = $typesDefault();
-      } else {
-        $norm = [];
-        foreach ($map as $k => $v) {
-          $key   = Str::of($k)->lower()->snake()->toString();
-          $label = is_string($v) ? $v : ((is_array($v) && isset($v['label'])) ? (string)$v['label'] : Str::headline($key));
-          $norm[$key] = $label;
-        }
-        $typesMap = $norm;
-      }
-    }
-  } catch (\Throwable $e) {
-    $typesMap = $typesDefault();
-  }
-}
-
-/* warna chip kecil untuk "Create by Type" */
-$typeChip = function (string $key) {
-  return match($key) {
-    'leave'        => 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100',
-    'permit'       => 'bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100',
-    'sick'         => 'bg-rose-50 text-rose-700 ring-rose-200 hover:bg-rose-100',
-    'shift_change' => 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100',
-    default        => 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100',
-  };
-};
-
-/* HR config submenu active? */
 $hrCfgActive =
   request()->routeIs('admin.hr-entries.meta-form.*')        ||
   request()->routeIs('admin.hr-entries.meta-schema.*')      ||
@@ -220,7 +172,26 @@ $badge = match($roleKey) {
   default       => 'bg-gray-100 text-gray-600 ring-1 ring-gray-200',
 };
 
-$hrDailyQuery = request()->query();
+/* ==============
+| UI helpers
+================*/
+$lockIcon = '<svg class="w-3.5 h-3.5 inline -mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 11V8a4 4 0 118 0v3m-9 0h10a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 01-2-2v-6a2 2 0 012-2z"/></svg>';
+
+$disabledClasses = 'cursor-not-allowed opacity-50';
+
+/* Untuk Quick card: wrapper yang bisa locked */
+$quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, string $icon, string $label, ?string $badgeText = null) use ($disabledClasses) {
+  $base = "group relative p-3 rounded-xl bg-white ring-1 ring-slate-200 transition shadow-sm flex flex-col items-center";
+  $hover = $canClick ? " hover:$bgRing" : " $disabledClasses";
+  $tagOpen = $canClick ? "<a href=\"{$hrefOrHash}\" class=\"$base$hover\">" : "<span class=\"$base$hover\" aria-disabled=\"true\">";
+  $tagClose = $canClick ? "</a>" : "</span>";
+
+  $badge = $badgeText
+    ? "<span class=\"absolute -top-1 -right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ".($canClick?'bg-amber-500 text-white':'bg-slate-200 text-slate-500')."\">{$badgeText}</span>"
+    : "";
+
+  return $tagOpen.$icon."<span class=\"mt-1 text-[11px] font-semibold text-slate-700\">$label</span>$badge{$tagClose}";
+};
 @endphp
 
 <aside class="bg-gradient-to-b from-white to-slate-50/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-r border-slate-200 h-screen sticky top-0 flex flex-col w-72 shrink-0 shadow-sm">
@@ -256,88 +227,67 @@ $hrDailyQuery = request()->query();
   <nav class="flex-1 overflow-y-auto py-3"
        x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }}, openPeople: {{ $peopleRoutesActive ? 'true' : 'false' }}, openHR: {{ ($hrDailyActive||$hrContractsActive||$hrCfgActive) ? 'true' : 'false' }} }">
 
-    {{-- Quick Shortcuts --}}
-    @if (
-      Route::has('sites.select') ||
-      Route::has('attendance.tap') ||
-      Route::has('admin.hr-entries.create') ||
-      Route::has('admin.hr-entries.index') ||
-      (($isGM || $isManager) && Route::has('admin.assets.index')) ||
-      Route::has('profile.edit')
-    )
+    {{-- Quick Shortcuts (tampil untuk semua user) --}}
+    @php
+      $canSiteSelect = Route::has('sites.select');
+      $canTap        = Route::has('attendance.tap');
+      $canApprovalsV = Route::has('admin.hr-entries.index');
+      $canAssetsV    = Route::has('admin.assets.index');
+
+      $approvalsClickable = $canApprovalsV && ($isGM || $isHR);
+      $assetsClickable    = $canAssetsV && ($isGM || $isManager);
+    @endphp
+
+    @if ($canSiteSelect || $canTap || $canApprovalsV || $canAssetsV || Route::has('profile.edit'))
       <div class="mx-3 mb-2">
         <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Quick</div>
         <div class="grid grid-cols-3 gap-2">
 
           {{-- Switch Site --}}
-          @if (Route::has('sites.select'))
-            <a href="{{ route('sites.select') }}"
-               class="group relative p-3 rounded-xl bg-white ring-1 ring-slate-200 hover:ring-teal-200 hover:bg-teal-50 transition shadow-sm flex flex-col items-center">
-              <svg class="w-5 h-5 text-teal-600 group-hover:text-teal-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M4 7h16M5 21h14a2 2 0 002-2V9H3v10a2 2 0 002 2zM8 7V5a3 3 0 013-3h2a3 3 0 013 3v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="mt-1 text-[11px] font-semibold text-slate-700">Site</span>
-              <span class="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 ring-1 ring-slate-200">
-                {{ $currentSite->code ?? '—' }}
-              </span>
-            </a>
+          @if ($canSiteSelect)
+            {!! $quickCard(true, route('sites.select'), 'ring-teal-200 hover:bg-teal-50',
+              '<svg class="w-5 h-5 text-teal-600 group-hover:text-teal-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M5 21h14a2 2 0 002-2V9H3v10a2 2 0 002 2zM8 7V5a3 3 0 013-3h2a3 3 0 013 3v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+              'Site',
+              $currentSite->code ?? '—'
+            ) !!}
           @endif
 
           {{-- Absen GPS (tap) --}}
-          @if (Route::has('attendance.tap'))
-            <a href="{{ route('attendance.tap') }}"
-               class="group p-3 rounded-xl bg-white ring-1 ring-slate-200 hover:ring-emerald-200 hover:bg-emerald-50 transition shadow-sm flex flex-col items-center">
-              <svg class="w-5 h-5 text-emerald-600 group-hover:text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11z"/><circle cx="12" cy="10" r="3"/>
-              </svg>
-              <span class="mt-1 text-[11px] font-semibold text-slate-700">Absen</span>
-            </a>
+          @if ($canTap)
+            {!! $quickCard(true, route('attendance.tap'), 'ring-emerald-200 hover:bg-emerald-50',
+              '<svg class="w-5 h-5 text-emerald-600 group-hover:text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11z"></path><circle cx="12" cy="10" r="3"></circle></svg>',
+              'Absen'
+            ) !!}
           @endif
 
           {{-- Approvals Queue (HR Daily) --}}
-          @if (Route::has('admin.hr-entries.index'))
-            <a href="{{ route('admin.hr-entries.index', ['status'=>'pending']) }}"
-               class="group relative p-3 rounded-xl bg-white ring-1 ring-slate-200 hover:ring-amber-200 hover:bg-amber-50 transition shadow-sm flex flex-col items-center">
-              <svg class="w-5 h-5 text-amber-600 group-hover:text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M9 12l2 2 4-4M7 4h10a2 2 0 012 2v6.5a8.5 8.5 0 11-17 0V6a2 2 0 012-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="mt-1 text-[11px] font-semibold text-slate-700">Approvals</span>
-              @if($pendingApprovals > 0)
-                <span class="absolute -top-1 -right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white">
-                  {{ $pendingApprovals }}
-                </span>
-              @endif
-            </a>
+          @if ($canApprovalsV)
+            {!! $quickCard($approvalsClickable, $approvalsClickable ? route('admin.hr-entries.index', ['status'=>'pending']) : '#', 'ring-amber-200 hover:bg-amber-50',
+              '<svg class="w-5 h-5 '.($approvalsClickable?'text-amber-600 group-hover:text-amber-700':'text-slate-400').' " viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12l2 2 4-4M7 4h10a2 2 0 012 2v6.5a8.5 8.5 0 11-17 0V6a2 2 0 012-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+              'Approvals',
+              $pendingApprovals > 0 ? (string)$pendingApprovals : null
+            ) !!}
           @endif
 
-          {{-- Assets (GM/Mgr) --}}
-          @if (($isGM || $isManager) && Route::has('admin.assets.index'))
-            @php $siteParam = $currentSite->id ?? null; @endphp
-            <a href="{{ $siteParam ? route('admin.assets.index', ['site'=>$siteParam]) : route('admin.assets.index') }}"
-               class="group p-3 rounded-xl bg-white ring-1 ring-slate-200 hover:ring-sky-200 hover:bg-sky-50 transition shadow-sm flex flex-col items-center">
-              <svg class="w-5 h-5 text-sky-600 group-hover:text-sky-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="mt-1 text-[11px] font-semibold text-slate-700">Assets</span>
-            </a>
+          {{-- Assets --}}
+          @if ($canAssetsV)
+            {!! $quickCard($assetsClickable, $assetsClickable ? ( ($currentSite->id ?? null) ? route('admin.assets.index', ['site'=>$currentSite->id]) : route('admin.assets.index') ) : '#', 'ring-sky-200 hover:bg-sky-50',
+              '<svg class="w-5 h-5 '.($assetsClickable?'text-sky-600 group-hover:text-sky-700':'text-slate-400').'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+              'Assets'
+            ) !!}
           @endif
 
           {{-- Profile --}}
           @if (Route::has('profile.edit'))
-            <a href="{{ route('profile.edit') }}"
-               class="group p-3 rounded-xl bg-white ring-1 ring-slate-200 hover:ring-violet-200 hover:bg-violet-50 transition shadow-sm flex flex-col items-center">
-              <svg class="w-5 h-5 text-violet-600 group-hover:text-violet-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="8" r="3" stroke-width="2"/>
-                <path d="M6 20a6 6 0 1112 0" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-              <span class="mt-1 text-[11px] font-semibold text-slate-700">Profile</span>
-            </a>
+            {!! $quickCard(true, route('profile.edit'), 'ring-violet-200 hover:bg-violet-50',
+              '<svg class="w-5 h-5 text-violet-600 group-hover:text-violet-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="3" stroke-width="2"></circle><path d="M6 20a6 6 0 1112 0" stroke-width="2" stroke-linecap="round"></path></svg>',
+              'Profile'
+            ) !!}
           @endif
-
         </div>
       </div>
     @endif
-    {{-- /Quick Shortcuts --}}
+    {{-- /Quick --}}
 
     {{-- Dashboard --}}
     <a href="{{ route('dashboard') }}"
@@ -366,123 +316,190 @@ $hrDailyQuery = request()->query();
       </a>
     @endif
 
-    {{-- Master Data Overview --}}
-    @if ($isGM && $canManageMaster && Route::has('admin.master.overview'))
-      <a href="{{ route('admin.master.overview') }}"
-         class="group mx-3 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.master.overview')) }}">
-        <svg class="w-5 h-5 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect>
-        </svg>
-        <span>Master Data Overview</span>
-      </a>
-    @endif
+    {{-- Master Data Overview (GM + gate) --}}
+    @php $canMasterOverview = ($isGM && $canManageMaster && Route::has('admin.master.overview')); @endphp
+    <div class="mx-3 mt-1">
+      @if ($canMasterOverview)
+        <a href="{{ route('admin.master.overview') }}"
+           class="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.master.overview')) }}">
+          <svg class="w-5 h-5 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect>
+          </svg>
+          <span>Master Data Overview</span>
+        </a>
+      @elseif (Route::has('admin.master.overview'))
+        <span class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">
+          <svg class="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="2"></rect><rect x="14" y="3" width="7" height="7" rx="2"></rect><rect x="3" y="14" width="7" height="7" rx="2"></rect><rect x="14" y="14" width="7" height="7" rx="2"></rect>
+          </svg>
+          <span>Master Data Overview {!! $lockIcon !!}</span>
+        </span>
+      @endif
+    </div>
 
-    {{-- PEOPLE: HCM & Manpower (GM & HR) --}}
-    @if (($isGM || $isHR) && (
-          Route::has('admin.attendance.index')      ||
-          Route::has('admin.timesheets.index')      ||
-          Route::has('admin.overtime.index')        ||
-          Route::has('admin.locations.index')       ||
-          Route::has('admin.shift-rosters.index')   ||
-          Route::has('admin.manpower.dashboard')    ||
-          Route::has('admin.hr-entries.index')      ||
-          Route::has('admin.contracts.index')
-        ))
+    {{-- PEOPLE: HCM & Manpower --}}
+    @php
+      $hasPeopleRoutes = (
+        Route::has('admin.attendance.index')      ||
+        Route::has('admin.timesheets.index')      ||
+        Route::has('admin.overtime.index')        ||
+        Route::has('admin.locations.index')       ||
+        Route::has('admin.shift-rosters.index')   ||
+        Route::has('admin.manpower.dashboard')    ||
+        Route::has('admin.hr-entries.index')      ||
+        Route::has('admin.contracts.index')       ||
+        Route::has('admin.manpower-plans.index')  ||
+        Route::has('admin.manpower-reals.index')  ||
+        Route::has('admin.crew-assignments.index')
+      );
+    @endphp
+    @if ($hasPeopleRoutes)
       <div class="mt-3">
         <button type="button" @click="openPeople=!openPeople"
-                class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold
+                {{ $canPeopleMenu ? 'text-slate-700 hover:bg-slate-50' : 'text-slate-500' }}">
           <span class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11c1.657 0 3 1.79 3 4v1H5v-1c0-2.21 1.343-4 3-4m8-5a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-            HCM & Manpower
+            <svg class="w-5 h-5 {{ $canPeopleMenu ? 'text-yellow-500' : 'text-slate-400' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 11c1.657 0 3 1.79 3 4v1H5v-1c0-2.21 1.343-4 3-4m8-5a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            HCM & Manpower {!! $canPeopleMenu ? '' : $lockIcon !!}
           </span>
           <svg class="w-4 h-4 text-slate-500 transform transition" :class="openPeople ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </button>
 
         <div x-show="openPeople" x-transition.origin.top.left class="mt-2 space-y-1">
+          {{-- Absensi Harian --}}
           @if (Route::has('admin.attendance.index'))
-            <a href="{{ route('admin.attendance.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.attendance.*')) }}">
-              Absensi Harian
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.attendance.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.attendance.*')) }}">
+                Absensi Harian
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Absensi Harian {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Timesheet & Lembur --}}
           @if (Route::has('admin.timesheets.index'))
-            <a href="{{ route('admin.timesheets.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.timesheets.*') && !request()->routeIs('admin.overtime.*')) }}">
-              Timesheet &amp; Lembur
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.timesheets.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.timesheets.*') && !request()->routeIs('admin.overtime.*')) }}">
+                Timesheet &amp; Lembur
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Timesheet &amp; Lembur {!! $lockIcon !!}</span>
+            @endif
           @endif
 
-          {{-- Overtime Queue (baru) --}}
+          {{-- Overtime Queue --}}
           @if (Route::has('admin.overtime.index'))
-            <a href="{{ route('admin.overtime.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.overtime.*')) }}">
-              Overtime Queue
-              @if($pendingOT > 0)
-                <span class="ml-2 inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full bg-rose-100 text-rose-800 ring-1 ring-rose-200">
-                  {{ $pendingOT }}
-                </span>
-              @endif
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.overtime.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.overtime.*')) }}">
+                Overtime Queue
+                @if($pendingOT > 0)
+                  <span class="ml-2 inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full bg-rose-100 text-rose-800 ring-1 ring-rose-200">
+                    {{ $pendingOT }}
+                  </span>
+                @endif
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Overtime Queue {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Lokasi & Geofence --}}
           @if (Route::has('admin.locations.index'))
-            <a href="{{ route('admin.locations.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.locations.*')) }}">
-              Lokasi &amp; Geofence
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.locations.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.locations.*')) }}">
+                Lokasi &amp; Geofence
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Lokasi &amp; Geofence {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Shift Roster --}}
           @if (Route::has('admin.shift-rosters.index'))
-            <a href="{{ route('admin.shift-rosters.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shift-rosters.*')) }}">
-              Shift Roster
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.shift-rosters.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shift-rosters.*')) }}">
+                Shift Roster
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Shift Roster {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Shifts Master --}}
           @if (Route::has('admin.shifts.index'))
-            <a href="{{ route('admin.shifts.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shifts.*')) }}">
-              Shifts Master
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.shifts.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shifts.*')) }}">
+                Shifts Master
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Shifts Master {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Manpower Dashboard --}}
           @if (Route::has('admin.manpower.dashboard'))
-            <a href="{{ route('admin.manpower.dashboard') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower.dashboard')) }}">
-              Manpower Dashboard
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.manpower.dashboard') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower.dashboard')) }}">
+                Manpower Dashboard
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Manpower Dashboard {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Manpower Plans --}}
           @if (Route::has('admin.manpower-plans.index'))
-            <a href="{{ route('admin.manpower-plans.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-plans.*')) }}">
-              Manpower Plans
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.manpower-plans.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-plans.*')) }}">
+                Manpower Plans
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Manpower Plans {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Manpower Realizations --}}
           @if (Route::has('admin.manpower-reals.index'))
-            <a href="{{ route('admin.manpower-reals.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-reals.*')) }}">
-              Manpower Realizations
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.manpower-reals.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-reals.*')) }}">
+                Manpower Realizations
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Manpower Realizations {!! $lockIcon !!}</span>
+            @endif
           @endif
 
+          {{-- Mapping Crew --}}
           @if (Route::has('admin.crew-assignments.index'))
-            <a href="{{ route('admin.crew-assignments.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.crew-assignments.*')) }}">
-              Mapping Crew
-            </a>
+            @if ($canPeopleMenu)
+              <a href="{{ route('admin.crew-assignments.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.crew-assignments.*')) }}">
+                Mapping Crew
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Mapping Crew {!! $lockIcon !!}</span>
+            @endif
           @endif
 
-          {{-- HR Suite --}}
+          {{-- HR Suite (sub) --}}
           @if (Route::has('admin.hr-entries.index') || Route::has('admin.contracts.index'))
             <div class="mt-2">
               <button type="button" @click="openHR=!openHR"
-                      class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between pl-7 pr-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                      class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between pl-7 pr-3 py-2 rounded-lg text-sm font-semibold
+                        {{ $canPeopleMenu ? 'text-slate-700 hover:bg-slate-50' : 'text-slate-500' }}">
                 <span class="flex items-center gap-2">
-                  <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6a3 3 0 110-6 3 3 0 010 6zM6 22a6 6 0 1112 0H6z"/></svg>
-                  HR Suite
+                  <svg class="w-5 h-5 {{ $canPeopleMenu ? 'text-indigo-500' : 'text-slate-400' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6a3 3 0 110-6 3 3 0 010 6zM6 22a6 6 0 1112 0H6z"/></svg>
+                  HR Suite {!! $canPeopleMenu ? '' : $lockIcon !!}
                 </span>
                 <svg class="w-4 h-4 text-slate-500 transform transition" :class="openHR ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
               </button>
@@ -491,85 +508,42 @@ $hrDailyQuery = request()->query();
 
                 {{-- HR Daily Entries --}}
                 @if (Route::has('admin.hr-entries.index'))
-                  <a href="{{ route('admin.hr-entries.index') }}"
-                     class="group block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hrDailyActive) }}">
-                    <span class="inline-flex items-center gap-2">
-                      <span>HR Daily Entries</span>
-                      @if($pendingApprovals > 0)
-                        <span class="ml-1 inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-200">
-                          {{ $pendingApprovals }}
-                        </span>
-                      @endif
+                  @if ($canPeopleMenu)
+                    <a href="{{ route('admin.hr-entries.index') }}"
+                       class="group block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hrDailyActive) }}">
+                      <span class="inline-flex items-center gap-2">
+                        <span>HR Daily Entries</span>
+                        @if($pendingApprovals > 0)
+                          <span class="ml-1 inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-200">
+                            {{ $pendingApprovals }}
+                          </span>
+                        @endif
+                      </span>
+                    </a>
+
+                    {{-- Create (simple) --}}
+                    <a href="{{ route('admin.hr-entries.create') }}"
+                       class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.create') && !request()->has('type')) }}">
+                      • Create
+                    </a>
+
+                    {{-- Recycle / Export --}}
+                    @if (Route::has('admin.hr-entries.trashed'))
+                      <a href="{{ route('admin.hr-entries.trashed') }}"
+                         class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.trashed')) }}">
+                        • Recycle Bin
+                      </a>
+                    @endif
+                    @if (Route::has('admin.hr-entries.export.csv'))
+                      <a href="{{ route('admin.hr-entries.export.csv') }}"
+                         class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-teal-700">
+                        • Export CSV
+                      </a>
+                    @endif
+                  @else
+                    <span class="group block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">
+                      HR Daily Entries {!! $lockIcon !!}
                     </span>
-                  </a>
-
-                  {{-- Create --}}
-                  <a href="{{ route('admin.hr-entries.create') }}"
-                     class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.create') && !request()->has('type')) }}">
-                    • Create
-                  </a>
-
-                  {{-- Create by Type (dinamis) --}}
-                  @if(!empty($typesMap))
-                    <div class="mx-3 pl-14 pr-3 mt-0.5 mb-1">
-                      <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Create by Type</div>
-                      <div class="grid grid-cols-2 gap-1.5">
-                        @foreach($typesMap as $tKey => $tLabel)
-                          @php
-                            $key = Str::of($tKey)->lower()->snake()->toString();
-                            $isActiveType = request()->routeIs('admin.hr-entries.create') && request('type') === $key;
-                          @endphp
-                          <a href="{{ route('admin.hr-entries.create', array_merge($hrDailyQuery, ['type'=>$key])) }}"
-                             class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-md text-[12px] font-medium ring-1 transition
-                               {{ $typeChip($key) }}
-                               {{ $isActiveType ? 'outline outline-1 outline-offset-2 outline-teal-400' : '' }}">
-                            {{ $tLabel }}
-                          </a>
-                        @endforeach
-                      </div>
-
-                      @if($canManageHrConfig && Route::has('admin.hr-entries.types.index'))
-                        <div class="mt-2">
-                          <a href="{{ route('admin.hr-entries.types.index') }}"
-                             class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-teal-700">
-                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                              <path d="M4 7h16M4 12h10M4 17h7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                            Manage Types
-                          </a>
-                        </div>
-                      @endif
-                    </div>
-                  @endif
-
-                  {{-- Approvals Queue --}}
-                  <a href="{{ route('admin.hr-entries.index', array_merge($hrDailyQuery, ['status'=>'pending'])) }}"
-                     class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition">
-                    • Approvals Queue
-                  </a>
-
-                  {{-- GA Request filter (jika ada di typesMap) --}}
-                  @if(isset($typesMap['ga_request']))
-                    <a href="{{ route('admin.hr-entries.index', array_merge($hrDailyQuery, ['type'=>'ga_request'])) }}"
-                       class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition">
-                      • GA Request
-                    </a>
-                  @endif
-
-                  {{-- Recycle Bin --}}
-                  @if (Route::has('admin.hr-entries.trashed'))
-                    <a href="{{ route('admin.hr-entries.trashed') }}"
-                       class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.trashed')) }}">
-                      • Recycle Bin
-                    </a>
-                  @endif
-
-                  {{-- Export CSV --}}
-                  @if (Route::has('admin.hr-entries.export.csv'))
-                    <a href="{{ route('admin.hr-entries.export.csv') }}"
-                       class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-teal-700">
-                      • Export CSV
-                    </a>
                   @endif
                 @endif
 
@@ -625,16 +599,15 @@ $hrDailyQuery = request()->query();
 
                 {{-- Contracts --}}
                 @if (Route::has('admin.contracts.index'))
-                  <a href="{{ route('admin.contracts.index') }}"
-                     class="block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hrContractsActive) }}">
-                    Employment Contracts
-                  </a>
-                  <a href="{{ route('admin.contracts.create') }}"
-                     class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.contracts.create')) }}">
-                    • Create
-                  </a>
+                  @if ($canPeopleMenu)
+                    <a href="{{ route('admin.contracts.index') }}"
+                       class="block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hrContractsActive) }}">
+                      Employment Contracts
+                    </a>
+                  @else
+                    <span class="block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Employment Contracts {!! $lockIcon !!}</span>
+                  @endif
                 @endif
-
               </div>
             </div>
           @endif
@@ -642,78 +615,105 @@ $hrDailyQuery = request()->query();
       </div>
     @endif
 
-    {{-- ADMIN (GM & Manager) --}}
-    @if ($showAdminMenu)
+    {{-- ADMIN --}}
+    @php
+      $hasAdminRoutes = (
+        Route::has('admin.roles.index') ||
+        Route::has('admin.users.index') ||
+        Route::has('admin.divisions.index') ||
+        Route::has('admin.commodities.index') ||
+        Route::has('admin.sites.index') ||
+        Route::has('admin.site_config.index') ||
+        Route::has('admin.audit.index') ||
+        Route::has('admin.access.users.index') ||
+        Route::has('admin.assets.index')
+      );
+    @endphp
+    @if ($hasAdminRoutes)
       <div class="mt-3">
         <button type="button" @click="openAdmin=!openAdmin"
-                class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold
+                {{ $canAdminMenu ? 'text-slate-700 hover:bg-slate-50' : 'text-slate-500' }}">
           <span class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h14M5 17h14"/></svg>
-            Admin
+            <svg class="w-5 h-5 {{ $canAdminMenu ? 'text-yellow-500' : 'text-slate-400' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h14M5 17h14"/></svg>
+            Admin {!! $canAdminMenu ? '' : $lockIcon !!}
           </span>
           <svg class="w-4 h-4 text-slate-500 transform transition" :class="openAdmin ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </button>
 
         <div x-show="openAdmin" x-transition.origin.top.left class="mt-2 space-y-1">
-          <a href="{{ route('admin.roles.index') }}"
-             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.roles.*')) }}">
-            Roles
-          </a>
+          @foreach ([['admin.roles.index','Roles'],['admin.users.index','Users'],['admin.divisions.index','Divisions'],['admin.commodities.index','Commodities']] as [$r,$label])
+            @if (Route::has($r))
+              @if ($canAdminMenu)
+                <a href="{{ route($r) }}"
+                   class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs(Str::beforeLast($r,'.index').'.*')) }}">
+                  {{ $label }}
+                </a>
+              @else
+                <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">{{ $label }} {!! $lockIcon !!}</span>
+              @endif
+            @endif
+          @endforeach
 
-          <a href="{{ route('admin.users.index') }}"
-             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.users.*')) }}">
-            Users
-          </a>
-
-          <a href="{{ route('admin.divisions.index') }}"
-             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.divisions.*')) }}">
-            Divisions
-          </a>
-
-          @if (Route::has('admin.commodities.index'))
-            <a href="{{ route('admin.commodities.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.commodities.*')) }}">
-              Commodities
-            </a>
+          @if (Route::has('admin.sites.index'))
+            @if ($isGM)
+              <a href="{{ route('admin.sites.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">
+                Sites
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Sites {!! $lockIcon !!}</span>
+            @endif
           @endif
 
-          @if ($isGM && Route::has('admin.sites.index'))
-            <a href="{{ route('admin.sites.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">
-              Sites
-            </a>
+          @if (Route::has('admin.site_config.index'))
+            @if ($isGM)
+              <a href="{{ route('admin.site_config.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
+                Konfigurasi Site
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Konfigurasi Site {!! $lockIcon !!}</span>
+            @endif
           @endif
 
-          @if ($isGM && Route::has('admin.site_config.index'))
-            <a href="{{ route('admin.site_config.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
-              Konfigurasi Site
-            </a>
+          @php
+            $assetsActive = request()->routeIs('admin.assets.*') || request()->routeIs('admin.asset-assignments.*') || request()->routeIs('admin.assets.assignments.*');
+            $siteParam    = $currentSite->id ?? null;
+          @endphp
+          @if (Route::has('admin.assets.index'))
+            @if ($canAdminMenu)
+              <a href="{{ $siteParam ? route('admin.assets.index', ['site' => $siteParam]) : route('admin.assets.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($assetsActive) }}">
+                Assets @if($currentSite) <span class="text-[11px] ml-1 text-slate-400">— {{ $currentSite->code }}</span>@endif
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Assets {!! $lockIcon !!}</span>
+            @endif
           @endif
 
-          @if (($isGM || $isManager) && Route::has('admin.assets.index'))
-            @php
-              $assetsActive = request()->routeIs('admin.assets.*');
-              $siteParam    = $currentSite->id ?? null;
-            @endphp
-            <a href="{{ $siteParam ? route('admin.assets.index', ['site' => $siteParam]) : route('admin.assets.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($assetsActive) }}">
-              Assets @if($currentSite) <span class="text-[11px] ml-1 text-slate-400">— {{ $currentSite->code }}</span>@endif
-            </a>
+          @if (Route::has('admin.audit.index'))
+            @if ($isGM || $isManager)
+              <a href="{{ route('admin.audit.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.audit.*')) }}">
+                Audit Logs
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">
+                Audit Logs {!! $lockIcon !!}
+              </span>
+            @endif
           @endif
 
-          @if ($isGM && Gate::check('viewAudit') && Route::has('admin.audit.index'))
-            <a href="{{ route('admin.audit.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.audit.*')) }}">
-              Audit Logs
-            </a>
-          @endif
-
-          @if ($isGM && $canGrantAccess && Route::has('admin.access.users.index'))
-            <a href="{{ route('admin.access.users.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
-              Kelola Akses (GM)
-            </a>
+          @if (Route::has('admin.access.users.index'))
+            @if ($isGM && $canGrantAccess)
+              <a href="{{ route('admin.access.users.index') }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
+                Kelola Akses (GM)
+              </a>
+            @else
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Kelola Akses {!! $lockIcon !!}</span>
+            @endif
           @endif
         </div>
       </div>

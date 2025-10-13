@@ -49,11 +49,12 @@
 
 @php
   use Illuminate\Support\Str;
-  $activeSiteId = $activeSiteId ?? request('site_id', session('site_id'));
-  $activeSite   = collect($sites ?? [])->firstWhere('id', $activeSiteId);
-  $activeSiteLabel = $activeSite
+
+  // Ambil dari controller: $activeSite dan $activeSiteId
+  $activeSiteId = ($activeSite->id ?? null) ?? ($activeSiteId ?? request('site_id', session('site_id')));
+  $activeSiteLabel = isset($activeSite)
       ? ($activeSite->code ? ($activeSite->code.' — '.$activeSite->name) : $activeSite->name)
-      : '—';
+      : 'Terkunci ke site aktif';
 @endphp
 
 <div class="max-w-7xl mx-auto space-y-8">
@@ -64,7 +65,7 @@
     </div>
   @endif
 
-  {{-- HEADER / HERO (konsisten: emerald→teal→sky + icon kiri) --}}
+  {{-- HEADER / HERO --}}
   <div class="relative overflow-hidden rounded-3xl text-white shadow ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,rgba(255,255,255,.85)_0%,transparent_60%)]"></div>
     <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
@@ -95,7 +96,7 @@
   </div>
 
   {{-- FILTERS (site terkunci) --}}
-  <form method="get" class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6 grid md:grid-cols-12 gap-3 items-end">
+  <form method="get" action="{{ route('admin.contracts.index') }}" class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6 grid md:grid-cols-12 gap-3 items-end">
     {{-- SITE (LOCKED) --}}
     <div class="md:col-span-4">
       <label class="block text-xs text-slate-600 mb-1">Site <span class="text-slate-400">(terkunci)</span></label>
@@ -109,25 +110,17 @@
       <input type="hidden" name="site_id" value="{{ $activeSiteId }}">
     </div>
 
-    {{-- USER (nama/kode pegawai) --}}
-    <div class="md:col-span-4">
-      <label class="block text-xs text-slate-600 mb-1">User</label>
+    {{-- SEARCH (q) --}}
+    <div class="md:col-span-6">
+      <label class="block text-xs text-slate-600 mb-1">Cari</label>
       <div class="relative">
         <span class="absolute left-3 top-2.5 text-emerald-600/80">
           <svg class="h-4 w-4"><use href="#i-user"/></svg>
         </span>
-        <input type="text" name="user" value="{{ request('user') }}"
+        <input type="text" name="q" value="{{ request('q') }}"
                class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-               placeholder="Nama / employee code">
+               placeholder="Nama user / nama site / posisi">
       </div>
-      <p class="mt-1 text-[11px] text-slate-500">Opsional: masih bisa pakai UUID di <code>user_id</code>.</p>
-    </div>
-
-    {{-- USER_ID (opsional, kompatibilitas) --}}
-    <div class="md:col-span-2">
-      <label class="block text-xs text-slate-600 mb-1">User ID (UUID)</label>
-      <input type="text" name="user_id" value="{{ request('user_id') }}"
-             class="w-full border border-emerald-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
     </div>
 
     {{-- TYPE --}}
@@ -173,39 +166,43 @@
         <tbody class="divide-y divide-emerald-100">
           @forelse($contracts as $c)
             @php
-              $typeLabel = $types[$c->type] ?? Str::upper($c->type);
+              $typeLabel = $types[$c->type] ?? Str::upper($c->type ?? '');
+              $uname = $c->user->name ?? null;
+              $siteCode = $c->site->code ?? null;
+              $siteName = $c->site->name ?? null;
             @endphp
             <tr class="hover:bg-emerald-50/40 transition">
               <td class="px-4 py-3 whitespace-nowrap">
-                {{ \Illuminate\Support\Carbon::parse($c->start_date)->format('Y-m-d') }}
+                {{ $c->start_date ? \Illuminate\Support\Carbon::parse($c->start_date)->format('Y-m-d') : '—' }}
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 {{ $c->end_date ? \Illuminate\Support\Carbon::parse($c->end_date)->format('Y-m-d') : '—' }}
               </td>
               <td class="px-4 py-3">
                 <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold bg-teal-50 text-teal-700 ring-1 ring-teal-200">
-                  {{ $typeLabel }}
+                  {{ $typeLabel ?: '—' }}
                 </span>
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
                   <div class="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-100 to-teal-200 grid place-content-center text-[11px] font-semibold text-emerald-900 ring-1 ring-emerald-200/60">
-                    {{ Str::of($c->user->name ?? $c->user_id ?? '-')->substr(0,2)->upper() }}
+                    {{ Str::of($uname ?? '—')->substr(0,2)->upper() }}
                   </div>
                   <div class="leading-tight">
-                    <div class="font-medium text-slate-800">{{ $c->user->name ?? $c->user_id }}</div>
-                    @if($c->user?->employee_code)
+                    <div class="font-medium text-slate-800">{{ $uname ?? '—' }}</div>
+                    {{-- tampilkan kode pegawai jika ada (tidak wajib) --}}
+                    @if(!empty($c->user?->employee_code))
                       <div class="text-xs text-emerald-700/80">{{ $c->user->employee_code }}</div>
                     @endif
                   </div>
                 </div>
               </td>
               <td class="px-4 py-3">
-                @if($c->site)
-                  <span class="font-medium">{{ $c->site->code ?? '' }}</span>
-                  <span class="text-slate-600">{{ $c->site->name ? ' — '.$c->site->name : '' }}</span>
+                @if($siteCode || $siteName)
+                  <span class="font-medium">{{ $siteCode }}</span>
+                  <span class="text-slate-600">{{ $siteName ? ' — '.$siteName : '' }}</span>
                 @else
-                  {{ $c->site_id ?: '—' }}
+                  —
                 @endif
               </td>
               <td class="px-4 py-3">{{ $c->position ?: '—' }}</td>
@@ -249,7 +246,7 @@
         dari <span class="font-medium">{{ $contracts->total() }}</span> data
       </p>
       <div class="text-sm">
-        {{ method_exists($contracts,'withQueryString') ? $contracts->withQueryString()->links() : $contracts->links() }}
+        {{ method_exists($contracts,'withQueryString') ? $contracts->withQueryString()->onEachSide(1)->links() : $contracts->onEachSide(1)->links() }}
       </div>
     </div>
   </div>

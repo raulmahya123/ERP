@@ -52,12 +52,16 @@ class AttendanceSeeder extends Seeder
             return;
         }
 
+        // List kolom yang ada di tabel attendances agar aman saat insert
+        $columns = Schema::getColumnListing('attendances');
+        $has = fn(string $col) => in_array($col, $columns, true);
+
         // Deteksi tipe kolom waktu
         $inType  = $this->getColType('attendances','check_in_at')  ?? 'datetime';
         $outType = $this->getColType('attendances','check_out_at') ?? 'datetime';
 
         foreach ($siteIds as $siteId) {
-            // start_at bisa TIME/DATETIME; kita treat sebagai string waktu
+            // start_at bisa TIME/DATETIME; treat sebagai string waktu
             $shiftStarts = DB::table('shifts')
                 ->where('site_id', $siteId)
                 ->pluck('start_at','id'); // [shift_id => '06:00:00' / '2025-10-10 06:00:00']
@@ -68,49 +72,77 @@ class AttendanceSeeder extends Seeder
 
             foreach ($days as $d) {
                 foreach ($userIds as $userId) {
-                    $shiftId = $shiftStarts->keys()->random();
+                    $shiftId  = $shiftStarts->keys()->random();
                     $startStr = (string) $shiftStarts[$shiftId];
 
                     // Normalisasi start shift → Carbon
-                    $start = str_contains($startStr, ':') && strlen($startStr) <= 8
+                    $start = (str_contains($startStr, ':') && strlen($startStr) <= 8)
                         ? Carbon::parse($d.' '.$startStr) // 'HH:MM:SS'
                         : Carbon::parse($startStr);        // sudah datetime
 
                     $in  = (clone $start)->addMinutes(rand(-5,25));
                     $out = (clone $in)->addHours(8)->addMinutes(rand(-10,30));
 
+                    // Keterlambatan (menit)
                     $late = max(0, $start->diffInMinutes($in, false) * -1);
+
+                    // Flag acak
                     $flags = [];
                     if ($late >= 10) $flags[] = 'late';
                     if (rand(0,10) > 8) $flags[] = 'overtime_high';
 
-                    DB::table('attendances')->updateOrInsert(
-                        ['site_id'=>$siteId, 'user_id'=>$userId, 'work_date'=>$d],
-                        [
-                            'id'                    => (string) Str::uuid(),
-                            'shift_id'              => $shiftId,
-                            'source'                => 'manual', // ENUM wajib
-                            'check_in_at'           => $this->fmt($inType,  $in),
-                            'check_out_at'          => $this->fmt($outType, $out),
-                            'gps_in_lat'            => null,
-                            'gps_in_lng'            => null,
-                            'gps_out_lat'           => null,
-                            'gps_out_lng'           => null,
-                            'device_id'             => null,
-                            'late_minutes'          => $late,
-                            'early_leave_minutes'   => 0,
-                            'overtime_minutes'      => rand(0,1) ? rand(0,120) : 0,
-                            'work_minutes'          => $in->diffInMinutes($out),
-                            'status'                => 'present',
-                            'flags'                 => json_encode($flags, JSON_UNESCAPED_UNICODE),
-                            'created_at'            => now(),
-                            'updated_at'            => now(),
-                        ]
-                    );
+                    // Payload minimal (yang hampir pasti ada)
+                    $payload = [
+                        'id'          => (string) Str::uuid(),
+                        'shift_id'    => $shiftId,
+                        'check_in_at' => $this->fmt($inType,  $in),
+                        'check_out_at'=> $this->fmt($outType, $out),
+                        'updated_at'  => now(),
+                        'created_at'  => now(),
+                    ];
+
+                    // Kolom opsional → hanya isi jika ada di tabel
+                    $optional = [
+                        'source'               => 'manual',
+                        'gps_in_lat'           => null,
+                        'gps_in_lng'           => null,
+                        'gps_out_lat'          => null,
+                        'gps_out_lng'          => null,
+                        'device_id'            => null,
+                        'late_minutes'         => $late,
+                        'early_leave_minutes'  => 0,
+                        'overtime_minutes'     => rand(0,1) ? rand(0,120) : 0,
+                        'work_minutes'         => $in->diffInMinutes($out),
+                        'status'               => 'present',
+                        'flags'                => json_encode($flags, JSON_UNESCAPED_UNICODE),
+                    ];
+
+                    foreach ($optional as $col => $val) {
+                        if ($has($col)) {
+                            $payload[$col] = $val;
+                        }
+                    }
+
+                    // Kriteria unik baris (agar update jika sudah ada)
+                    $where = [
+                        'site_id'   => $siteId,
+                        'user_id'   => $userId,
+                        'work_date' => $d,
+                    ];
+
+                    // Pastikan ketiga kolom kriteria ada; kalau tidak ada, pakai kombinasi yang tersedia
+                    $criteria = [];
+                    foreach ($where as $k => $v) {
+                        if ($has($k)) $criteria[$k] = $v;
+                        else $payload[$k] = $v; // kalau kolomnya tidak ada, masukkan sebagai nilai biasa (aman)
+                    }
+
+                    // Simpan
+                    DB::table('attendances')->updateOrInsert($criteria, $payload);
                 }
             }
         }
 
-        $this->command?->info('✅ AttendanceSeeder: fix MariaDB SHOW COLUMNS & format DATETIME, set enum `source`.');
+        $this->command?->info('✅ AttendanceSeeder: hanya mengisi kolom yang ada, aman dari error kolom hilang (incl. overtime_minutes).');
     }
 }

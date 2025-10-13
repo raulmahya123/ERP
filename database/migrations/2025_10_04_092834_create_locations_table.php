@@ -11,21 +11,26 @@ return new class extends Migration
         Schema::create('locations', function (Blueprint $t) {
             $t->uuid('id')->primary();
 
-            // Sederhana: simpan site_id tanpa FK dulu biar gak ribet dependensi
+            // Simpan site_id tanpa FK (simple)
             $t->uuid('site_id')->index();
 
             $t->string('name');
 
-            // Koordinat (ikuti urutan yang kamu pakai)
-            $t->decimal('longitude', 10, 7); // contoh: 106.8451300
-            $t->decimal('latitude',  10, 7); // contoh:  -6.2146200
+            // Koordinat
+            $t->decimal('longitude', 10, 7);
+            $t->decimal('latitude',  10, 7);
 
             // Geofence default 100 m
             $t->unsignedSmallInteger('geofence_radius_m')->default(100);
 
-            $t->timestamps();
+            // Audit (tanpa FK biar simple & hindari dependensi)
+            $t->uuid('created_by')->nullable()->index();
+            $t->uuid('updated_by')->nullable()->index();
 
-            // Unik per site biar gak dobel nama lokasi di site yang sama
+            $t->timestamps();
+            $t->softDeletes(); // deleted_at
+
+            // Unik per site untuk name
             $t->unique(['site_id','name'], 'uniq_locations_site_name');
 
             // Index bantu pencarian berdasar koordinat

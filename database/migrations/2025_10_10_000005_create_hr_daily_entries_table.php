@@ -14,7 +14,7 @@ return new class extends Migration {
             $t->uuid('user_id')->index();
             $t->date('date')->index();
 
-            $t->enum('type', ['leave','permit','sick','shift_change'])->index();
+            $t->enum('type', ['leave','permit','sick','shift_change','ga','mcu'])->index();
             $t->string('code', 20)->nullable();
             $t->text('reason')->nullable();
 
