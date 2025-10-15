@@ -38,11 +38,11 @@
 </svg>
 
 @php
-  // Parse JSON untuk prefilling
+  // $json dikirim dari controller sebagai JSON config lengkap (ada key "stages")
   $schema = json_decode($json ?? '{}', true) ?: [];
   $stages = is_array($schema['stages'] ?? null) ? $schema['stages'] : [];
 
-  // Opsi roles (opsional): kirimkan dari controller sebagai $roleOptions = ['manager','hr','supervisor',...]
+  // $roleOptions: [['id'=>'...', 'label'=>'...']] dari controller
   $roleOptions = $roleOptions ?? [];
 @endphp
 
@@ -91,11 +91,10 @@
       @csrf
       @method('patch')
 
-      {{-- Builder Header --}}
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="text-sm font-semibold text-slate-800">Approval Stages</h3>
-          <p class="text-[11px] text-slate-500">Tambah beberapa tahap (Supervisor → Manager → HR, dst). Setiap tahap bisa berisi satu atau lebih role yang berhak approve.</p>
+          <p class="text-[11px] text-slate-500">Tambah beberapa tahap (Supervisor → Manager → HR, dst). Setiap tahap berisi satu atau lebih <span class="font-semibold">role_id</span> yang berhak approve.</p>
         </div>
         <button type="button" id="btnAddStage"
                 class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs ring-1 ring-emerald-600 hover:bg-emerald-700">
@@ -103,19 +102,13 @@
         </button>
       </div>
 
-      {{-- Stages Container --}}
-      <div id="stages" class="space-y-3">
-        {{-- Row stage akan di-render oleh JS --}}
-      </div>
+      <div id="stages" class="space-y-3"></div>
 
-      {{-- Hidden payload yang dikirim --}}
+      {{-- Hidden payload: sesuai controller yang baca stages_json --}}
       <input type="hidden" name="stages_json" id="stages_json">
 
-      {{-- Actions --}}
       <div class="flex items-center justify-between pt-2">
-        <div class="text-[11px] text-slate-500">
-          Anda tidak perlu menulis JSON—form ini akan membuatkannya otomatis.
-        </div>
+        <div class="text-[11px] text-slate-500">Anda tidak perlu menulis JSON—form ini akan membuatkannya otomatis.</div>
         <div class="flex gap-2">
           <button type="submit"
                   class="inline-flex items-center px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm ring-1 ring-emerald-600 hover:bg-emerald-700">
@@ -128,7 +121,7 @@
         </div>
       </div>
 
-      {{-- OPTIONAL: Raw JSON dev tools --}}
+      {{-- Dev panel: Raw JSON (opsional) --}}
       <details class="mt-1">
         <summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-700">Lihat / ubah JSON mentah (opsional)</summary>
         <textarea id="raw_json" rows="12"
@@ -141,7 +134,6 @@
       </details>
     </form>
 
-    {{-- Danger Zone --}}
     <div class="pt-4 border-t border-emerald-100">
       <form method="POST" action="{{ route('admin.hr-entries.approval.schemas.destroy', $type) }}"
             onsubmit="return confirm('Hapus approval schema untuk type {{ $type }}?')">
@@ -154,11 +146,10 @@
     </div>
   </div>
 
-  {{-- Datalist roles (opsional) --}}
   @if(!empty($roleOptions))
     <datalist id="roles-list">
-      @foreach($roleOptions as $r)
-        <option value="{{ $r }}"></option>
+      @foreach($roleOptions as $opt)
+        <option value="{{ (string)$opt['id'] }}">{{ $opt['label'] }}</option>
       @endforeach
     </datalist>
   @endif
@@ -168,15 +159,19 @@
 @push('scripts')
 <script>
 (function(){
-  const $form      = document.getElementById('schema-form');
-  const $stages    = document.getElementById('stages');
-  const $payload   = document.getElementById('stages_json');
-  const $btnAdd    = document.getElementById('btnAddStage');
-  const $raw       = document.getElementById('raw_json');
-  const $btnLoad   = document.getElementById('btnLoadRaw');
-  const $btnSync   = document.getElementById('btnSyncRaw');
+  const $form    = document.getElementById('schema-form');
+  const $stages  = document.getElementById('stages');
+  const $payload = document.getElementById('stages_json');
+  const $btnAdd  = document.getElementById('btnAddStage');
+  const $raw     = document.getElementById('raw_json');
+  const $btnLoad = document.getElementById('btnLoadRaw');
+  const $btnSync = document.getElementById('btnSyncRaw');
 
   const hasRoleDatalist = !!document.getElementById('roles-list');
+
+  const roleOptions = @json($roleOptions, JSON_UNESCAPED_UNICODE);
+  const roleIdToLabel = new Map(roleOptions.map(o => [String(o.id), String(o.label)]));
+  const roleLabelToId = new Map(roleOptions.map(o => [String(o.label).toLowerCase(), String(o.id)]));
 
   function slugify(s){
     return (s || '')
@@ -189,30 +184,46 @@
       .slice(0,50);
   }
 
-  function roleChip(text){
+  function roleChip(roleId, label){
+    const idStr = String(roleId);
+    const lbl   = label || roleIdToLabel.get(idStr) || ('Role #' + idStr);
+
     const span = document.createElement('span');
     span.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 ring-1 ring-sky-200';
-    span.dataset.role = text;
-    span.innerHTML = `<svg class="h-3.5 w-3.5"><use href="#i-people"/></svg>${text}
+    span.dataset.roleId = idStr;
+    span.innerHTML = `<svg class="h-3.5 w-3.5"><use href="#i-people"/></svg>${lbl}
       <button type="button" class="ml-1 text-slate-500 hover:text-rose-600" aria-label="Remove" title="Remove">&times;</button>`;
     span.querySelector('button').addEventListener('click', ()=> span.remove());
     return span;
   }
 
-  function readRoles($wrap){
-    return Array.from($wrap.querySelectorAll('[data-role]')).map(el => el.dataset.role);
+  function readRoleIds($wrap){
+    return Array.from($wrap.querySelectorAll('[data-role-id]')).map(el => el.dataset.roleId);
   }
 
-  function addRole($wrap, text){
-    const val = (text || '').trim();
+  function addRole($wrap, rawInput){
+    const val = String((rawInput || '')).trim();
     if(!val) return;
-    // no duplicate
-    const exists = readRoles($wrap).some(r => r.toLowerCase() === val.toLowerCase());
+
+    let id = null, label = null;
+
+    if (roleIdToLabel.has(val)) {
+      id = val; label = roleIdToLabel.get(val);
+    } else if (roleLabelToId.has(val.toLowerCase())) {
+      id = roleLabelToId.get(val.toLowerCase());
+      label = roleIdToLabel.get(id);
+    } else {
+      id = val;
+      label = roleIdToLabel.get(id) || ('Role #' + id);
+    }
+
+    const exists = readRoleIds($wrap).some(rid => String(rid) === String(id));
     if(exists) return;
-    $wrap.appendChild(roleChip(val));
+
+    $wrap.appendChild(roleChip(id, label));
   }
 
-  function makeStage(key='', label='', roles=[], allReq=false){
+  function makeStage(key='', label='', roleIds=[], allReq=false){
     const $card = document.createElement('div');
     $card.className = 'p-3 rounded-2xl ring-1 ring-emerald-200 bg-emerald-50/40';
 
@@ -223,7 +234,7 @@
           <input data-f="label" class="w-full border border-emerald-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" placeholder="Supervisor Approval" value="">
         </div>
         <div>
-          <label class="block text-[11px] text-slate-600 mb-1">Key (slug)</label>
+          <label class="block text-[11px] text-slate-600 mb-1">Key (identifier)</label>
           <input data-f="key" class="w-full border border-emerald-200 rounded-xl px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-emerald-500" placeholder="spv" value="">
         </div>
         <div class="flex md:flex-col gap-1 justify-end">
@@ -234,12 +245,15 @@
       </div>
 
       <div class="mt-3">
-        <label class="block text-[11px] text-slate-600 mb-1">Roles yang boleh approve</label>
+        <label class="block text-[11px] text-slate-600 mb-1">role_id yang boleh approve</label>
         <div data-f="chips" class="flex flex-wrap gap-1.5"></div>
         <div class="mt-2 flex gap-2">
-          <input data-f="role-input" ${hasRoleDatalist ? 'list="roles-list"':''} class="flex-1 border border-emerald-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500" placeholder="mis. manager / hr / supervisor">
+          <input data-f="role-input" ${hasRoleDatalist ? 'list="roles-list"':''}
+                 class="flex-1 border border-emerald-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500"
+                 placeholder="ketik/ pilih role_id">
           <button type="button" data-act="add-role" class="px-3 py-2 rounded-xl bg-sky-600 text-white text-xs ring-1 ring-sky-600 hover:bg-sky-700">Add Role</button>
         </div>
+        <p class="text-[11px] text-slate-500 mt-1">Value yang disimpan: <span class="font-mono">role_id</span>, tampilan: label.</p>
       </div>
 
       <div class="mt-3">
@@ -250,11 +264,10 @@
       </div>
     `;
 
-    // set values
     $card.querySelector('[data-f="label"]').value = label || '';
     const $key = $card.querySelector('[data-f="key"]');
     $key.value = key || '';
-    // auto slugify jika kosong waktu blur label
+
     const $label = $card.querySelector('[data-f="label"]');
     $label.addEventListener('blur', ()=>{
       if(!$key.value.trim()){
@@ -263,7 +276,7 @@
     });
 
     const $chips = $card.querySelector('[data-f="chips"]');
-    (roles || []).forEach(r => addRole($chips, String(r)));
+    (roleIds || []).forEach(rid => addRole($chips, String(rid)));
 
     const $roleInput = $card.querySelector('[data-f="role-input"]');
     $card.querySelector('[data-act="add-role"]').addEventListener('click', ()=>{
@@ -281,7 +294,6 @@
 
     $card.querySelector('[data-f="allreq"]').checked = !!allReq;
 
-    // actions
     $card.querySelector('[data-act="del"]').addEventListener('click', ()=> $card.remove());
     $card.querySelector('[data-act="up"]').addEventListener('click', ()=>{
       const prev = $card.previousElementSibling;
@@ -298,56 +310,60 @@
   function readStages(){
     const out = [];
     $stages.querySelectorAll('div.p-3.rounded-2xl').forEach(($card)=>{
-      const label = $card.querySelector('[data-f="label"]').value.trim();
-      const key   = $card.querySelector('[data-f="key"]').value.trim();
-      const roles = readRoles($card.querySelector('[data-f="chips"]'));
-      const allReq= $card.querySelector('[data-f="allreq"]').checked;
-      if(label && key && roles.length){
-        out.push({
-          key,
-          label,
-          roles,
-          all_must_approve: !!allReq
-        });
+      const label   = $card.querySelector('[data-f="label"]').value.trim();
+      const key     = $card.querySelector('[data-f="key"]').value.trim();
+      const roleIds = readRoleIds($card.querySelector('[data-f="chips"]'));
+      const allReq  = $card.querySelector('[data-f="allreq"]').checked;
+      if(label && key && roleIds.length){
+        out.push({ key, label, roles: roleIds, all_must_approve: !!allReq });
       }
     });
     return out;
   }
 
   function buildJSON(){
-    return JSON.stringify({ stages: readStages() });
+    return JSON.stringify({ stages: readStages() }, null, 2);
   }
 
-  // Prefill dari server
+  // Prefill dari controller
   const pre = @json($stages, JSON_UNESCAPED_UNICODE);
   if(Array.isArray(pre) && pre.length){
-    pre.forEach(s => makeStage(String(s.key||''), String(s.label||''), Array.isArray(s.roles)?s.roles:[], !!s.all_must_approve));
+    pre.forEach(s => makeStage(
+      String(s.key||''),
+      String(s.label||''),
+      Array.isArray(s.roles)? s.roles : [],
+      !!s.all_must_approve
+    ));
   } else {
-    // contoh default supaya user paham
-    makeStage('spv', 'Supervisor Approval', ['supervisor'], false);
-    makeStage('mgr', 'Manager Approval', ['manager'], true);
+    // seed contoh
+    makeStage('spv', 'Supervisor Approval', [], false);
+    makeStage('mgr', 'Manager Approval',   [], true);
   }
 
   $btnAdd?.addEventListener('click', ()=> makeStage('', '', [], false));
 
-  // Submit -> rakit JSON
   $form?.addEventListener('submit', function(e){
     const stages = readStages();
     if(stages.length === 0){
       e.preventDefault();
-      alert('Minimal harus ada 1 stage dengan setidaknya 1 role.');
+      alert('Minimal harus ada 1 stage dengan setidaknya 1 role_id.');
       return;
     }
     $payload.value = buildJSON();
   });
 
-  // Dev helpers
+  // Raw JSON (opsional)
   $btnLoad?.addEventListener('click', ()=>{
     try{
       const obj = JSON.parse($raw.value || '{}');
       const arr = Array.isArray(obj.stages) ? obj.stages : [];
       $stages.innerHTML = '';
-      arr.forEach(s => makeStage(String(s.key||''), String(s.label||''), Array.isArray(s.roles)?s.roles:[], !!s.all_must_approve));
+      arr.forEach(s => makeStage(
+        String(s.key||''),
+        String(s.label||''),
+        Array.isArray(s.roles)? s.roles : [],
+        !!s.all_must_approve
+      ));
     }catch(e){
       alert('JSON tidak valid.');
     }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ShiftRoster;
 use App\Models\Site;
 use App\Models\User;
+use App\Models\Location; // ⬅️ tambahkan ini
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -36,23 +37,61 @@ class ShiftRosterController extends Controller
         return null;
     }
 
-    /** Coba resolve site_id dari site_id / site_code / site_name; fallback active site */
+    /** Resolve site_id dari parameter lokasi (location_*) bila ada */
+    private function resolveSiteIdFromLocation(Request $r): ?string
+    {
+        // Prioritas: location_id (UUID) → location_code → location_name (LIKE)
+        if ($r->filled('location_id')) {
+            $loc = Location::query()->select('site_id')->find($r->input('location_id'));
+            if ($loc?->site_id) return (string) $loc->site_id;
+        }
+
+        if ($r->filled('location_code')) {
+            $loc = Location::query()->select('site_id')
+                ->where('code', $r->input('location_code'))
+                ->first();
+            if ($loc?->site_id) return (string) $loc->site_id;
+        }
+
+        if ($r->filled('location_name')) {
+            $term = (string) $r->input('location_name');
+            $loc = Location::query()->select('site_id')
+                ->where('name', 'LIKE', "%{$term}%")
+                ->orderBy('name')
+                ->first();
+            if ($loc?->site_id) return (string) $loc->site_id;
+        }
+
+        return null;
+    }
+
+    /** Coba resolve site_id dari: location_* → site_id → site_code → site_name → active site */
     private function resolveSiteIdFromRequest(Request $r): ?string
     {
+        // 1) Lokasi (paling “manusiawi”) → site_id
+        if ($sid = $this->resolveSiteIdFromLocation($r)) {
+            return $sid;
+        }
+
+        // 2) Langsung site_id (UUID)
         if ($r->filled('site_id')) return (string) $r->input('site_id');
 
+        // 3) site_code
         if ($r->filled('site_code')) {
-            $id = Site::where('code', $r->input('site_code'))->value('id');
+            $id = Site::query()->where('code', $r->input('site_code'))->value('id');
             if ($id) return (string) $id;
         }
 
+        // 4) site_name (LIKE, case-insensitive by collation)
         if ($r->filled('site_name')) {
-            $term = Str::lower($r->input('site_name'));
-            $id = Site::whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                ->orderBy('name')->value('id');
+            $term = (string) $r->input('site_name');
+            $id = Site::query()->where('name', 'LIKE', "%{$term}%")
+                ->orderBy('name')
+                ->value('id');
             if ($id) return (string) $id;
         }
 
+        // 5) fallback ke active site
         return $this->resolveActiveSiteId($r);
     }
 
@@ -62,14 +101,16 @@ class ShiftRosterController extends Controller
         if ($r->filled('user_id')) return (string) $r->input('user_id');
 
         if ($r->filled('employee_code')) {
-            $id = User::where('employee_code', $r->input('employee_code'))->value('id');
+            $id = User::query()->where('employee_code', $r->input('employee_code'))->value('id');
             if ($id) return (string) $id;
         }
 
         if ($r->filled('user_name')) {
-            $term = Str::lower($r->input('user_name'));
-            $id = User::whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                ->orderBy('name')->value('id');
+            $term = (string) $r->input('user_name');
+            $id = User::query()
+                ->where('name', 'LIKE', "%{$term}%")
+                ->orderBy('name')
+                ->value('id');
             if ($id) return (string) $id;
         }
 
@@ -87,11 +128,11 @@ class ShiftRosterController extends Controller
                 'shift:id,name',
                 'site:id,code,name',
             ])
-            // site dikunci (active)
-            ->when($activeSiteId, fn ($qb, $sid) => $qb->where('site_id', $sid))
+            // Kunci site default (active). Bisa ditimpa via ?site_id / ?site_code / ?site_name / ?location_name
+            ->when($sid = $this->resolveSiteIdFromRequest($r), fn ($qb) => $qb->where('site_id', $sid))
 
             // tanggal
-            ->when($r->date, fn ($qb, $d) => $qb->whereDate('roster_date', $d))
+            ->when($r->filled('date'), fn ($qb) => $qb->whereDate('roster_date', $r->input('date')))
 
             // USER: dukung UUID atau nama/kode pada param user_id
             ->when($r->filled('user_id'), function (Builder $qb) use ($r) {
@@ -103,32 +144,34 @@ class ShiftRosterController extends Controller
                 if ($isUuid) {
                     $qb->where('user_id', $u);
                 } else {
-                    $term = Str::lower($u);
-                    $qb->whereHas('user', function (Builder $uq) use ($term) {
-                        $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                           ->orWhereRaw('LOWER(employee_code) like ?', ["%{$term}%"]);
+                    $qb->whereHas('user', function (Builder $uq) use ($u) {
+                        $uq->where('name', 'LIKE', "%{$u}%")
+                           ->orWhere('employee_code', 'LIKE', "%{$u}%");
                     });
                 }
             })
 
             // USER alternatif: param "user" (nama/kode)
             ->when($r->filled('user'), function (Builder $qb) use ($r) {
-                $term = Str::lower($r->input('user'));
+                $term = (string) $r->input('user');
                 $qb->whereHas('user', function (Builder $uq) use ($term) {
-                    $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                       ->orWhereRaw('LOWER(employee_code) like ?', ["%{$term}%"]);
+                    $uq->where('name', 'LIKE', "%{$term}%")
+                       ->orWhere('employee_code', 'LIKE', "%{$term}%");
                 });
             })
 
-            // pencarian ringan (crew_code / remarks / shift name / user name)
+            // pencarian ringan
             ->when($r->filled('q'), function (Builder $qb) use ($r) {
-                $term = Str::lower($r->q);
+                $term = (string) $r->input('q');
                 $qb->where(function (Builder $w) use ($term) {
-                    $w->whereRaw('LOWER(crew_code) like ?', ["%{$term}%"])
-                      ->orWhereRaw('LOWER(remarks) like ?', ["%{$term}%"])
-                      ->orWhereHas('shift', fn ($sq) => $sq->whereRaw('LOWER(name) like ?', ["%{$term}%"]))
-                      ->orWhereHas('user', fn ($uq)  => $uq->whereRaw('LOWER(name) like ?', ["%{$term}%"])
-                                                      ->orWhereRaw('LOWER(employee_code) like ?', ["%{$term}%"]));
+                    $w->where('crew_code', 'LIKE', "%{$term}%")
+                      ->orWhere('remarks', 'LIKE', "%{$term}%")
+                      ->orWhereHas('shift', fn ($sq) => $sq->where('name', 'LIKE', "%{$term}%"))
+                      ->orWhereHas('user', function ($uq) use ($term) {
+                          $uq->where('name', 'LIKE', "%{$term}%")
+                             ->orWhere('employee_code', 'LIKE', "%{$term}%");
+                      })
+                      ->orWhereHas('site', fn ($sq) => $sq->where('name', 'LIKE', "%{$term}%"));
                 });
             })
             ->orderByDesc('roster_date');
@@ -150,15 +193,12 @@ class ShiftRosterController extends Controller
 
     public function store(Request $r)
     {
-        // Auto-resolve site & user kalau tidak kirim UUID
-        $resolvedSiteId = $this->resolveSiteIdFromRequest($r);
-        if ($resolvedSiteId && !$r->filled('site_id')) {
-            $r->merge(['site_id' => $resolvedSiteId]);
+        // Auto-resolve site & user dari input "manusiawi"
+        if ($sid = $this->resolveSiteIdFromRequest($r)) {
+            $r->merge(['site_id' => $sid]);
         }
-
-        $resolvedUserId = $this->resolveUserIdFromRequest($r);
-        if ($resolvedUserId && !$r->filled('user_id')) {
-            $r->merge(['user_id' => $resolvedUserId]);
+        if ($uid = $this->resolveUserIdFromRequest($r)) {
+            $r->merge(['user_id' => $uid]);
         }
 
         $data = $r->validate([
@@ -170,22 +210,21 @@ class ShiftRosterController extends Controller
             'remarks'     => ['nullable','string','max:255'],
         ]);
 
-        $data['id'] = (string) Str::uuid();
-
-        ShiftRoster::updateOrCreate(
+        // Pakai “natural key” (site_id, user_id, roster_date). Biarkan PK id tetap UUID by model.
+        $roster = ShiftRoster::updateOrCreate(
             [
                 'site_id'     => $data['site_id'],
                 'user_id'     => $data['user_id'],
                 'roster_date' => $data['roster_date'],
             ],
-            collect($data)->except(['id','site_id','user_id','roster_date'])->toArray()
+            collect($data)->except(['site_id','user_id','roster_date'])->toArray()
         );
 
         if (! $r->wantsJson()) {
             return redirect()->route('admin.shift-rosters.index')->with('success','Roster shift disimpan.');
         }
 
-        return response()->json(['ok'=>true]);
+        return response()->json(['ok'=>true, 'id' => $roster->id]);
     }
 
     public function edit(ShiftRoster $shiftRoster)

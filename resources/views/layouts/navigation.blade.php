@@ -77,6 +77,8 @@ $activeClasses = fn (bool $isActive) => $isActive
 /* Routes active flags */
 $hrDailyActive     = request()->routeIs('admin.hr-entries.*');
 $hrContractsActive = request()->routeIs('admin.contracts.*');
+/* NEW: unified manpower active flag */
+$mpUnifiedActive   = request()->routeIs('manpower.entries.*') || request()->routeIs('admin.manpower.entries.*');
 
 /* Tambah coverage: locations & overtime */
 $peopleRoutesActive =
@@ -87,11 +89,11 @@ $peopleRoutesActive =
   request()->routeIs('admin.shift-rosters.*')   ||
   request()->routeIs('admin.shifts.*')          ||
   request()->routeIs('admin.manpower.*')        ||
-  request()->routeIs('admin.manpower-plans.*')  ||
-  request()->routeIs('admin.manpower-reals.*')  ||
-  request()->routeIs('admin.crew-assignments.*')||
   request()->routeIs('admin.hr-entries.*')      ||
-  request()->routeIs('admin.contracts.*');
+  request()->routeIs('admin.contracts.*')       ||
+  /* NEW: unified manpower group open */
+  request()->routeIs('manpower.entries.*')      ||
+  request()->routeIs('admin.manpower.entries.*');
 
 $adminGroupActive =
   request()->routeIs('admin.roles.*')        ||
@@ -348,9 +350,10 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
         Route::has('admin.manpower.dashboard')    ||
         Route::has('admin.hr-entries.index')      ||
         Route::has('admin.contracts.index')       ||
-        Route::has('admin.manpower-plans.index')  ||
-        Route::has('admin.manpower-reals.index')  ||
-        Route::has('admin.crew-assignments.index')
+        Route::has('admin.crew-assignments.index')||
+        /* NEW: unified manpower */
+        Route::has('manpower.entries.index')      ||
+        Route::has('admin.manpower.entries.index')
       );
     @endphp
     @if ($hasPeopleRoutes)
@@ -455,39 +458,22 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
             @endif
           @endif
 
-          {{-- Manpower Plans --}}
-          @if (Route::has('admin.manpower-plans.index'))
+          {{-- Manpower Entries (Unified) --}}
+          @php
+            $mpEntriesRoute = Route::has('manpower.entries.index')
+                ? 'manpower.entries.index'
+                : (Route::has('admin.manpower.entries.index') ? 'admin.manpower.entries.index' : null);
+          @endphp
+          @if ($mpEntriesRoute)
             @if ($canPeopleMenu)
-              <a href="{{ route('admin.manpower-plans.index') }}"
-                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-plans.*')) }}">
-                Manpower Plans
+              <a href="{{ route($mpEntriesRoute) }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($mpUnifiedActive) }}">
+                Manpower Entries <span class="text-[11px] text-slate-400 ml-1">— unified</span>
               </a>
             @else
-              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Manpower Plans {!! $lockIcon !!}</span>
-            @endif
-          @endif
-
-          {{-- Manpower Realizations --}}
-          @if (Route::has('admin.manpower-reals.index'))
-            @if ($canPeopleMenu)
-              <a href="{{ route('admin.manpower-reals.index') }}"
-                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower-reals.*')) }}">
-                Manpower Realizations
-              </a>
-            @else
-              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Manpower Realizations {!! $lockIcon !!}</span>
-            @endif
-          @endif
-
-          {{-- Mapping Crew --}}
-          @if (Route::has('admin.crew-assignments.index'))
-            @if ($canPeopleMenu)
-              <a href="{{ route('admin.crew-assignments.index') }}"
-                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.crew-assignments.*')) }}">
-                Mapping Crew
-              </a>
-            @else
-              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">Mapping Crew {!! $lockIcon !!}</span>
+              <span class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">
+                Manpower Entries — unified {!! $lockIcon !!}
+              </span>
             @endif
           @endif
 
@@ -520,26 +506,6 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
                         @endif
                       </span>
                     </a>
-
-                    {{-- Create (simple) --}}
-                    <a href="{{ route('admin.hr-entries.create') }}"
-                       class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.create') && !request()->has('type')) }}">
-                      • Create
-                    </a>
-
-                    {{-- Recycle / Export --}}
-                    @if (Route::has('admin.hr-entries.trashed'))
-                      <a href="{{ route('admin.hr-entries.trashed') }}"
-                         class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.trashed')) }}">
-                        • Recycle Bin
-                      </a>
-                    @endif
-                    @if (Route::has('admin.hr-entries.export.csv'))
-                      <a href="{{ route('admin.hr-entries.export.csv') }}"
-                         class="block mx-3 pl-14 pr-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-teal-700">
-                        • Export CSV
-                      </a>
-                    @endif
                   @else
                     <span class="group block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium {{ $disabledClasses }}">
                       HR Daily Entries {!! $lockIcon !!}

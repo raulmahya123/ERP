@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\HrDailyEntry;
+use App\Models\Site;
+use App\Models\SiteConfig;
+use App\Models\User;
+use App\Models\Shift;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
@@ -13,8 +17,6 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Models\User;
-use App\Models\Shift;
 
 class HrDailyEntryController extends Controller
 {
@@ -43,11 +45,11 @@ class HrDailyEntryController extends Controller
         catch (\Throwable $e) { return false; }
     }
 
-    /** Site label helper: balikin [$siteObj, $label] */
+    /** Site label helper: balikin [$siteObj, $label] — via Eloquent */
     private function resolveSite(?string $siteId): array
     {
         if (!$siteId) return [null, '—'];
-        $site = DB::table('sites')->select('id','code','name')->where('id',$siteId)->first();
+        $site = Site::select('id','code','name')->find($siteId);
         $label = $site ? ($site->code ? ($site->code.' — '.$site->name) : $site->name) : $siteId;
         return [$site, $label];
     }
@@ -102,24 +104,24 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  CONFIG dinamis: params->hr
+     |  CONFIG dinamis: params->hr (via Eloquent)
      |=========================================================*/
-    private function getSiteConfigRowForHr(?string $siteId = null): ?object
+    private function getSiteConfigRowForHr(?string $siteId = null): ?SiteConfig
     {
         if (!Schema::hasTable('site_configs')) return null;
         $siteId = $siteId ?: $this->activeSiteId(request());
-        return DB::table('site_configs')
+        return SiteConfig::query()
             ->when($siteId, fn($q) => $q->where('site_id', $siteId))
-            ->orderBy('created_at')
-            ->first(['id','params']);
+            ->oldest('created_at')
+            ->first();
     }
 
     private function hrParams(): array
     {
         $row = $this->getSiteConfigRowForHr();
         if (!$row) return [];
-        $params = is_string($row->params) ? (json_decode($row->params, true) ?: []) :
-                   (is_array($row->params) ? $row->params : (json_decode(json_encode($row->params ?? []), true) ?: []));
+        // pastikan SiteConfig memiliki: protected $casts = ['params' => 'array'];
+        $params = (array) ($row->params ?? []);
         return (array) ($params['hr'] ?? []);
     }
 
@@ -127,13 +129,13 @@ class HrDailyEntryController extends Controller
     {
         $row = $this->getSiteConfigRowForHr();
         if (!$row) throw new \RuntimeException('Row site_configs untuk site aktif belum ada.');
-        $params = is_string($row->params) ? (json_decode($row->params, true) ?: []) :
-                   (is_array($row->params) ? $row->params : (json_decode(json_encode($row->params ?? []), true) ?: []));
+
+        $params = (array) ($row->params ?? []);
         $params['hr'] = $hr;
-        DB::table('site_configs')->where('id', $row->id)->update([
-            'params'     => json_encode($params, JSON_UNESCAPED_UNICODE),
-            'updated_at' => now(),
-        ]);
+
+        $row->params = $params;   // cast -> array
+        $row->touch();            // update updated_at
+        $row->save();
     }
 
     private function configKey(string $suffix): string
@@ -166,29 +168,23 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  ENUM 'type' dinamis dari DB (MySQL). Fallback default.
+     |  TYPES (tanpa raw SQL)
      |=========================================================*/
-    private function dbEnumOptions(string $table, string $column): array
-    {
-        try {
-            $col = DB::selectOne("SHOW COLUMNS FROM {$table} WHERE Field = ?", [$column]);
-            if (!$col || !isset($col->Type)) return [];
-            if (preg_match("/^enum\\('(.*)'\\)$/i", $col->Type, $m)) {
-                return array_map(fn($v) => str_replace("\\'", "'", trim($v)), explode("','", $m[1]));
-            }
-        } catch (\Throwable $e) {}
-        return [];
-    }
-
     private function allowedTypesFromDb(): array
     {
-        $opts = $this->dbEnumOptions('hr_daily_entries', 'type');
-        return !empty($opts) ? $opts : array_keys(self::DEFAULT_TYPES);
+        $used = HrDailyEntry::query()
+            ->select('type')
+            ->distinct()
+            ->pluck('type')
+            ->filter()
+            ->map(fn($v) => Str::of($v)->lower()->snake()->toString())
+            ->values()
+            ->all();
+
+        $fallback = array_keys(self::DEFAULT_TYPES);
+        return array_values(array_unique(array_merge($used, $fallback)));
     }
 
-    /* =========================================================
-     |  TYPES (tanpa hardcode key config)
-     |=========================================================*/
     private function getTypes(): array
     {
         $cfg = $this->loadCfg('types');
@@ -240,7 +236,7 @@ class HrDailyEntryController extends Controller
 
         $allowed = $this->allowedTypesFromDb();
         if (!in_array($key, $allowed, true)) {
-            return back()->withErrors(['key' => 'Type tidak didukung enum DB.'])->withInput();
+            return back()->withErrors(['key' => 'Type tidak didukung oleh sistem.'])->withInput();
         }
 
         $types = $this->getTypes();
@@ -272,17 +268,16 @@ class HrDailyEntryController extends Controller
             $newKey = Str::of($data['new_key'])->lower()->snake()->toString();
             $allowed = $this->allowedTypesFromDb();
             if (!in_array($newKey, $allowed, true)) {
-                return back()->withErrors(['new_key' => 'new_key tidak didukung enum DB.']);
+                return back()->withErrors(['new_key' => 'new_key tidak didukung oleh sistem.']);
             }
             if ($newKey !== $key) {
                 if (isset($types[$newKey])) {
                     return back()->withErrors(['new_key' => 'new_key sudah dipakai.']);
                 }
-                DB::table('hr_daily_entries')->where('type', $key)->update(['type' => $newKey]);
+                HrDailyEntry::where('type', $key)->update(['type' => $newKey]);
                 $label = $types[$key];
                 unset($types[$key]);
                 $types[$newKey] = $label;
-                $key = $newKey;
             }
         }
 
@@ -301,7 +296,7 @@ class HrDailyEntryController extends Controller
             return back()->withErrors(['key' => 'Type tidak ditemukan.']);
         }
         if (in_array($key, $this->protectedTypeKeys(), true)) {
-            return back()->withErrors(['key' => 'Type default/enum tidak boleh dihapus.']);
+            return back()->withErrors(['key' => 'Type default/terpakai tidak boleh dihapus.']);
         }
         if (HrDailyEntry::where('type', $key)->exists()) {
             return back()->withErrors(['key' => 'Tidak bisa dihapus karena sedang dipakai oleh data entry.']);
@@ -419,7 +414,7 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  META: helper dinamis dari rules (tanpa VIRTUAL_META_KEYS)
+     |  META: helper dinamis (tanpa VIRTUAL_META_KEYS)
      |=========================================================*/
     private function metaKeysForType(?string $type): array
     {
@@ -482,7 +477,7 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  META FORM CONFIG (Blade) — konsisten pakai .manage
+     |  META FORM CONFIG (Blade)
      |=========================================================*/
     public function metaFormConfigIndex()
     {
@@ -517,12 +512,31 @@ class HrDailyEntryController extends Controller
         $type = Str::of($type)->lower()->snake()->toString();
 
         $fields = [];
-        if ($r->filled('fields_json')) {
-            $fields = json_decode($r->input('fields_json'), true);
-            if (!is_array($fields)) {
-                return back()->withErrors(['fields_json' => 'Format JSON tidak valid.'])->withInput();
+
+        // gunakan has() agar "[]" tetap dianggap ada
+        if ($r->has('fields_json')) {
+            $raw = trim((string) $r->input('fields_json', '[]'));
+
+            // buang BOM jika ada
+            $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw);
+
+            try {
+                $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+                if (is_string($decoded)) {
+                    // handle double-encoded
+                    $decoded = json_decode($decoded, true, 512, JSON_THROW_ON_ERROR);
+                }
+                if (!is_array($decoded)) {
+                    throw new \RuntimeException('Payload bukan array.');
+                }
+                $fields = $decoded;
+            } catch (\Throwable $e) {
+                return back()
+                    ->withErrors(['fields_json' => 'Format JSON tidak valid: '.$e->getMessage()])
+                    ->withInput();
             }
         } else {
+            // Fallback kirim via array 'fields'
             $data = $r->validate([
                 'fields'                        => ['required','array','min:1'],
                 'fields.*.key'                  => ['required','string','max:60'],
@@ -540,6 +554,7 @@ class HrDailyEntryController extends Controller
             $fields = $data['fields'];
         }
 
+        // Normalisasi key
         $norm = [];
         foreach ($fields as $f) {
             if (!is_array($f)) continue;
@@ -575,88 +590,36 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  META SCHEMAS (Blade) — konsisten pakai .manage
+     |  APPROVAL FLOW
      |=========================================================*/
-    public function metaSchemasIndex()
+
+    /** Opsi role untuk builder: bentuk [['id'=>'..','label'=>'..'], ...] */
+    private function roleOptions(): array
     {
-        Gate::authorize('manage', HrDailyEntry::class);
+        // ambil distinct role_id yang dipakai user
+        $ids = User::query()
+            ->whereNotNull('role_id')
+            ->select('role_id')->distinct()
+            ->pluck('role_id')
+            ->map(fn($v) => (string)$v)
+            ->values();
 
-        $types = $this->getTypes();
-        $map   = $this->getMetaSchemas();
-        return view('admin.hr_entries.meta_schemas.index', compact('types','map'));
-    }
-
-    public function metaSchemasManage(?string $type = null)
-    {
-        Gate::authorize('manage', HrDailyEntry::class);
-
-        $type = $type ? Str::of($type)->lower()->snake()->toString() : null;
-        if (!$type) {
-            $types = $this->getTypes();
-            $type  = array_key_first($types);
+        // kalau ada tabel roles dan kolom name, pakai sebagai label
+        $labels = collect();
+        if (Schema::hasTable('roles') && Schema::hasColumn('roles','name')) {
+            $labels = DB::table('roles')
+                ->whereIn('id', $ids)
+                ->get(['id','name'])
+                ->keyBy(fn($r) => (string)$r->id)
+                ->map(fn($r) => (string)$r->name);
         }
 
-        $rules = $this->getMetaSchemas()[$type] ?? [];
-        $json  = json_encode($rules, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE);
-
-        return view('admin.hr_entries.meta_schemas.manage', compact('type','rules','json'));
+        return $ids->map(fn($id) => [
+            'id'    => $id,
+            'label' => $labels->get($id) ?? ('Role #'.$id),
+        ])->all();
     }
 
-    public function metaSchemasUpsert(Request $r, string $type)
-    {
-        Gate::authorize('manage', HrDailyEntry::class);
-
-        $type = Str::of($type)->lower()->snake()->toString();
-
-        $normalized = [];
-        if ($r->filled('rules_json')) {
-            $raw = json_decode($r->input('rules_json'), true);
-            if (!is_array($raw)) {
-                return back()->withErrors(['rules_json' => 'Format JSON tidak valid.'])->withInput();
-            }
-            foreach ($raw as $k => $rule) {
-                $kk = Str::startsWith($k, 'meta.') ? $k : 'meta.'.Str::of($k)->lower()->snake()->toString();
-                $normalized[$kk] = is_string($rule) ? array_values(array_filter(explode('|', $rule))) : (array) $rule;
-            }
-        } else {
-            $raw = $r->input('rules', []);
-            if (!is_array($raw) || empty($raw)) {
-                return back()->withErrors(['rules_json' => 'Isi aturan pada JSON textarea.'])->withInput();
-            }
-            foreach ($raw as $k => $rule) {
-                $kk = Str::startsWith($k, 'meta.') ? $k : 'meta.'.Str::of($k)->lower()->snake()->toString();
-                $normalized[$kk] = is_string($rule) ? array_values(array_filter(explode('|', $rule))) : (array) $rule;
-            }
-        }
-
-        $all = $this->getMetaSchemas();
-        $all[$type] = $normalized;
-        $this->saveMetaSchemas($all);
-
-        return redirect()->route('admin.hr-entries.meta-schema.manage', $type)
-            ->with('success', 'Meta Schema disimpan.');
-    }
-
-    public function metaSchemasDestroy(string $type)
-    {
-        Gate::authorize('manage', HrDailyEntry::class);
-
-        $type = Str::of($type)->lower()->snake()->toString();
-        $all  = $this->getMetaSchemas();
-        if (!isset($all[$type])) {
-            return redirect()->route('admin.hr-entries.meta-schema.index')
-                ->with('error', 'Meta schema tidak ditemukan.');
-        }
-        unset($all[$type]);
-        $this->saveMetaSchemas($all);
-
-        return redirect()->route('admin.hr-entries.meta-schema.index')
-            ->with('success', 'Meta Schema dihapus.');
-    }
-
-    /* =========================================================
-     |  APPROVAL FLOW (pakai config dinamis jg) — Blade
-     |=========================================================*/
     private function getApprovalSchemas(): array
     {
         $cfg = $this->loadCfg('approval_schemas');
@@ -672,20 +635,23 @@ class HrDailyEntryController extends Controller
     {
         Gate::authorize('manage', HrDailyEntry::class);
 
-        $types = $this->getTypes();
-        $map   = $this->getApprovalSchemas();
-        return view('admin.hr_entries.approval_schemas.index', compact('types','map'));
+        $types       = $this->getTypes();
+        $map         = $this->getApprovalSchemas();
+        $roleOptions = $this->roleOptions();
+
+        return view('admin.hr_entries.approval_schemas.index', compact('types','map','roleOptions'));
     }
 
     public function approvalSchemasShow(string $type)
     {
         Gate::authorize('manage', HrDailyEntry::class);
 
-        $type   = Str::of($type)->lower()->snake()->toString();
-        $config = $this->getApprovalSchemas()[$type] ?? ['stages' => []];
-        $json   = json_encode($config, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
+        $type        = Str::of($type)->lower()->snake()->toString();
+        $config      = $this->getApprovalSchemas()[$type] ?? ['stages' => []];
+        $json        = json_encode($config, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
+        $roleOptions = $this->roleOptions();
 
-        return view('admin.hr_entries.approval_schemas.manage', compact('type','config','json'));
+        return view('admin.hr_entries.approval_schemas.manage', compact('type','config','json','roleOptions'));
     }
 
     public function approvalSchemasUpsert(Request $r, string $type)
@@ -693,10 +659,6 @@ class HrDailyEntryController extends Controller
         Gate::authorize('manage', HrDailyEntry::class);
 
         $type = Str::of($type)->lower()->snake()->toString();
-        $allowed = $this->allowedTypesFromDb();
-        if (!in_array($type, $allowed, true)) {
-            return back()->withErrors(['type' => 'Type tidak didukung enum DB.']);
-        }
 
         if ($r->filled('stages_json')) {
             $parsed = json_decode($r->input('stages_json'), true);
@@ -710,7 +672,7 @@ class HrDailyEntryController extends Controller
                 'stages.*.key'              => ['required', 'string', 'max:40'],
                 'stages.*.label'            => ['required', 'string', 'max:80'],
                 'stages.*.roles'            => ['required', 'array', 'min:1'],
-                'stages.*.roles.*'          => ['string', 'max:40'],
+                'stages.*.roles.*'          => ['string', 'max:64'],
                 'stages.*.all_must_approve' => ['nullable', 'boolean'],
             ]);
         }
@@ -815,7 +777,7 @@ class HrDailyEntryController extends Controller
     }
 
     /* =========================================================
-     |  PRINT TEMPLATES (dinamis key) — Blade
+     |  PRINT TEMPLATES
      |=========================================================*/
     private function getPrintTemplates(): array
     {
@@ -1304,7 +1266,7 @@ class HrDailyEntryController extends Controller
         $downloadName = (string) ($meta[$key.'_name'] ?? basename((string) $val) ?: 'attachment');
 
         if (is_string($val) && $val !== '') {
-            // CASE 1: Disk public driver local → gunakan absolute path + response()->download()
+            // CASE 1: Disk public driver local
             if (config('filesystems.disks.public.driver', 'local') === 'local') {
                 $absolutePath = storage_path('app/public/' . ltrim($val, '/'));
                 if (is_file($absolutePath)) {
@@ -1312,16 +1274,14 @@ class HrDailyEntryController extends Controller
                 }
             }
 
-            // CASE 2: Non-local (mis. S3) atau file tidak langsung accessible → stream via readStream
+            // CASE 2: Non-local (mis. S3) atau selainnya
             $disk = Storage::disk('public');
             if ($disk->exists($val)) {
                 $stream = $disk->readStream($val);
                 if (is_resource($stream)) {
                     return response()->streamDownload(function () use ($stream) {
                         fpassthru($stream);
-                        if (is_resource($stream)) {
-                            fclose($stream);
-                        }
+                        if (is_resource($stream)) fclose($stream);
                     }, $downloadName);
                 }
             }
@@ -1352,6 +1312,87 @@ class HrDailyEntryController extends Controller
             'other'           => 'Lainnya',
         ]);
     }
+
+    public function metaSchemasIndex()
+{
+    Gate::authorize('manage', HrDailyEntry::class);
+
+    $types = $this->getTypes();
+    $map   = $this->getMetaSchemas();
+    return view('admin.hr_entries.meta_schemas.index', compact('types', 'map'));
+}
+
+public function metaSchemasManage(?string $type = null)
+{
+    Gate::authorize('manage', HrDailyEntry::class);
+
+    $type = $type ? Str::of($type)->lower()->snake()->toString() : null;
+    if (!$type) {
+        $types = $this->getTypes();
+        $type  = array_key_first($types);
+    }
+
+    $rules = $this->getMetaSchemas()[$type] ?? [];
+    $json  = json_encode($rules, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+    return view('admin.hr_entries.meta_schemas.manage', compact('type', 'rules', 'json'));
+}
+
+public function metaSchemasUpsert(Request $r, string $type)
+{
+    Gate::authorize('manage', HrDailyEntry::class);
+
+    $type = Str::of($type)->lower()->snake()->toString();
+
+    $normalized = [];
+    if ($r->filled('rules_json')) {
+        $raw = json_decode($r->input('rules_json'), true);
+        if (!is_array($raw)) {
+            return back()->withErrors(['rules_json' => 'Format JSON tidak valid.'])->withInput();
+        }
+        foreach ($raw as $k => $rule) {
+            $kk = Str::startsWith($k, 'meta.') ? $k : 'meta.' . Str::of($k)->lower()->snake()->toString();
+            $normalized[$kk] = is_string($rule)
+                ? array_values(array_filter(explode('|', $rule)))
+                : (array) $rule;
+        }
+    } else {
+        $raw = $r->input('rules', []);
+        if (!is_array($raw) || empty($raw)) {
+            return back()->withErrors(['rules_json' => 'Isi aturan pada JSON textarea.'])->withInput();
+        }
+        foreach ($raw as $k => $rule) {
+            $kk = Str::startsWith($k, 'meta.') ? $k : 'meta.' . Str::of($k)->lower()->snake()->toString();
+            $normalized[$kk] = is_string($rule)
+                ? array_values(array_filter(explode('|', $rule)))
+                : (array) $rule;
+        }
+    }
+
+    $all = $this->getMetaSchemas();
+    $all[$type] = $normalized;
+    $this->saveMetaSchemas($all);
+
+    return redirect()->route('admin.hr-entries.meta-schema.manage', $type)
+        ->with('success', 'Meta Schema disimpan.');
+}
+
+public function metaSchemasDestroy(string $type)
+{
+    Gate::authorize('manage', HrDailyEntry::class);
+
+    $type = Str::of($type)->lower()->snake()->toString();
+    $all  = $this->getMetaSchemas();
+    if (!isset($all[$type])) {
+        return redirect()->route('admin.hr-entries.meta-schema.index')
+            ->with('error', 'Meta schema tidak ditemukan.');
+    }
+    unset($all[$type]);
+    $this->saveMetaSchemas($all);
+
+    return redirect()->route('admin.hr-entries.meta-schema.index')
+        ->with('success', 'Meta Schema dihapus.');
+}
 }
 
 /* Helper untuk PHP < 8.1 */
@@ -1363,3 +1404,4 @@ if (!function_exists('array_is_list')) {
         return true;
     }
 }
+

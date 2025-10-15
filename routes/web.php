@@ -7,7 +7,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 use App\Http\Controllers\DashboardController;
-
+use App\Http\Controllers\ManpowerEntryController;
 // Admin Controllers
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
@@ -314,13 +314,6 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
     // === Locations (opsional) — CRUD titik geofence (name, lat/lng, radius 100m) ===
     Route::resource('locations', LocationController::class)
         ->parameters(['locations' => 'location'])->except(['show']);
-
-    // === Manpower plan & realization ===
-    Route::resource('manpower-plans', ManpowerPlanController::class)
-        ->parameters(['manpower-plans' => 'manpowerPlan'])->except(['show']);
-    Route::resource('manpower-reals', ManpowerRealizationController::class)
-        ->parameters(['manpower-reals' => 'manpowerRealization'])->except(['show']);
-
     /* =========================
      * HR Daily Types (Blade)
      * ========================= */
@@ -436,16 +429,20 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         ->parameters(['contracts' => 'employmentContract'])->except(['show']);
     Route::resource('crew-assignments', CrewAssignmentController::class)
         ->parameters(['crew-assignments' => 'crewAssignment'])->except(['show']);
+});
 
-    Route::prefix('manpower')->name('manpower.')->group(function () {
-        Route::get('/', [MP::class, 'dashboard'])->name('dashboard');
-        Route::get('/plans/create', [MP::class, 'dashboard'])->name('plans.create');
-        Route::post('/plan',        [MP::class, 'storePlan'])->name('plan.store');
-        Route::get('/reals/create', [MP::class, 'dashboard'])->name('reals.create');
-        Route::post('/realization', [MP::class, 'storeRealization'])->name('realization.store');
-        Route::get('/assignments',  [MP::class, 'assignments'])->name('assignments.index');
-        Route::post('/assignments', [MP::class, 'storeAssignment'])->name('assignments.store');
-    });
+// Non-admin (nama: manpower.entries.*)
+Route::middleware(['auth'])->group(function () {
+    Route::resource('manpower/entries', ManpowerEntryController::class)
+        ->parameters(['entries' => 'entry'])
+        ->names('manpower.entries');
+});
+
+// (Opsional) Admin alias (nama: admin.manpower.entries.*)
+Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+    Route::resource('manpower/entries', ManpowerEntryController::class)
+        ->parameters(['entries' => 'entry'])
+        ->names('manpower.entries');
 });
 
 /*

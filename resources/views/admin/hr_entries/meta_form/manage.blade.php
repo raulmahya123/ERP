@@ -119,8 +119,8 @@
 
       <div id="fields" class="space-y-3"></div>
 
-      {{-- Hidden payload --}}
-      <input type="hidden" name="fields_json" id="fields_json">
+      {{-- Hidden payload (SELALU ada dan default "[]") --}}
+      <input type="hidden" name="fields_json" id="fields_json" value="[]">
 
       <div class="flex items-center justify-between pt-1">
         <div class="text-[11px] text-slate-500">
@@ -322,9 +322,7 @@
 
     // events
     $card.querySelector('[data-act="del"]').addEventListener('click', ()=> $card.remove());
-    $card.querySelector('[data-act="dup"]').addEventListener('click', ()=>{
-      addField(readField($card));
-    });
+    $card.querySelector('[data-act="dup"]').addEventListener('click', ()=>{ addField(readField($card)); });
     $card.querySelector('[data-act="up"]').addEventListener('click', ()=>{
       const prev = $card.previousElementSibling; if(prev) $fields.insertBefore($card, prev);
     });
@@ -381,14 +379,18 @@
       const f = readField($c);
       if(f.key && f.label) arr.push(f);
     });
-    return JSON.stringify(arr);
+    return JSON.stringify(arr); // minified untuk hidden
   }
 
   function addField(f){ makeField(f); }
 
   function loadFromJSON(txt){
     let arr;
-    try { arr = JSON.parse(txt||'[]'); } catch(e){ alert('JSON tidak valid.'); return; }
+    try {
+      arr = JSON.parse((txt||'[]').trim() || '[]');
+    } catch(e){
+      alert('JSON tidak valid.'); return;
+    }
     $fields.innerHTML = '';
     if(!Array.isArray(arr)) arr = [];
     if(arr.length === 0){
@@ -396,9 +398,13 @@
         {value:'annual',label:'Tahunan'},{value:'unpaid',label:'Tidak Dibayar'},{value:'other',label:'Lainnya'}
       ]});
       addField({key:'notes',label:'Catatan',type:'textarea'});
+      // sync juga ke hidden
+      $payload.value = '[]';
       return;
     }
     arr.forEach(addField);
+    // sync hidden sesuai builder
+    $payload.value = JSON.stringify(arr);
   }
 
   // Init: prefill dari server
@@ -411,6 +417,8 @@
   document.querySelectorAll('[data-tpl]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       try{ addField(JSON.parse(btn.dataset.tpl)); }catch(_){}
+      // setiap tambah, sync payload kasar (biar selalu ada)
+      $payload.value = buildJSON();
     });
   });
 
@@ -438,11 +446,12 @@
         return;
       }
     }
+    // selalu set hidden payload
     $payload.value = json;
   });
 
   $btnLoad?.addEventListener('click', ()=> loadFromJSON($raw.value));
-  $btnSync?.addEventListener('click', ()=> { $raw.value = buildJSON(); });
+  $btnSync?.addEventListener('click', ()=> { $raw.value = JSON.stringify(JSON.parse(buildJSON()), null, 2); });
 })();
 </script>
 @endpush
