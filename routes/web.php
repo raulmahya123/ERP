@@ -50,6 +50,7 @@ use App\Http\Controllers\Admin\LocationController;
 | Route Patterns
 |--------------------------------------------------------------------------
 */
+
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
 
@@ -149,7 +150,7 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
         Route::post('{entity}/import',            [MasterDataController::class, 'import'])->name('import');
         Route::get('{entity}/import-template',    [MasterDataController::class, 'importTemplate'])->name('import.template');
         Route::delete('{entity}/bulk-delete',     [MasterDataController::class, 'bulkDelete'])->name('bulk-delete');
-        Route::post('{entity}/{record}/duplicate',[MasterDataController::class, 'duplicate'])
+        Route::post('{entity}/{record}/duplicate', [MasterDataController::class, 'duplicate'])
             ->whereUuid('record')->name('duplicate');
 
         Route::get('{entity}',               [MasterDataController::class, 'index'])->name('index');
@@ -186,7 +187,7 @@ Route::middleware(['auth', 'hasrole:gm'])
 Route::middleware(['auth', 'hasrole:gm'])->get('/gm',           [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
 Route::middleware(['auth', 'hasrole:manager'])->get('/manager',  [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
 Route::middleware(['auth', 'hasrole:foreman'])->get('/foreman',  [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
-Route::middleware(['auth', 'hasrole:operator'])->get('/operator',[RoleDashboardController::class, 'operator'])->name('operator.dashboard');
+Route::middleware(['auth', 'hasrole:operator'])->get('/operator', [RoleDashboardController::class, 'operator'])->name('operator.dashboard');
 Route::middleware(['auth', 'hasrole:hse_officer'])->get('/hse',  [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
 Route::middleware(['auth', 'hasrole:hr'])->get('/hr',            [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
 Route::middleware(['auth', 'hasrole:finance'])->get('/finance',  [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
@@ -292,144 +293,150 @@ Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
 Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
     ->prefix('admin')->name('admin.')->group(function () {
 
-    // === Attendance / Timesheet / Shift roster ===
-    Route::resource('attendance', AttendanceController::class)
-        ->parameters(['attendance' => 'attendance'])->except(['show']);
-    Route::resource('timesheets', TimesheetController::class)
-        ->parameters(['timesheets' => 'timesheet'])->except(['show']);
-    Route::resource('shift-rosters', ShiftRosterController::class)
-        ->parameters(['shift-rosters' => 'shiftRoster'])->except(['show']);
-    Route::resource('shifts', ShiftController::class)
-        ->parameters(['shifts' => 'shift'])->except(['show']);
+        // === Attendance / Timesheet / Shift roster ===
+        Route::resource('attendance', AttendanceController::class)
+            ->parameters(['attendance' => 'attendance'])->except(['show']);
+        Route::resource('timesheets', TimesheetController::class)
+            ->parameters(['timesheets' => 'timesheet'])->except(['show']);
+        Route::resource('shift-rosters', ShiftRosterController::class)
+            ->parameters(['shift-rosters' => 'shiftRoster'])->except(['show']);
+        Route::resource('shifts', ShiftController::class)
+            ->parameters(['shifts' => 'shift'])->except(['show']);
 
-    // === Overtime flow (berbasis TIMESHEETS: kolom ot_status/ot_approved_by/ot_approved_at) ===
-    Route::get('overtime', [TimesheetController::class, 'otIndex'])->name('overtime.index');
-    Route::post('timesheets/{timesheet}/ot/submit',  [TimesheetController::class, 'otSubmit'])
-        ->whereUuid('timesheet')->name('timesheets.ot.submit');
-    Route::post('timesheets/{timesheet}/ot/approve', [TimesheetController::class, 'otApprove'])
-        ->whereUuid('timesheet')->name('timesheets.ot.approve');
-    Route::post('timesheets/{timesheet}/ot/reject',  [TimesheetController::class, 'otReject'])
-        ->whereUuid('timesheet')->name('timesheets.ot.reject');
+        // === AJAX: daftar shift by site (untuk dropdown di form roster)
+        Route::get('shift-rosters/shifts-by-site', [ShiftRosterController::class, 'shiftsBySite'])
+            ->name('shift-rosters.shifts-by-site');
 
-    // === Locations (opsional) — CRUD titik geofence (name, lat/lng, radius 100m) ===
-    Route::resource('locations', LocationController::class)
-        ->parameters(['locations' => 'location'])->except(['show']);
-    /* =========================
+        // === Overtime flow (berbasis TIMESHEETS) ===
+        Route::get('overtime', [TimesheetController::class, 'otIndex'])->name('overtime.index');
+        Route::post('timesheets/{timesheet}/ot/submit',  [TimesheetController::class, 'otSubmit'])
+            ->whereUuid('timesheet')->name('timesheets.ot.submit');
+        Route::post('timesheets/{timesheet}/ot/approve', [TimesheetController::class, 'otApprove'])
+            ->whereUuid('timesheet')->name('timesheets.ot.approve');
+        Route::post('timesheets/{timesheet}/ot/reject',  [TimesheetController::class, 'otReject'])
+            ->whereUuid('timesheet')->name('timesheets.ot.reject');
+
+        // === Locations (opsional) — CRUD titik geofence (name, lat/lng, radius 100m) ===
+        Route::resource('locations', LocationController::class)
+            ->parameters(['locations' => 'location'])->except(['show']);
+
+        /* =========================
      * HR Daily Types (Blade)
      * ========================= */
-    Route::prefix('hr-entries/types')->name('hr-entries.types.')
-        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/',  [HrDailyEntryController::class, 'typesIndex'])->name('index');
-            Route::post('/', [HrDailyEntryController::class, 'typesStore'])->name('store');
-            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])
-                ->name('update')->where('type','[A-Za-z0-9_\-]+');
-            Route::delete('/{type}', [HrDailyEntryController::class, 'typesDestroy'])
-                ->name('destroy')->where('type','[A-Za-z0-9_\-]+');
-            Route::post('/reorder', [HrDailyEntryController::class, 'typesReorder'])->name('reorder');
-        });
+        Route::prefix('hr-entries/types')->name('hr-entries.types.')
+            ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+                Route::get('/',  [HrDailyEntryController::class, 'typesIndex'])->name('index');
+                Route::post('/', [HrDailyEntryController::class, 'typesStore'])->name('store');
+                Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])
+                    ->name('update')->where('type', '[A-Za-z0-9_\-]+');
+                Route::delete('/{type}', [HrDailyEntryController::class, 'typesDestroy'])
+                    ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
+                Route::post('/reorder', [HrDailyEntryController::class, 'typesReorder'])->name('reorder');
+            });
 
-    /* =========================
+        /* =========================
      * Manage: Meta Form Config (Blade)
      * ========================= */
-    Route::prefix('hr-entries/meta-form-config')->name('hr-entries.meta-form.')
-        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
-            Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaFormConfigManage'])
-                ->name('manage')->where('type','[A-Za-z0-9_\-]+');
-            Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])
-                ->name('show')->where('type','^(?!manage$)[A-Za-z0-9_\-]+$');
-            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])
-                ->name('upsert')->where('type','[A-Za-z0-9_\-]+');
-            Route::delete('/{type}', [HrDailyEntryController::class, 'metaFormConfigDestroy'])
-                ->name('destroy')->where('type','[A-Za-z0-9_\-]+');
-        });
+        Route::prefix('hr-entries/meta-form-config')->name('hr-entries.meta-form.')
+            ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+                Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
+                Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaFormConfigManage'])
+                    ->name('manage')->where('type', '[A-Za-z0-9_\-]+');
+                Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])
+                    ->name('show')->where('type', '^(?!manage$)[A-Za-z0-9_\-]+$');
+                Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])
+                    ->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+                Route::delete('/{type}', [HrDailyEntryController::class, 'metaFormConfigDestroy'])
+                    ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
+            });
 
-    /* =========================
+        /* =========================
      * Manage: Meta Schemas (Blade)
      * ========================= */
-    Route::prefix('hr-entries/meta-schema')->name('hr-entries.meta-schema.')
-        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');
-            Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaSchemasManage'])
-                ->name('manage')->where('type','[A-Za-z0-9_\-]+');
-            Route::get('/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])
-                ->name('show')->where('type','^(?!manage$)[A-Za-z0-9_\-]+$');
-            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])
-                ->name('upsert')->where('type','[A-Za-z0-9_\-]+');
-            Route::delete('/{type}', [HrDailyEntryController::class, 'metaSchemasDestroy'])
-                ->name('destroy')->where('type','[A-Za-z0-9_\-]+');
-        });
+        Route::prefix('hr-entries/meta-schema')->name('hr-entries.meta-schema.')
+            ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+                Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');
+                Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaSchemasManage'])
+                    ->name('manage')->where('type', '[A-Za-z0-9_\-]+');
+                Route::get('/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])
+                    ->name('show')->where('type', '^(?!manage$)[A-Za-z0-9_\-]+$');
+                Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])
+                    ->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+                Route::delete('/{type}', [HrDailyEntryController::class, 'metaSchemasDestroy'])
+                    ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
+            });
 
-    /* =========================
+        /* =========================
      * Manage: Approval Schemas (Blade)
      * ========================= */
-    Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')
-        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'approvalSchemasIndex'])->name('index');
-            Route::get('/{type}', [HrDailyEntryController::class, 'approvalSchemasShow'])
-                ->name('show')->where('type','[A-Za-z0-9_\-]+');
-            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])
-                ->name('upsert')->where('type','[A-Za-z0-9_\-]+');
-            Route::delete('/{type}', [HrDailyEntryController::class, 'approvalSchemasDestroy'])
-                ->name('destroy')->where('type','[A-Za-z0-9_\-]+');
-        });
+        Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')
+            ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+                Route::get('/', [HrDailyEntryController::class, 'approvalSchemasIndex'])->name('index');
+                Route::get('/{type}', [HrDailyEntryController::class, 'approvalSchemasShow'])
+                    ->name('show')->where('type', '[A-Za-z0-9_\-]+');
+                Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])
+                    ->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+                Route::delete('/{type}', [HrDailyEntryController::class, 'approvalSchemasDestroy'])
+                    ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
+            });
 
-    /* =========================
+        /* =========================
      * Manage: Print Templates (Blade)
      * ========================= */
-    Route::prefix('hr-entries/print-templates')->name('hr-entries.print-templates.')
-        ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-            Route::get('/', [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
-            Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])
-                ->name('show')->where('type','[A-Za-z0-9_\-]+');
-            Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])
-                ->name('upsert')->where('type','[A-Za-z0-9_\-]+');
-            Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])
-                ->name('destroy')->where('type','[A-Za-z0-9_\-]+');
-        });
+        Route::prefix('hr-entries/print-templates')->name('hr-entries.print-templates.')
+            ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+                Route::get('/', [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
+                Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])
+                    ->name('show')->where('type', '[A-Za-z0-9_\-]+');
+                Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])
+                    ->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+                Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])
+                    ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
+            });
 
-    /* =========================
+        /* =========================
      * HR Daily Entries (CRUD + actions)
      * ========================= */
-    Route::resource('hr-entries', HrDailyEntryController::class)
-        ->parameters(['hr-entries' => 'entry'])->except(['show'])->whereUuid(['entry']);
+        Route::resource('hr-entries', HrDailyEntryController::class)
+            ->parameters(['hr-entries' => 'entry'])->except(['show'])->whereUuid(['entry']);
 
-    Route::post('hr-entries/{entry}/submit', [HrDailyEntryController::class, 'approvalSubmit'])
-        ->middleware('can:submit,entry')->name('hr-entries.submit')->whereUuid('entry');
-    Route::post('hr-entries/{entry}/approve', [HrDailyEntryController::class, 'approvalApprove'])
-        ->middleware('can:approve,entry')->name('hr-entries.approve')->whereUuid('entry');
-    Route::post('hr-entries/{entry}/reject', [HrDailyEntryController::class, 'approvalReject'])
-        ->middleware('can:reject,entry')->name('hr-entries.reject')->whereUuid('entry');
+        Route::post('hr-entries/{entry}/submit', [HrDailyEntryController::class, 'approvalSubmit'])
+            ->middleware('can:submit,entry')->name('hr-entries.submit')->whereUuid('entry');
+        Route::post('hr-entries/{entry}/approve', [HrDailyEntryController::class, 'approvalApprove'])
+            ->middleware('can:approve,entry')->name('hr-entries.approve')->whereUuid('entry');
+        Route::post('hr-entries/{entry}/reject', [HrDailyEntryController::class, 'approvalReject'])
+            ->middleware('can:reject,entry')->name('hr-entries.reject')->whereUuid('entry');
 
-    Route::post('hr-entries/bulk', [HrDailyEntryController::class, 'bulk'])
-        ->middleware('can:bulkAction,App\Models\HrDailyEntry')->name('hr-entries.bulk');
-    Route::get('hr-entries/trashed', [HrDailyEntryController::class, 'trashed'])
-        ->middleware('can:viewTrashed,App\Models\HrDailyEntry')->name('hr-entries.trashed');
-    Route::post('hr-entries/{entry}/restore', [HrDailyEntryController::class, 'restore'])
-        ->middleware('can:restore,entry')->name('hr-entries.restore')->whereUuid('entry');
-    Route::delete('hr-entries/{entry}/force', [HrDailyEntryController::class, 'forceDelete'])
-        ->middleware('can:forceDelete,entry')->name('hr-entries.force-delete')->whereUuid('entry');
+        Route::post('hr-entries/bulk', [HrDailyEntryController::class, 'bulk'])
+            ->middleware('can:bulkAction,App\Models\HrDailyEntry')->name('hr-entries.bulk');
+        Route::get('hr-entries/trashed', [HrDailyEntryController::class, 'trashed'])
+            ->middleware('can:viewTrashed,App\Models\HrDailyEntry')->name('hr-entries.trashed');
+        Route::post('hr-entries/{entry}/restore', [HrDailyEntryController::class, 'restore'])
+            ->middleware('can:restore,entry')->name('hr-entries.restore')->whereUuid('entry');
+        Route::delete('hr-entries/{entry}/force', [HrDailyEntryController::class, 'forceDelete'])
+            ->middleware('can:forceDelete,entry')->name('hr-entries.force-delete')->whereUuid('entry');
 
-    Route::get('hr-entries/export/csv', [HrDailyEntryController::class, 'exportCsv'])
-        ->middleware('can:export,App\Models\HrDailyEntry')->name('hr-entries.export.csv');
-    Route::get('hr-entries/print', [HrDailyEntryController::class, 'print'])
-        ->middleware('can:export,App\Models\HrDailyEntry')->name('hr-entries.print');
+        Route::get('hr-entries/export/csv', [HrDailyEntryController::class, 'exportCsv'])
+            ->middleware('can:export,App\Models\HrDailyEntry')->name('hr-entries.export.csv');
+        Route::get('hr-entries/print', [HrDailyEntryController::class, 'print'])
+            ->middleware('can:export,App\Models\HrDailyEntry')
+            ->name('hr-entries.print');
 
-    Route::get('hr-entries/{entry}/attachments/{key}', [HrDailyEntryController::class, 'downloadAttachment'])
-        ->middleware('can:view,entry')->name('hr-entries.attachments.download')->whereUuid('entry');
+        Route::get('hr-entries/{entry}/attachments/{key}', [HrDailyEntryController::class, 'downloadAttachment'])
+            ->middleware('can:view,entry')->name('hr-entries.attachments.download')->whereUuid('entry');
 
-    Route::get('hr-entries/options/types', [HrDailyEntryController::class, 'typesOptions'])
-        ->name('hr-entries.options.types');
-    Route::get('hr-entries/options/ga-categories', [HrDailyEntryController::class, 'gaCategoriesOptions'])
-        ->name('hr-entries.options.ga-categories');
-    Route::get('hr-entries/search/users', [HrDailyEntryController::class, 'searchUsers'])
-        ->middleware('can:viewAny,App\Models\User')->name('hr-entries.search.users');
+        Route::get('hr-entries/options/types', [HrDailyEntryController::class, 'typesOptions'])
+            ->name('hr-entries.options.types');
+        Route::get('hr-entries/options/ga-categories', [HrDailyEntryController::class, 'gaCategoriesOptions'])
+            ->name('hr-entries.options.ga-categories');
+        Route::get('hr-entries/search/users', [HrDailyEntryController::class, 'searchUsers'])
+            ->middleware('can:viewAny,App\Models\User')->name('hr-entries.search.users');
 
-    Route::resource('contracts', EmploymentContractController::class)
-        ->parameters(['contracts' => 'employmentContract'])->except(['show']);
-    Route::resource('crew-assignments', CrewAssignmentController::class)
-        ->parameters(['crew-assignments' => 'crewAssignment'])->except(['show']);
-});
+        Route::resource('contracts', EmploymentContractController::class)
+            ->parameters(['contracts' => 'employmentContract'])->except(['show']);
+        Route::resource('crew-assignments', CrewAssignmentController::class)
+            ->parameters(['crew-assignments' => 'crewAssignment'])->except(['show']);
+    });
 
 // Non-admin (nama: manpower.entries.*)
 Route::middleware(['auth'])->group(function () {

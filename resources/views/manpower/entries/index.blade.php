@@ -289,8 +289,8 @@
           <tr class="bg-sky-50 text-left text-sky-800">
             <th class="px-4 py-2 font-semibold">Date</th>
             <th class="px-4 py-2 font-semibold">Shift</th>
-            <th class="px-4 py-2 font-semibold">User ID</th>
-            <th class="px-4 py-2 font-semibold">Equipment ID</th>
+            <th class="px-4 py-2 font-semibold">User</th>
+            <th class="px-4 py-2 font-semibold">Equipment</th>
             <th class="px-4 py-2 font-semibold">Role</th>
             <th class="px-4 py-2 font-semibold">Activity</th>
             <th class="px-4 py-2 font-semibold">Remarks</th>
@@ -301,6 +301,19 @@
         </thead>
         <tbody class="divide-y divide-sky-100">
           @forelse($itemsAssign as $e)
+            @php
+              $userName = $e->user->name
+                ?? ($getMeta($e,'user_name') ?: $getMeta($e,'employee_name'))
+                ?? $e->user_id
+                ?? '—';
+
+              $equipLabel = $e->equipment?->code
+                ? ($e->equipment->code.' — '.($e->equipment->name ?? ''))
+                : ($e->equipment->name
+                    ?? $getMeta($e,'equipment_code')
+                    ?? $getMeta($e,'equipment_name')
+                    ?? ($e->equipment_id ?: '—'));
+            @endphp
             <tr class="hover:bg-sky-50/50">
               <td class="px-4 py-2 text-slate-800">{{ $e->date->format('Y-m-d') }}</td>
               <td class="px-4 py-2">
@@ -308,8 +321,8 @@
                   {{ $e->shift_slot }}
                 </span>
               </td>
-              <td class="px-4 py-2 text-slate-700">{{ $e->user_id ?? '—' }}</td>
-              <td class="px-4 py-2 text-slate-700">{{ $e->equipment_id ?? '—' }}</td>
+              <td class="px-4 py-2 text-slate-700">{{ $userName }}</td>
+              <td class="px-4 py-2 text-slate-700">{{ $equipLabel }}</td>
               <td class="px-4 py-2 text-slate-700">{{ $e->role ?? '—' }}</td>
               <td class="px-4 py-2 text-slate-700">{{ $e->activity_code ?? '—' }}</td>
               <td class="px-4 py-2 text-slate-700">{{ $e->remarks ?? '—' }}</td>
@@ -360,15 +373,17 @@
   const combinedLabels = ['PLAN', 'REAL', 'ASSIGN'];
   const combinedData   = [totalPlan, totalReal, totalAssign];
 
-  // Warna
-  const C_AMBER   = '#f59e0b';
-  const C_EMERALD = '#059669';
-  const C_SKY     = '#0284c7';
+  // ===== Palet warna (selaras Tailwind) =====
+  // PLAN   = Amber  (500)
+  // REAL   = Emerald (500)
+  // ASSIGN = Sky    (500)
+  const C_AMBER   = '#f59e0b'; // amber-500
+  const C_EMERALD = '#10b981'; // emerald-500
+  const C_SKY     = '#0ea5e9'; // sky-500
 
   const toRGB = (hex) => hex.replace('#','').match(/.{2}/g).map(h=>parseInt(h,16));
-  const rgba  = (hex, a=0.15) => { const [r,g,b]=toRGB(hex); return `rgba(${r}, ${g}, ${b}, ${a})`; };
+  const rgba  = (hex, a=0.28) => { const [r,g,b]=toRGB(hex); return `rgba(${r}, ${g}, ${b}, ${a})`; };
 
-  // Helper build donut (support "mini")
   function buildDonut(
     id,
     data,
@@ -382,8 +397,8 @@
     if (!el) return;
 
     const hasData = data.some(n => n > 0);
-    const safeData = hasData ? data : [1];              // placeholder jika nol
-    const safeColors = hasData ? colors : ['#e5e7eb'];  // abu-abu kalau nol
+    const safeData = hasData ? data : [1];
+    const safeColors = hasData ? colors : ['#e5e7eb'];
 
     const chart = new Chart(el, {
       type: 'doughnut',
@@ -391,9 +406,9 @@
         labels: combinedLabels,
         datasets: [{
           data: safeData,
-          backgroundColor: safeColors.map(c => rgba(c, 0.35)),
+          backgroundColor: safeColors.map(c => rgba(c, mini ? 0.32 : 0.28)),
           borderColor: safeColors,
-          borderWidth: 1.5,
+          borderWidth: 1.6,
           hoverOffset: mini ? 3 : 4,
         }]
       },
@@ -419,14 +434,13 @@
       plugins: [{
         id: 'centerText',
         afterDatasetsDraw(chartInstance) {
-          // Hitung total yang sebenarnya (bukan placeholder)
-          const total = (hasData ? data : [0]).reduce((a,b)=>a+b,0);
+          const hasDataReal = data.some(n => n > 0);
+          const total = (hasDataReal ? data : [0]).reduce((a,b)=>a+b,0);
 
           const meta0 = chartInstance.getDatasetMeta(0);
           const firstArc = meta0?.data?.[0];
           const { ctx, chartArea } = chartInstance;
 
-          // Ambil koordinat tengah dari elemen pertama jika ada, fallback ke chartArea center
           const cx = firstArc?.x ?? (chartArea.left + (chartArea.right - chartArea.left)/2);
           const cy = firstArc?.y ?? (chartArea.top + (chartArea.bottom - chartArea.top)/2);
 
@@ -436,11 +450,8 @@
           ctx.save();
           ctx.textAlign = 'center';
           ctx.fillStyle = '#0f172a';
-
-          // Font mini vs normal
           ctx.font = mini ? '600 10px ui-sans-serif, system-ui, -apple-system' : '600 13px ui-sans-serif, system-ui, -apple-system';
           ctx.fillText(label, cx, cy - (mini ? 5 : 6));
-
           ctx.font = mini ? '700 13px ui-sans-serif, system-ui, -apple-system' : '700 18px ui-sans-serif, system-ui, -apple-system';
           ctx.fillText(String(value), cx, cy + (mini ? 12 : 16));
           ctx.restore();
@@ -451,18 +462,10 @@
     return chart;
   }
 
-  // Donut gabungan (dengan legend)
-  buildDonut(
-    'mpChartCombined',
-    combinedData,
-    [C_AMBER, C_EMERALD, C_SKY],
-    'Total Entries',
-    null,
-    true,   // showLegend
-    false   // mini
-  );
+  // Donut gabungan (legend aktif)
+  buildDonut('mpChartCombined', [totalPlan, totalReal, totalAssign], [C_AMBER, C_EMERALD, C_SKY], 'Total Entries', null, true, false);
 
-  // Donut per tipe (mini single-slice)
+  // Donut mini per tipe (single slice)
   buildDonut('mpChartPlan',   [totalPlan],   [C_AMBER],   'PLAN',   null, false, true);
   buildDonut('mpChartReal',   [totalReal],   [C_EMERALD], 'REAL',   null, false, true);
   buildDonut('mpChartAssign', [totalAssign], [C_SKY],     'ASSIGN', null, false, true);

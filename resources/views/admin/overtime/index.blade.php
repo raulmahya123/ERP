@@ -107,14 +107,14 @@
   {{-- FILTERS --}}
   <form method="GET" action="{{ route('admin.overtime.index') }}"
         class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6 grid md:grid-cols-12 gap-3 items-end">
-    {{-- (opsional) site label terkunci bila tersedia --}}
-    @if(!empty($activeSiteId))
+
+    {{-- Site label terkunci: tampilkan NAME (opsional: + code), tanpa UUID --}}
+    @if(!empty($activeSiteId) && !empty($activeSite))
       <div class="md:col-span-4">
         <label class="block text-xs text-slate-600 mb-1">Site <span class="text-slate-400">(terkunci)</span></label>
         <div class="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 text-sm text-emerald-800">
           <svg class="h-4 w-4" aria-hidden="true"><use href="#i-hash"/></svg>
-          <span class="truncate">{{ $activeSiteLabel }}</span>
-          <span class="ml-auto text-xs">ID: {{ Str::limit($activeSiteId, 8,'…') }}</span>
+          <span class="truncate font-medium">{{ $activeSiteLabel }}</span>
         </div>
         <input type="hidden" name="site_id" value="{{ $activeSiteId }}">
       </div>
@@ -225,11 +225,9 @@
             <th class="px-4 py-3 text-left">Tanggal</th>
             <th class="px-4 py-3 text-left">User</th>
             <th class="px-4 py-3 text-left">Activity</th>
-            <th class="px-4 py-3 text-left">Shift</th>
             <th class="px-4 py-3 text-right">Hours</th>
             <th class="px-4 py-3 text-right">OT</th>
             <th class="px-4 py-3 text-left">Status</th>
-            <th class="px-4 py-3 text-left">Reason</th>
             <th class="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -270,12 +268,6 @@
                 @endif
               </td>
 
-              {{-- Shift --}}
-              <td class="px-4 py-3">
-                <div class="text-slate-700">{{ $row->shift->code ?? '—' }}</div>
-                <div class="text-xs text-slate-500">{{ $row->shift->name ?? '' }}</div>
-              </td>
-
               {{-- Hours / OT --}}
               <td class="px-4 py-3 text-right tabular-nums">{{ number_format($row->hours, 2) }}</td>
               <td class="px-4 py-3 text-right tabular-nums font-semibold">{{ number_format($row->overtime_hours, 2) }}</td>
@@ -289,15 +281,6 @@
                   <div class="text-[11px] text-slate-500 mt-0.5">
                     {{ \Illuminate\Support\Carbon::parse($row->ot_approved_at)->format('d M Y H:i') }}
                   </div>
-                @endif
-              </td>
-
-              {{-- Reason --}}
-              <td class="px-4 py-3">
-                @if($row->ot_reason)
-                  <div class="text-slate-700">{{ $row->ot_reason }}</div>
-                @else
-                  <span class="text-slate-400">—</span>
                 @endif
               </td>
 
@@ -341,7 +324,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="9" class="px-6 py-10 text-center">
+              <td colspan="7" class="px-6 py-10 text-center">
                 <div class="mx-auto max-w-sm text-slate-600">
                   <div class="mx-auto h-14 w-14 rounded-2xl grid place-content-center ring-1 ring-emerald-100 bg-white shadow mb-3">
                     <svg class="h-7 w-7 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-search"/></svg>

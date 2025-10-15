@@ -4,15 +4,11 @@
 
 @section('content')
 @php
-  // ====== Fallback variable biar aman meski controller beda nama ======
-  if (!isset($rows) && isset($timesheets)) {
-    $rows = $timesheets;
-  }
+  if (!isset($rows) && isset($timesheets)) { $rows = $timesheets; }
   if (!isset($sites))        { $sites = collect(); }
   if (!isset($activeSiteId)) { $activeSiteId = request('site_id', session('site_id')); }
   if (!isset($pendingOT))    { $pendingOT = 0; }
 
-  // ====== Helper & import singkat ======
   use Illuminate\Support\Str;
   use Illuminate\Support\Facades\DB;
 
@@ -45,7 +41,6 @@
   $sumHours = collect($rows->items() ?? [])->sum('hours');
   $sumOT    = collect($rows->items() ?? [])->sum('overtime_hours');
 
-  // Safety counter kalau controller belum kirim pendingOT
   if (!isset($pendingOT) || !is_numeric($pendingOT)) {
     try {
       $qPO = DB::table('timesheets')->where('overtime_hours','>',0)->where('ot_status','pending');
@@ -55,7 +50,6 @@
   }
 @endphp
 
-{{-- ========= SVG SPRITE ========= --}}
 <svg xmlns="http://www.w3.org/2000/svg" class="hidden">
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor">
     <g stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></g>
@@ -106,7 +100,6 @@
 </svg>
 
 <div class="max-w-7xl mx-auto space-y-8">
-  {{-- ALERTS --}}
   @if (session('success'))
     <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
       {{ session('success') }}
@@ -118,7 +111,6 @@
     </div>
   @endif
 
-  {{-- HEADER / HERO --}}
   <div class="relative overflow-hidden rounded-3xl text-white shadow ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,rgba(255,255,255,.85)_0%,transparent_60%)]"></div>
     <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
@@ -155,10 +147,8 @@
     </div>
   </div>
 
-  {{-- FILTERS --}}
   <form method="GET" action="{{ route('admin.timesheets.index') }}"
         class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6 grid md:grid-cols-12 gap-3 items-end">
-    {{-- Site (locked) --}}
     <div class="md:col-span-3">
       <label class="block text-xs text-slate-600 mb-1">Site <span class="text-slate-400">(terkunci)</span></label>
       <div class="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 text-sm text-emerald-800">
@@ -171,7 +161,6 @@
       <input type="hidden" name="site_id" value="{{ $activeSiteId }}">
     </div>
 
-    {{-- Date from --}}
     <div class="md:col-span-2 relative">
       <label class="block text-xs text-slate-600 mb-1">Tanggal dari</label>
       <span class="absolute left-3 top-9 text-emerald-600/80"><svg class="h-4 w-4"><use href="#i-calendar"/></svg></span>
@@ -179,7 +168,6 @@
              class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
     </div>
 
-    {{-- Date to --}}
     <div class="md:col-span-2 relative">
       <label class="block text-xs text-slate-600 mb-1">Tanggal sampai</label>
       <span class="absolute left-3 top-9 text-emerald-600/80"><svg class="h-4 w-4"><use href="#i-calendar"/></svg></span>
@@ -187,7 +175,6 @@
              class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
     </div>
 
-    {{-- Activity code --}}
     <div class="md:col-span-3 relative">
       <label class="block text-xs text-slate-600 mb-1">Activity Code</label>
       <span class="absolute left-3 top-9 text-emerald-600/80"><svg class="h-4 w-4"><use href="#i-hash"/></svg></span>
@@ -195,7 +182,6 @@
              class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
     </div>
 
-    {{-- User (UUID / nama / kode) --}}
     <div class="md:col-span-2 relative">
       <label class="block text-xs text-slate-600 mb-1">User (UUID / nama / kode)</label>
       <span class="absolute left-3 top-9 text-emerald-600/80"><svg class="h-4 w-4"><use href="#i-user"/></svg></span>
@@ -204,7 +190,6 @@
              placeholder="UUID / nama / employee code">
     </div>
 
-    {{-- Actions --}}
     <div class="md:col-span-12 flex gap-2 justify-end">
       <button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 ring-1 ring-emerald-600">
         <svg class="h-4 w-4" aria-hidden="true"><use href="#i-sliders"/></svg>
@@ -218,7 +203,6 @@
     </div>
   </form>
 
-  {{-- TABLE --}}
   <div class="overflow-hidden rounded-3xl bg-white ring-1 ring-emerald-200 shadow">
     <div class="px-4 md:px-6 py-3 border-b border-emerald-100 flex items-center justify-between">
       <div class="text-sm text-slate-700">
@@ -238,7 +222,7 @@
           <tr>
             <th class="px-4 py-3 text-left">Tanggal</th>
             <th class="px-4 py-3 text-left">User</th>
-            <th class="px-4 py-3 text-left">Shift</th>
+            {{-- SHIFT DIHAPUS --}}
             <th class="px-4 py-3 text-left">Activity</th>
             <th class="px-4 py-3 text-right">Hours</th>
             <th class="px-4 py-3 text-right">OT</th>
@@ -271,12 +255,9 @@
                   </div>
                 </div>
               </td>
-              <td class="px-4 py-3">
-                <div class="text-slate-800">{{ $row->shift->code ?? '—' }}</div>
-                @if(!empty($row->shift?->name))
-                  <div class="text-xs text-slate-500">{{ $row->shift->name }}</div>
-                @endif
-              </td>
+
+              {{-- KOLUM SHIFT DIHAPUS --}}
+
               <td class="px-4 py-3 max-w-[28rem]">
                 <div class="text-slate-800">{{ $row->activity_code ?: '—' }}</div>
                 @if($row->activity_desc)
@@ -295,7 +276,6 @@
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end gap-2">
-                  {{-- Edit --}}
                   @if (Route::has('admin.timesheets.edit'))
                     <a href="{{ route('admin.timesheets.edit', $row) }}"
                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold ring-1 ring-slate-200 hover:bg-slate-50">
@@ -303,7 +283,6 @@
                     </a>
                   @endif
 
-                  {{-- OT Submit (jika ada OT & belum pending/approved) --}}
                   @if (($row->overtime_hours ?? 0) > 0 && !in_array($status, ['pending','approved']))
                     <form method="POST" action="{{ route('admin.timesheets.ot.submit', $row) }}">
                       @csrf
@@ -315,7 +294,6 @@
                     </form>
                   @endif
 
-                  {{-- OT Approve / Reject (guard di backend / policy) --}}
                   @if (($row->overtime_hours ?? 0) > 0 && $status !== 'approved')
                     <form method="POST" action="{{ route('admin.timesheets.ot.approve', $row) }}">
                       @csrf
@@ -337,7 +315,6 @@
                     </form>
                   @endif
 
-                  {{-- Delete --}}
                   <form method="POST" action="{{ route('admin.timesheets.destroy', $row) }}"
                         onsubmit="return confirm('Hapus timesheet ini?')">
                     @csrf @method('DELETE')
@@ -351,7 +328,7 @@
             </tr>
           @empty
             <tr>
-              <td colspan="8" class="px-6 py-10 text-center">
+              <td colspan="7" class="px-6 py-10 text-center">
                 <div class="mx-auto max-w-sm text-slate-600">
                   <div class="mx-auto h-14 w-14 rounded-2xl grid place-content-center ring-1 ring-emerald-100 bg-white shadow mb-3">
                     <svg class="h-7 w-7 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"><use href="#i-clock"/></svg>
@@ -365,7 +342,6 @@
       </table>
     </div>
 
-    {{-- PAGINATION --}}
     <div class="px-4 md:px-6 py-4 border-t border-emerald-100 flex items-center justify-between bg-white">
       <p class="text-sm text-slate-700">
         Menampilkan <span class="font-medium">{{ $rows->firstItem() ?? 0 }}</span>–<span class="font-medium">{{ $rows->lastItem() ?? 0 }}</span>
