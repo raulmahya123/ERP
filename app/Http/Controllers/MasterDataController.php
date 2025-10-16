@@ -211,8 +211,8 @@ class MasterDataController extends Controller
         if ($search = trim((string) $r->get('q', ''))) {
             $q->where(function ($w) use ($search) {
                 $w->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -276,8 +276,11 @@ class MasterDataController extends Controller
 
         $extraArray = null;
         if (!empty($row->extra)) {
-            try { $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR); }
-            catch (\Throwable $e) { $extraArray = null; }
+            try {
+                $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\Throwable $e) {
+                $extraArray = null;
+            }
         }
 
         return view('admin.master.show', [
@@ -296,8 +299,11 @@ class MasterDataController extends Controller
 
         $extraArray = null;
         if (!empty($row->extra)) {
-            try { $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR); }
-            catch (\Throwable $e) { $extraArray = null; }
+            try {
+                $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\Throwable $e) {
+                $extraArray = null;
+            }
         }
 
         return view('admin.master.edit', [
@@ -444,7 +450,7 @@ class MasterDataController extends Controller
         if ($q !== '') {
             $base->where(function ($w) use ($q) {
                 $w->where('name', 'like', "%{$q}%")
-                  ->orWhere('code', 'like', "%{$q}%");
+                    ->orWhere('code', 'like', "%{$q}%");
             });
         }
 
@@ -480,8 +486,8 @@ class MasterDataController extends Controller
             if ($search !== '') {
                 $q->where(function ($w) use ($search) {
                     $w->where('name', 'like', "%{$search}%")
-                      ->orWhere('code', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
                 });
             }
 
@@ -570,7 +576,8 @@ class MasterDataController extends Controller
                 $extra       = ($map['extra'] ?? null) !== null ? trim((string) $row[$map['extra']]) : null;
 
                 if (!$name || trim($name) === '') {
-                    $skipped++; continue;
+                    $skipped++;
+                    continue;
                 }
 
                 $payload = [
@@ -669,5 +676,54 @@ class MasterDataController extends Controller
 
         return redirect()->route('admin.master.edit', ['entity' => $entity, 'record' => $newId])
             ->with('status', 'Record duplicated.');
+    }
+
+    public function publicShow(Request $r, string $record)
+    {
+        // Read-only detail khusus entity "accounts" untuk semua user (auth + site.selected)
+        $entity = 'accounts';
+
+        // Scope ke site aktif (site_id = currentSite OR NULL)
+        $sid = $this->currentSiteId($r->user());
+
+        $q = DB::table('master_records')
+            ->where('id', $record)
+            ->where('entity', $entity);
+
+        $this->applySiteScope($q, $sid);
+
+        $row = $q->first();
+        abort_unless($row, 404, 'Record tidak ditemukan.');
+
+        // Decode extra (jika ada)
+        $extraArray = null;
+        if (!empty($row->extra)) {
+            try {
+                $extraArray = json_decode($row->extra, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\Throwable $e) {
+                $extraArray = null;
+            }
+        }
+
+        // Gunakan view detail umum yang sudah ada
+        return view('admin.master.show', [
+            'entity'     => $entity,
+            'record'     => $row,
+            'extraArray' => $extraArray,
+        ]);
+    }
+
+    public function permissionsQuery(\Illuminate\Http\Request $r)
+    {
+        $entity = (string) $r->query('entity', '');
+        $record = (string) $r->query('record', '');
+
+        // Validasi sederhana
+        if ($entity === '' || $record === '' || !preg_match('/^[0-9a-fA-F-]{36}$/', $record)) {
+            abort(404, 'Missing or invalid entity/record.');
+        }
+
+        // Reuse logic yg sama
+        return $this->permissions($entity, $record);
     }
 }
