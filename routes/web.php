@@ -1,13 +1,9 @@
 <?php
-
 use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManpowerEntryController;
-
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\DivisionController;
@@ -18,30 +14,28 @@ use App\Http\Controllers\Admin\SiteController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\MasterEntityController;
 use App\Http\Controllers\CommodityController;
-
 use App\Http\Controllers\Admin\AssetController;
 use App\Http\Controllers\Admin\AssetAssignmentController;
-
 use App\Http\Controllers\MasterDataController;
-
-use App\Http\Controllers\Admin\ManpowerController as MP;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\TimesheetController;
 use App\Http\Controllers\Admin\ShiftRosterController;
 use App\Http\Controllers\Admin\ShiftController;
-use App\Http\Controllers\Admin\ManpowerPlanController;
-use App\Http\Controllers\Admin\ManpowerRealizationController;
 use App\Http\Controllers\Admin\HrDailyEntryController;
 use App\Http\Controllers\Admin\EmploymentContractController;
 use App\Http\Controllers\Admin\CrewAssignmentController;
-
 use App\Http\Controllers\AttendanceController as AttendanceTapController;
-
 use App\Http\Controllers\Admin\LocationController;
-
 use App\Http\Controllers\Admin\PayroalController;
 use App\Http\Controllers\PayroalProfileController;
+use App\Http\Controllers\Admin\Hse\IncidentController as HseIncidentController;
+use App\Http\Controllers\Admin\Hse\IncidentInvestigationController as HseInvestigationController;
+use App\Http\Controllers\Admin\Hse\PicaController as HsePicaController;
+use App\Http\Controllers\Admin\Hse\EnvironmentalSampleController as HseEnvSampleController;
+use App\Http\Controllers\Admin\Hse\HazardReportController as HseHazardController;
+use App\Http\Controllers\Admin\Hse\MediaAttachmentController as HseMediaController;
 
+use App\Http\Controllers\Admin\Hse\KpiIndicatorController as HseKpiController;
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
 
@@ -423,5 +417,116 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         ->parameters(['entries' => 'entry'])
         ->names('manpower.entries');
 });
+
+Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected'])
+    ->prefix('admin/hse')->as('admin.hse.')
+    ->group(function () {
+
+        /*
+        |----------------------------------------------------------------------
+        | Incidents
+        |----------------------------------------------------------------------
+        */
+        Route::resource('incidents', HseIncidentController::class)
+            ->parameters(['incidents' => 'incident'])
+            ->whereUuid(['incident']);
+
+        // Aksi siklus (opsional, siap pakai jika controllernya kamu buat)
+        Route::post('incidents/{incident}/submit', [HseIncidentController::class, 'submit'])
+            ->name('incidents.submit')->whereUuid('incident');
+        Route::post('incidents/{incident}/start-investigation', [HseIncidentController::class, 'startInvestigation'])
+            ->name('incidents.start-investigation')->whereUuid('incident');
+        Route::post('incidents/{incident}/close', [HseIncidentController::class, 'close'])
+            ->name('incidents.close')->whereUuid('incident');
+
+        /*
+        |----------------------------------------------------------------------
+        | Incident Investigations
+        |----------------------------------------------------------------------
+        */
+        Route::resource('investigations', HseInvestigationController::class)
+            ->parameters(['investigations' => 'investigation'])
+            ->whereUuid(['investigation']);
+
+        Route::post('investigations/{investigation}/complete', [HseInvestigationController::class, 'complete'])
+            ->name('investigations.complete')->whereUuid('investigation');
+        Route::post('investigations/{investigation}/reopen', [HseInvestigationController::class, 'reopen'])
+            ->name('investigations.reopen')->whereUuid('investigation');
+
+        /*
+        |----------------------------------------------------------------------
+        | PICA
+        |----------------------------------------------------------------------
+        */
+        Route::resource('picas', HsePicaController::class)
+            ->parameters(['picas' => 'pica'])
+            ->whereUuid(['pica']);
+
+        Route::post('picas/{pica}/mark-effective', [HsePicaController::class, 'markEffective'])
+            ->name('picas.mark-effective')->whereUuid('pica');
+        Route::post('picas/{pica}/mark-ineffective', [HsePicaController::class, 'markIneffective'])
+            ->name('picas.mark-ineffective')->whereUuid('pica');
+        Route::post('picas/{pica}/close', [HsePicaController::class, 'close'])
+            ->name('picas.close')->whereUuid('pica');
+
+        /*
+        |----------------------------------------------------------------------
+        | Hazard Reports (Leading)
+        |----------------------------------------------------------------------
+        */
+        Route::resource('hazards', HseHazardController::class)
+            ->parameters(['hazards' => 'hazard'])
+            ->whereUuid(['hazard']);
+
+        Route::post('hazards/{hazard}/assign', [HseHazardController::class, 'assign'])
+            ->name('hazards.assign')->whereUuid('hazard');
+        Route::post('hazards/{hazard}/mitigate', [HseHazardController::class, 'mitigate'])
+            ->name('hazards.mitigate')->whereUuid('hazard');
+        Route::post('hazards/{hazard}/verify', [HseHazardController::class, 'verify'])
+            ->name('hazards.verify')->whereUuid('hazard');
+        Route::post('hazards/{hazard}/close', [HseHazardController::class, 'close'])
+            ->name('hazards.close')->whereUuid('hazard');
+
+        /*
+        |----------------------------------------------------------------------
+        | Environmental Samples
+        |----------------------------------------------------------------------
+        */
+        Route::resource('environmental-samples', HseEnvSampleController::class)
+            ->parameters(['environmental-samples' => 'sample'])
+            ->whereUuid(['sample']);
+
+        /*
+        |----------------------------------------------------------------------
+        | Media Attachments (polymorphic)
+        |----------------------------------------------------------------------
+        | type: incidents|investigations|picas|hazards|environmental-samples
+        */
+        Route::post('media/{type}/{id}', [HseMediaController::class, 'store'])
+            ->name('media.store')
+            ->where(['type' => 'incidents|investigations|picas|hazards|environmental-samples', 'id' => '[0-9a-fA-F-]{36}']);
+
+        Route::delete('media/{attachment}', [HseMediaController::class, 'destroy'])
+            ->name('media.destroy')->whereUuid('attachment');
+
+
+        Route::resource('kpi-indicators', HseKpiController::class)
+            ->parameters(['kpi-indicators' => 'kpi'])
+            ->whereUuid(['kpi']);
+
+        // Filter cepat via URL, contoh: /admin/hse/kpi-indicators/type/leading
+        Route::get('kpi-indicators/type/{type}', [HseKpiController::class, 'index'])
+            ->name('kpi-indicators.type')
+            ->whereIn('type', ['leading','lagging','operational']);
+
+        // (opsional) Export CSV
+        Route::get('kpi-indicators/export/csv', [HseKpiController::class, 'exportCsv'])
+            ->name('kpi-indicators.export.csv');
+
+        // (opsional) Import CSV
+        Route::post('kpi-indicators/import', [HseKpiController::class, 'import'])
+            ->name('kpi-indicators.import');
+    });
+
 
 require __DIR__ . '/auth.php';

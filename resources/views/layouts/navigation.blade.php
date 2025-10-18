@@ -19,22 +19,26 @@ $rawRole = $user->role_key
 
 $norm    = Str::of($rawRole)->lower()->replace(['_', '-'], ' ')->squish()->toString();
 $roleKey = [
-  'gm'                       => 'gm',
-  'general manager'          => 'gm',
-  'generalmanager'           => 'gm',
-  'manager'                  => 'manager',
-  'mgr'                      => 'manager',
-  'hr'                       => 'hr',
-  'human resource'           => 'hr',
-  'human resources'          => 'hr',
-  'human capital'            => 'hr',
-  'human capital management' => 'hr',
-  'hcm'                      => 'hr',
+  'gm'                        => 'gm',
+  'general manager'           => 'gm',
+  'generalmanager'            => 'gm',
+  'manager'                   => 'manager',
+  'mgr'                       => 'manager',
+  'hr'                        => 'hr',
+  'human resource'            => 'hr',
+  'human resources'           => 'hr',
+  'human capital'             => 'hr',
+  'human capital management'  => 'hr',
+  'hcm'                       => 'hr',
+  'hse'                       => 'hse_officer',
+  'hse officer'               => 'hse_officer',
+  'health safety environment' => 'hse_officer',
 ][$norm] ?? $norm;
 
-$isGM      = ($roleKey === 'gm');
-$isManager = ($roleKey === 'manager');
-$isHR      = ($roleKey === 'hr');
+$isGM         = ($roleKey === 'gm');
+$isManager    = ($roleKey === 'manager');
+$isHR         = ($roleKey === 'hr');
+$isHSEOfficer = ($roleKey === 'hse_officer');
 
 /* =========================
 | Gates (coarse checks)
@@ -44,8 +48,9 @@ $canGrantAccess    = Gate::check('grant-access');
 $canManageHrConfig = Gate::check('manage', \App\Models\HrDailyEntry::class);
 
 /* menu visibility */
-$canPeopleMenu = ($isGM || $isHR);      // HCM & Manpower
-$canAdminMenu  = ($isGM || $isManager); // Admin
+$canPeopleMenu = ($isGM || $isHR);                     // HCM & Manpower
+$canAdminMenu  = ($isGM || $isManager);                // Admin
+$canHseMenu    = ($isGM || $isManager || $isHR || $isHSEOfficer); // HSE Suite
 
 /* =========================
 | Active state helpers
@@ -63,6 +68,18 @@ $masterRoutesActive = request()->routeIs('admin.master.*'); // overview + sub-ro
 /** NEW: active flags payroal */
 $payroalAdminActive = request()->routeIs('admin.payroal.*');
 $payroalMeActive    = request()->routeIs('me.payroal.*');
+
+/** NEW: HSE KPI active flag */
+$hseKpiActive = request()->routeIs('admin.hse.kpi-indicators.*'); // NEW
+
+/** NEW: HSE active flags */
+$hseRoutesActive = request()->routeIs('admin.hse.*')
+  || request()->routeIs('admin.hse.incidents.*')
+  || request()->routeIs('admin.hse.investigations.*')
+  || request()->routeIs('admin.hse.hazards.*')
+  || request()->routeIs('admin.hse.picas.*')
+  || request()->routeIs('admin.hse.environmental-samples.*')
+  || $hseKpiActive; // NEW
 
 $peopleRoutesActive =
   request()->routeIs('admin.attendance.*')      ||
@@ -183,6 +200,7 @@ $navState = [
   'openPeople' => (bool) $peopleRoutesActive,
   'openHR'     => (bool) ($hrDailyActive || $hrContractsActive || $hrCfgActive),
   'openMaster' => (bool) $masterRoutesActive,
+  'openHse'    => (bool) $hseRoutesActive, // NEW
 ];
 $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
 @endphp
@@ -229,7 +247,7 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
       $assetsClickable    = $canAssetsV && ($isGM || $isManager);
     @endphp
 
-    @if ($canSiteSelect || $canTap || $approvalsClickable || $assetsClickable || Route::has('profile.edit') || $canPayroalMe)
+    @if ($canSiteSelect || $canTap || $approvalsClickable || $assetsClickable || Route::has('profile.edit') || $canPayroalMe || Route::has('admin.hse.kpi-indicators.index'))
       <div class="mx-3 mb-2">
         <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Quick</div>
         <div class="grid grid-cols-3 gap-2">
@@ -281,6 +299,16 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
             {!! $quickCard(true, route('me.payroal.edit'), 'ring-rose-200 hover:bg-rose-50',
               '<svg class="w-5 h-5 text-rose-600 group-hover:text-rose-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 11c1.657 0 3 1.79 3 4v1H5v-1c0-2.21 1.343-4 3-4m8-5a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
               'Payroal'
+            ) !!}
+          @endif
+
+          {{-- NEW: Quick KPI (opsional) --}}
+          @if (Route::has('admin.hse.kpi-indicators.index') && $canHseMenu)
+            {!! $quickCard(true, route('admin.hse.kpi-indicators.index'), 'ring-teal-200 hover:bg-teal-50',
+              '<svg class="w-5 h-5 text-teal-600 group-hover:text-teal-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                 <path d="M3 12h4l3 8 4-16 3 8h4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+               </svg>',
+              'KPI'
             ) !!}
           @endif
 
@@ -529,6 +557,79 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
     @endif
     {{-- /PEOPLE --}}
 
+    {{-- HSE SUITE --}}
+    @php
+      $hasHseRoutes = (
+        Route::has('admin.hse.incidents.index') ||
+        Route::has('admin.hse.investigations.index') ||
+        Route::has('admin.hse.hazards.index') ||
+        Route::has('admin.hse.picas.index') ||
+        Route::has('admin.hse.environmental-samples.index') ||
+        Route::has('admin.hse.kpi-indicators.index')     // NEW
+      );
+    @endphp
+    @if ($hasHseRoutes && $canHseMenu)
+      <div class="mt-3">
+        <button type="button" @click="openHse=!openHse"
+                class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <span class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 2l7 4v6c0 5-7 10-7 10S5 17 5 12V6l7-4z"/>
+            </svg>
+            HSE Suite
+          </span>
+          <svg class="w-4 h-4 text-slate-500 transform transition" :class="openHse ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+
+        <div x-show="openHse" x-transition.origin.top.left class="mt-2 space-y-1">
+          @if (Route::has('admin.hse.incidents.index'))
+            <a href="{{ route('admin.hse.incidents.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.incidents.*')) }}">
+              Incidents
+            </a>
+          @endif
+
+          @if (Route::has('admin.hse.investigations.index'))
+            <a href="{{ route('admin.hse.investigations.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.investigations.*')) }}">
+              Investigations
+            </a>
+          @endif
+
+          @if (Route::has('admin.hse.hazards.index'))
+            <a href="{{ route('admin.hse.hazards.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.hazards.*')) }}">
+              Hazard Reports
+            </a>
+          @endif
+
+          @if (Route::has('admin.hse.picas.index'))
+            <a href="{{ route('admin.hse.picas.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.picas.*')) }}">
+              PICA
+            </a>
+          @endif
+
+          @if (Route::has('admin.hse.environmental-samples.index'))
+            <a href="{{ route('admin.hse.environmental-samples.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.environmental-samples.*')) }}">
+              Environmental Samples
+            </a>
+          @endif
+
+          {{-- KPI Indicators (single link only) --}}
+          @if (Route::has('admin.hse.kpi-indicators.index'))
+            <a href="{{ route('admin.hse.kpi-indicators.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hseKpiActive) }}">
+              KPI Indicators
+            </a>
+          @endif
+
+        </div>
+      </div>
+    @endif
+    {{-- /HSE SUITE --}}
+
     {{-- ADMIN — hanya GM/Manager --}}
     @php
       $hasAdminRoutes = (
@@ -656,7 +757,7 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
         </div>
       @endif
 
-      <div class="flex-1 min-w-0">
+    <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
           <div class="text-sm font-semibold text-slate-800 truncate">{{ $user->name ?? 'Guest User' }}</div>
           @if($roleKey)
