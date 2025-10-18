@@ -88,6 +88,10 @@ return new class extends Migration {
 
             // ========== Payload fleksibel ==========
             $t->json('meta')->nullable();
+
+            // ========== Self-service Lock ==========
+            $t->boolean('self_locked')->default(false);
+            $t->timestamp('self_locked_at')->nullable();
         });
 
         // FK (opsional – aktifkan jika tabel sites & users sudah ada stabil)
@@ -116,8 +120,9 @@ return new class extends Migration {
                 'overtime_eligible','payroll_cycle','currency','hired_at','meta',
             ];
 
-            // Ambil semua users
-            $users = DB::table('users')->select(['id','name', ...array_intersect($map, $usersCols)])->get();
+            // Ambil semua users (pilih kolom yang memang ada di tabel users)
+            $selectCols = array_values(array_unique(array_merge(['id','name'], array_intersect($map, $usersCols))));
+            $users = DB::table('users')->select($selectCols)->get();
 
             foreach ($users as $u) {
                 // skip kalau sudah ada payroal
@@ -134,7 +139,7 @@ return new class extends Migration {
 
                 foreach ($map as $col) {
                     if (in_array($col, $usersCols, true)) {
-                        $row[$col] = $u->{$col};
+                        $row[$col] = $u->{$col} ?? null;
                     }
                 }
 
@@ -150,7 +155,6 @@ return new class extends Migration {
         // Hapus FK dulu kalau diperlukan
         if (Schema::hasTable('payroal')) {
             Schema::table('payroal', function (Blueprint $t) {
-                // Nama constraint bisa beda-beda; try-catch untuk aman
                 try { $t->dropForeign(['user_id']); } catch (\Throwable $e) {}
                 try { $t->dropForeign(['site_id']); } catch (\Throwable $e) {}
             });

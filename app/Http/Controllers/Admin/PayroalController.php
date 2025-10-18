@@ -143,27 +143,20 @@ class PayroalController extends Controller
      */
     public function lock(Payroal $payroal)
     {
-        // kolom opsional: self_locked & self_locked_at
-        if (property_exists($payroal, 'self_locked')) {
-            $payroal->self_locked = true;
-        }
-        if (property_exists($payroal, 'self_locked_at')) {
-            $payroal->self_locked_at = now();
-        }
-        $payroal->save();
+        $payroal->forceFill([
+            'self_locked'    => true,
+            'self_locked_at' => now(),
+        ])->save();
 
         return back()->with('success', 'Profil payroal dikunci.');
     }
 
     public function unlock(Payroal $payroal)
     {
-        if (property_exists($payroal, 'self_locked')) {
-            $payroal->self_locked = false;
-        }
-        if (property_exists($payroal, 'self_locked_at')) {
-            $payroal->self_locked_at = null;
-        }
-        $payroal->save();
+        $payroal->forceFill([
+            'self_locked'    => false,
+            'self_locked_at' => null,
+        ])->save();
 
         return back()->with('success', 'Profil payroal dibuka (unlock).');
     }

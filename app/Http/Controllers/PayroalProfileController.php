@@ -14,22 +14,22 @@ class PayroalProfileController extends Controller
 {
     /**
      * Tampilkan form self-service profil payroal milik user login.
-     * Non-privileged (bukan HR/GM) terkunci setelah pernah isi.
+     * Non-privileged (bukan HR/GM) hanya bisa edit saat UNLOCK.
      * HR & GM boleh mengedit kapan pun (kecuali employee_code).
      */
     public function edit(Request $request)
     {
-        $user    = $request->user();
-        $payroal = $user->payroal ?: new Payroal(['user_id' => $user->id]);
-
+        $user       = $request->user();
+        $payroal    = $user->payroal ?: new Payroal(['user_id' => $user->id]);
         $privileged = $this->isPrivileged($user);
 
-        // terkunci jika sudah ada data & user bukan HR/GM
-        $locked = ($user->payroal && $user->payroal->exists) && !$privileged;
-
-        // hormati self_locked jika ada (HR/GM tetap bypass)
-        if (!$privileged && isset($user->payroal->self_locked)) {
-            $locked = $locked || (bool)$user->payroal->self_locked;
+        // === FIX: Status lock untuk user biasa hanya bergantung pada self_locked ===
+        // - Jika belum ada profil => UNLOCK (boleh isi pertama kali)
+        // - Jika ada profil => locked mengikuti kolom self_locked
+        if ($privileged) {
+            $locked = false;
+        } else {
+            $locked = (bool)($user->payroal?->self_locked ?? false);
         }
 
         return view('me.payroal.edit', [
@@ -41,19 +41,17 @@ class PayroalProfileController extends Controller
 
     /**
      * Simpan data payroal milik user login (1:1).
-     * Non-privileged ditolak jika sudah pernah isi; HR/GM boleh kapan pun.
-     * employee_code DI-GENERATE otomatis saat pertama kali tersimpan dan tidak bisa diubah.
+     * Non-privileged ditolak jika self_locked = true; HR/GM boleh kapan pun.
+     * employee_code DI-GENERATE otomatis saat pertama kali tersimpan dan immutable.
      */
     public function update(Request $request)
     {
         $user       = $request->user();
         $privileged = $this->isPrivileged($user);
 
-        // kunci total untuk selain HR/GM jika sudah punya data
-        if (!$privileged && $user->payroal && $user->payroal->exists) {
-            if (!isset($user->payroal->self_locked) || (bool)$user->payroal->self_locked === true) {
-                return back()->withErrors(['locked' => 'Data payroal Anda sudah terkunci dan tidak bisa diubah di sini. Hubungi HR untuk koreksi.']);
-            }
+        // === FIX: Blokir user biasa HANYA jika self_locked = true ===
+        if (!$privileged && ($user->payroal?->self_locked ?? false) === true) {
+            return back()->withErrors(['locked' => 'Data payroal Anda terkunci. Hubungi HR untuk koreksi.']);
         }
 
         $rules = [
@@ -103,14 +101,10 @@ class PayroalProfileController extends Controller
 
         $data = $request->validate($rules);
 
-        // kalau meta dikirim sebagai JSON string (mis. dari client lain)
+        // jika meta terkirim sebagai JSON string
         if (isset($data['meta']) && is_string($data['meta'])) {
             $decoded = json_decode($data['meta'], true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $data['meta'] = $decoded;
-            } else {
-                unset($data['meta']);
-            }
+            $data['meta'] = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
         }
 
         /** @var Payroal $row */
@@ -124,13 +118,13 @@ class PayroalProfileController extends Controller
             $row->site_id = $user->default_site_id ?: (session('site_id') ?: $row->site_id);
         }
 
-        // isi hire_date jika dikirim (opsional)
+        // hire_date opsional dari form
         if (array_key_exists('hire_date', $data)) {
             $row->hire_date = $data['hire_date'] ?? $row->hire_date;
             unset($data['hire_date']);
         }
 
-        // JANGAN ambil employee_code dari request (immutable)
+        // immutable: jangan ambil employee_code dari request
         unset($data['employee_code']);
 
         $row->fill($data);
@@ -142,24 +136,25 @@ class PayroalProfileController extends Controller
 
         $row->save();
 
-        // Lock hanya untuk NON-HR/GM (sesuai behavior sebelumnya)
+        // === Auto-lock setelah submit pertama kali untuk user biasa (opsional) ===
         if (!$privileged) {
-            if (property_exists($row, 'self_locked')) {
-                $row->self_locked = true;
-                if (property_exists($row, 'self_locked_at')) {
-                    $row->self_locked_at = now();
-                }
-                $row->save();
-            }
-            return redirect()->route('me.payroal.edit')->with('success', 'Profil payroal tersimpan, kode karyawan dibuat otomatis, dan kini terkunci.');
+            $row->self_locked    = true;
+            $row->self_locked_at = now();
+            $row->save();
+
+            return redirect()
+                ->route('me.payroal.edit')
+                ->with('success', 'Profil payroal tersimpan, kode karyawan dibuat otomatis, dan kini terkunci.');
         }
 
-        return redirect()->route('me.payroal.edit')->with('success', 'Profil payroal diperbarui (kode karyawan tetap).');
+        return redirect()
+            ->route('me.payroal.edit')
+            ->with('success', 'Profil payroal diperbarui (kode karyawan tetap).');
     }
 
     /**
      * Upload file (foto/scan dokumen).
-     * Non-privileged ditolak jika sudah terkunci; HR/GM tetap boleh.
+     * Non-privileged ditolak jika self_locked = true; HR/GM tetap boleh.
      * Tidak mengubah employee_code.
      */
     public function upload(Request $request)
@@ -167,10 +162,8 @@ class PayroalProfileController extends Controller
         $user       = $request->user();
         $privileged = $this->isPrivileged($user);
 
-        if (!$privileged && $user->payroal && $user->payroal->exists) {
-            if (!isset($user->payroal->self_locked) || (bool)$user->payroal->self_locked === true) {
-                return back()->withErrors(['locked' => 'Data payroal sudah terkunci. Upload tidak diizinkan.']);
-            }
+        if (!$privileged && ($user->payroal?->self_locked ?? false) === true) {
+            return back()->withErrors(['locked' => 'Data payroal sudah terkunci. Upload tidak diizinkan.']);
         }
 
         $request->validate([
@@ -254,14 +247,10 @@ class PayroalProfileController extends Controller
 
         // Prefix dasar utk unik-increment
         $prefix = sprintf('%s-%s%s-%s-', $siteCode, $birth, $nikLast4, $joinYYMM);
+        $like   = $prefix.'%';
 
-        // Cari nomor urut berikutnya (NNN)
-        $next = 1;
-        $like = $prefix . '%';
-
-        // Gunakan transaksi ringan untuk kurangi race condition
+        // Cari nomor urut berikutnya (NNN) dengan lock
         $next = DB::transaction(function () use ($like) {
-            // hitung existing dengan prefix tersebut
             $count = DB::table('payroal')
                 ->where('employee_code', 'like', $like)
                 ->lockForUpdate()
@@ -271,7 +260,7 @@ class PayroalProfileController extends Controller
 
         $seq = str_pad((string)$next, 3, '0', STR_PAD_LEFT);
 
-        return $prefix . $seq;
+        return $prefix.$seq;
     }
 
     /**
