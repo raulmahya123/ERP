@@ -540,6 +540,9 @@ Route::middleware(['auth'])->group(function () {
 
     // (opsional) upload foto KTP/NPWP/dokumen payroll via endpoint khusus
     Route::post('/me/payroal/upload', [PayroalProfileController::class, 'upload'])->name('me.payroal.upload');
+
+    Route::get('/me/payroal/download.xls', [PayroalProfileController::class, 'downloadXlsx'])
+        ->name('me.payroal.download.xls');
 });
 
 /*

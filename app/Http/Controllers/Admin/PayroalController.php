@@ -166,19 +166,35 @@ class PayroalController extends Controller
      * Tampilkan versi printable dari list (menghormati filter q & site_id).
      * Buat view: resources/views/admin/payroal/print.blade.php
      */
-    public function print(Request $request)
+ public function print(Request $request)
     {
-        $q       = trim((string) $request->query('q', ''));
+        $q       = (string) $request->query('q', '');
         $site_id = $request->query('site_id');
 
-        $items = $this->baseQuery($request)->orderBy(
-            User::select('name')->whereColumn('users.id', 'payroal.user_id')
-        )->get();
+        $base = Payroal::query()
+            ->with(['user:id,name,email', 'site:id,code,name'])
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('employee_code', 'like', "%{$q}%")
+                      ->orWhere('nik', 'like', "%{$q}%")
+                      ->orWhereHas('user', fn($u) =>
+                          $u->where('name','like',"%{$q}%")
+                            ->orWhere('email','like',"%{$q}%")
+                      );
+                });
+            })
+            ->when($site_id, fn($qq) => $qq->where('site_id', $site_id));
 
-        $sites = Site::query()->orderBy('name')->get(['id','code','name']);
-        $site  = $site_id ? $sites->firstWhere('id', $site_id) : null;
+        $rows = $base->orderBy('employee_code')->get();
 
-        return view('admin.payroal.print', compact('items','q','site_id','site'));
+        $total          = $rows->count();
+        $lockedCount    = $rows->where('self_locked', true)->count();
+        $unlockedCount  = $total - $lockedCount;
+        $site           = $site_id ? Site::query()->select('id','code','name')->find($site_id) : null;
+
+        return view('admin.payroal.print', compact(
+            'rows','total','lockedCount','unlockedCount','site','q','site_id'
+        ));
     }
 
     /**
