@@ -46,11 +46,16 @@ use App\Http\Controllers\AttendanceController as AttendanceTapController;
 // (Opsional) CRUD Lokasi geofence
 use App\Http\Controllers\Admin\LocationController;
 
+// === NEW: Payroal (Admin + Self-service) ===
+use App\Http\Controllers\Admin\PayroalController;          // admin CRUD payroal 1:1 user
+use App\Http\Controllers\PayroalProfileController;         // user self-service edit profil payroal miliknya
+
 /*
 |--------------------------------------------------------------------------
 | Route Patterns
 |--------------------------------------------------------------------------
 */
+
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
 
@@ -150,8 +155,6 @@ Route::middleware(['auth'])
 /*
 |--------------------------------------------------------------------------
 | Master Data · PUBLIC ENTITY (ALL AUTH USERS) — ACCOUNTS (read-only)
-| - index/lookup/export pakai generic (defaults entity=accounts)
-| - show pakai publicShow (tanpa cek role GM)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'site.selected'])
@@ -175,10 +178,6 @@ Route::middleware(['auth', 'site.selected'])
 /*
 |--------------------------------------------------------------------------
 | Master Data · PERMISSIONS (GM only)
-| 1) PATH dengan QUERY:  /admin/master/permissions?entity=...&record=...
-|    -> name: admin.master.permissions.q  (URL yang kamu pakai)
-| 2) PATH per-record  :  /admin/master/{entity}/{record}/permissions
-|    -> name: admin.master.permissions   (versi sebelumnya, tetap ada)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
@@ -201,7 +200,6 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
 /*
 |--------------------------------------------------------------------------
 | Master Data (GM only) — per-entity (full CRUD & actions)
-| - Lindungi wildcard {entity} dari slug statis: overview, accounts, permissions
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
@@ -452,17 +450,6 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
                     ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
             });
 
-        Route::prefix('hr-entries/print-templates')->name('hr-entries.print-templates.')
-            ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
-                Route::get('/', [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
-                Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])
-                    ->name('show')->where('type', '[A-Za-z0-9_\-]+');
-                Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])
-                    ->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
-                Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])
-                    ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
-            });
-
         // HR Daily CRUD
         Route::resource('hr-entries', HrDailyEntryController::class)
             ->parameters(['hr-entries' => 'entry'])->except(['show'])->whereUuid(['entry']);
@@ -503,6 +490,57 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         Route::resource('crew-assignments', CrewAssignmentController::class)
             ->parameters(['crew-assignments' => 'crewAssignment'])->except(['show']);
     });
+
+Route::prefix('hr-entries/print-templates')->name('hr-entries.print-templates.')
+    ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
+        Route::get('/', [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
+        Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])
+            ->name('show')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])
+            ->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])
+            ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
+    });
+/*
+|--------------------------------------------------------------------------
+| === NEW: PAYROAL (Admin) — HR & GM
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'hasrole:gm|hr'])
+    ->prefix('admin')->as('admin.')
+    ->group(function () {
+        // CRUD payroal per user (1:1)
+        Route::resource('payroal', PayroalController::class)
+            ->parameters(['payroal' => 'payroal'])
+            ->except(['show']) // biasanya diakses via users.show + with('payroal')
+            ->whereUuid(['payroal']);
+
+        // ✅ Export & Print
+        Route::get('payroal/export/csv', [PayroalController::class, 'exportCsv'])->name('payroal.export.csv');
+        Route::get('payroal/print',      [PayroalController::class, 'print'])->name('payroal.print');
+
+        // Aksi tambahan: lock/unlock profile payroal
+        Route::post('payroal/{payroal}/lock',   [PayroalController::class, 'lock'])->name('payroal.lock')->whereUuid('payroal');
+        Route::post('payroal/{payroal}/unlock', [PayroalController::class, 'unlock'])->name('payroal.unlock')->whereUuid('payroal');
+
+        // Helper: cari payroal by user (AJAX lookup)
+        Route::get('payroal/lookup/by-user', [PayroalController::class, 'lookupByUser'])
+            ->name('payroal.lookup.by-user');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| === NEW: PAYROAL (Self-service untuk semua user)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->group(function () {
+    // Edit profil payroal milik user yang login
+    Route::get('/me/payroal',        [PayroalProfileController::class, 'edit'])->name('me.payroal.edit');
+    Route::match(['put', 'patch'], '/me/payroal', [PayroalProfileController::class, 'update'])->name('me.payroal.update');
+
+    // (opsional) upload foto KTP/NPWP/dokumen payroll via endpoint khusus
+    Route::post('/me/payroal/upload', [PayroalProfileController::class, 'upload'])->name('me.payroal.upload');
+});
 
 /*
 |--------------------------------------------------------------------------

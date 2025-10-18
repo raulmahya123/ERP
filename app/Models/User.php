@@ -12,6 +12,13 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+// === imports model yang dipakai ===
+use App\Models\Role;
+use App\Models\Division;
+use App\Models\Site;
+use App\Models\SiteConfig;
+use App\Models\Payroal;
+
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasUuid;
@@ -29,24 +36,29 @@ class User extends Authenticatable
         'employee_code',     // dipakai di UI dropdown
     ];
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    protected $hidden = ['password','remember_token'];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
 
-    /** aksesori yang ikut terserialisasi ke array/json (buat UI) */
-    protected $appends = ['display_label'];
+    /** ikut terserialisasi ke json (berguna untuk UI dropdown, dll.) */
+    protected $appends = ['display_label','role_key','role_name'];
 
     /* =========================
      | Relationships
      |=========================*/
+
+    // 1:1 ke tabel payroal
+    public function payroal()
+    {
+        return $this->hasOne(Payroal::class, 'user_id');
+    }
+
+    // alias relasi role (biar with('role') / whereHas('role') tetap bisa)
     public function role(): BelongsTo
     {
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(Role::class, 'role_id');
     }
 
     public function division(): BelongsTo
@@ -59,7 +71,7 @@ class User extends Authenticatable
         return $this->belongsTo(Site::class, 'default_site_id');
     }
 
-    /** Alias agar kode lama yg expect 'site()' tetap aman */
+    /** Alias agar kode lama yg expect 'site()' tetap aman (mengarah ke default_site_id) */
     public function site(): BelongsTo
     {
         return $this->belongsTo(Site::class, 'default_site_id');
@@ -75,16 +87,15 @@ class User extends Authenticatable
     /* =========================
      | Query Scopes
      |=========================*/
+
     /** Filter user pada site tertentu (default_site_id, plus pivot kalau ada) */
     public function scopeInSite($q, $siteId)
     {
         if (!$siteId) return $q;
 
         return $q->where(function ($qq) use ($siteId) {
-            // single-site
             $qq->where('default_site_id', $siteId);
 
-            // multi-site (hanya jika tabel pivot ada)
             if (Schema::hasTable('site_user')) {
                 $qq->orWhereHas('sites', fn($s) => $s->where('sites.id', $siteId));
             }
@@ -106,34 +117,60 @@ class User extends Authenticatable
     }
 
     /* =========================
-     | Helpers
+     | Helpers (AMAN, pakai accessor)
      |=========================*/
+
     public function hasRole(string $roleKey): bool
     {
-        return $this->role && $this->role->key === $roleKey;
+        return $this->role_key === $roleKey;
     }
 
     public function hasAnyRole(array $keys): bool
     {
-        return $this->role && in_array($this->role->key, $keys, true);
+        return in_array($this->role_key, $keys, true);
     }
 
     public function isGM(): bool
     {
-        return optional($this->role)->key === 'gm';
+        return $this->role_key === 'gm';
     }
 
     /* =========================
-     | Accessors
+     | Accessors (role aman utk string/relasi)
      |=========================*/
+
+    /**
+     * role_key:
+     * - Jika kolom 'users.role' ada (string/enum), gunakan itu.
+     * - Jika tidak ada, coba dari relasi roles->key.
+     */
     public function getRoleKeyAttribute(): ?string
     {
+        if (Schema::hasColumn('users', 'role')) {
+            $val = $this->getAttribute('role');
+            return is_string($val) && $val !== '' ? $val : null;
+        }
         $this->loadMissing('role');
         return optional($this->role)->key;
     }
 
+    /**
+     * role_name:
+     * - Jika ada role_key string, kembalikan label humanized.
+     * - Jika tidak, fallback ke relasi roles->name.
+     */
     public function getRoleNameAttribute(): ?string
     {
+        if ($this->role_key) {
+            return match (strtolower($this->role_key)) {
+                'superadmin' => 'Super Admin',
+                'admin'      => 'Admin',
+                'hr'         => 'HR',
+                'pelamar'    => 'Pelamar',
+                'gm'         => 'General Manager',
+                default      => ucwords(str_replace(['_','-'], ' ', $this->role_key)),
+            };
+        }
         $this->loadMissing('role');
         return optional($this->role)->name;
     }
@@ -150,17 +187,35 @@ class User extends Authenticatable
         return optional($this->defaultSite)->name;
     }
 
+    /**
+     * Fallback ke payroal untuk employee_code & photo bila kolom di users kosong.
+     */
+    public function getEmployeeCodeAttribute($value)
+    {
+        if ($value) return $value;
+        $this->loadMissing('payroal');
+        return optional($this->payroal)->employee_code;
+    }
+
+    public function getPhotoAttribute($value)
+    {
+        if ($value) return $value;
+        $this->loadMissing('payroal');
+        return optional($this->payroal)->photo;
+    }
+
     /** Label siap pakai buat dropdown: "Nama — Kode/Email" */
     public function getDisplayLabelAttribute(): string
     {
         $name = $this->name ?: $this->email;
-        $tag  = $this->employee_code ?: $this->email;
+        $tag  = $this->employee_code ?: $this->email; // sudah fallback ke payroal
         return trim($name.' — '.$tag);
     }
 
     /* =========================
      | Mutators (email & password)
      |=========================*/
+
     protected function email(): Attribute
     {
         return Attribute::make(
@@ -173,7 +228,6 @@ class User extends Authenticatable
         return Attribute::make(
             set: function ($value) {
                 if (!$value) return $value;
-                // Hindari rehash jika sudah ter-hash
                 return Hash::needsRehash($value) ? Hash::make($value) : $value;
             }
         );
@@ -182,6 +236,7 @@ class User extends Authenticatable
     /* =========================
      | Boot hooks: auto-isi default_site_id
      |=========================*/
+
     protected static function booted(): void
     {
         static::creating(function (self $user) {

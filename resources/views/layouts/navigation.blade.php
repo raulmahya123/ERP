@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\{Auth,DB,Gate,Route};
 $user = Auth::user();
 if ($user) { $user->loadMissing('role'); }
 
-$rawRole = $user?->role?->key
+/** Pakai accessor role_key duluan (aman utk string/relasi), lalu fallback cara lama */
+$rawRole = $user->role_key
+  ?? $user?->role?->key
   ?? $user?->role?->slug
   ?? $user?->role?->name
   ?? (is_string($user->role ?? null) ? $user->role : '')
@@ -58,6 +60,10 @@ $hrContractsActive  = request()->routeIs('admin.contracts.*');
 $mpUnifiedActive    = request()->routeIs('manpower.entries.*') || request()->routeIs('admin.manpower.entries.*');
 $masterRoutesActive = request()->routeIs('admin.master.*'); // overview + sub-route lain (jika ada)
 
+/** NEW: active flags payroal */
+$payroalAdminActive = request()->routeIs('admin.payroal.*');
+$payroalMeActive    = request()->routeIs('me.payroal.*');
+
 $peopleRoutesActive =
   request()->routeIs('admin.attendance.*')      ||
   request()->routeIs('admin.timesheets.*')      ||
@@ -69,7 +75,8 @@ $peopleRoutesActive =
   request()->routeIs('admin.hr-entries.*')      ||
   request()->routeIs('admin.contracts.*')       ||
   request()->routeIs('manpower.entries.*')      ||
-  request()->routeIs('admin.manpower.entries.*');
+  request()->routeIs('admin.manpower.entries.*') ||
+  $payroalAdminActive; // NEW: masukkan payroal admin ke PEOPLE group
 
 $adminGroupActive =
   request()->routeIs('admin.roles.*')        ||
@@ -207,12 +214,13 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
       $canTap        = Route::has('attendance.tap');
       $canApprovalsV = Route::has('admin.hr-entries.index');
       $canAssetsV    = Route::has('admin.assets.index');
+      $canPayroalMe  = Route::has('me.payroal.edit');
 
       $approvalsClickable = $canApprovalsV && ($isGM || $isHR);
       $assetsClickable    = $canAssetsV && ($isGM || $isManager);
     @endphp
 
-    @if ($canSiteSelect || $canTap || $approvalsClickable || $assetsClickable || Route::has('profile.edit'))
+    @if ($canSiteSelect || $canTap || $approvalsClickable || $assetsClickable || Route::has('profile.edit') || $canPayroalMe)
       <div class="mx-3 mb-2">
         <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Quick</div>
         <div class="grid grid-cols-3 gap-2">
@@ -259,6 +267,14 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
             ) !!}
           @endif
 
+          {{-- NEW: Payroal Self-service --}}
+          @if ($canPayroalMe)
+            {!! $quickCard(true, route('me.payroal.edit'), 'ring-rose-200 hover:bg-rose-50',
+              '<svg class="w-5 h-5 text-rose-600 group-hover:text-rose-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 11c1.657 0 3 1.79 3 4v1H5v-1c0-2.21 1.343-4 3-4m8-5a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
+              'Payroal'
+            ) !!}
+          @endif
+
         </div>
       </div>
     @endif
@@ -270,17 +286,6 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
       <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10"/></svg>
       <span>Dashboard</span>
     </a>
-
-    {{-- Profil --}}
-    @if (Route::has('profile.edit'))
-      <a href="{{ route('profile.edit') }}"
-         class="group mx-3 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('profile.edit')) }}">
-        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.418 3.582-8 8-8s8 3.582 8 8"/>
-        </svg>
-        <span>Profil</span>
-      </a>
-    @endif
 
     {{-- GM Dashboard (opsional) --}}
     @if ($isGM && Route::has('gm.dashboard'))
@@ -346,7 +351,8 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
         Route::has('admin.contracts.index')       ||
         Route::has('admin.crew-assignments.index')||
         Route::has('manpower.entries.index')      ||
-        Route::has('admin.manpower.entries.index')
+        Route::has('admin.manpower.entries.index')||
+        Route::has('admin.payroal.index')         // NEW
       );
     @endphp
     @if ($hasPeopleRoutes && $canPeopleMenu)
@@ -423,13 +429,13 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
           @endphp
           @if ($mpEntriesRoute)
             <a href="{{ route($mpEntriesRoute) }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($mpUnifiedActive) }}">
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($mpUnifiedActive) }};">
               Manpower Entries <span class="text-[11px] text-slate-400 ml-1">— unified</span>
             </a>
           @endif
 
           {{-- HR Suite (sub) --}}
-          @if (Route::has('admin.hr-entries.index') || Route::has('admin.contracts.index'))
+          @if (Route::has('admin.hr-entries.index') || Route::has('admin.contracts.index') || Route::has('admin.payroal.index'))
             <div class="mt-2">
               <button type="button" @click="openHR=!openHR"
                       class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between pl-7 pr-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
@@ -452,6 +458,14 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
                         </span>
                       @endif
                     </span>
+                  </a>
+                @endif
+
+                {{-- NEW: Admin Payroal (HR/GM) --}}
+                @if (Route::has('admin.payroal.index'))
+                  <a href="{{ route('admin.payroal.index') }}"
+                     class="block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($payroalAdminActive) }}">
+                    Data Payroal
                   </a>
                 @endif
 
