@@ -2,14 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Controllers (Pages & Auth)
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StaticPageController;
 use App\Http\Controllers\RoleDashboardController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManpowerEntryController;
 
-// Admin Controllers
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\DivisionController;
@@ -21,56 +19,34 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\MasterEntityController;
 use App\Http\Controllers\CommodityController;
 
-// Dedicated module (Assets)
 use App\Http\Controllers\Admin\AssetController;
 use App\Http\Controllers\Admin\AssetAssignmentController;
 
-// Master Data (generic per-entity)
 use App\Http\Controllers\MasterDataController;
 
-// HCM / Manpower & Shift (ADMIN area)
-use App\Http\Controllers\Admin\ManpowerController as MP; // (opsional)
+use App\Http\Controllers\Admin\ManpowerController as MP;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\TimesheetController;
 use App\Http\Controllers\Admin\ShiftRosterController;
 use App\Http\Controllers\Admin\ShiftController;
-use App\Http\Controllers\Admin\ManpowerPlanController;          // (opsional)
-use App\Http\Controllers\Admin\ManpowerRealizationController;   // (opsional)
+use App\Http\Controllers\Admin\ManpowerPlanController;
+use App\Http\Controllers\Admin\ManpowerRealizationController;
 use App\Http\Controllers\Admin\HrDailyEntryController;
 use App\Http\Controllers\Admin\EmploymentContractController;
 use App\Http\Controllers\Admin\CrewAssignmentController;
 
-// Employee-side GPS Tap
 use App\Http\Controllers\AttendanceController as AttendanceTapController;
 
-// (Opsional) CRUD Lokasi geofence
 use App\Http\Controllers\Admin\LocationController;
 
-// === NEW: Payroal (Admin + Self-service) ===
-use App\Http\Controllers\Admin\PayroalController;          // admin CRUD payroal 1:1 user
-use App\Http\Controllers\PayroalProfileController;         // user self-service edit profil payroal miliknya
-
-/*
-|--------------------------------------------------------------------------
-| Route Patterns
-|--------------------------------------------------------------------------
-*/
+use App\Http\Controllers\Admin\PayroalController;
+use App\Http\Controllers\PayroalProfileController;
 
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
 
-/*
-|--------------------------------------------------------------------------
-| Root
-|--------------------------------------------------------------------------
-*/
 Route::redirect('/', '/login')->name('root');
 
-/*
-|--------------------------------------------------------------------------
-| Dashboard + Profile (auth)
-|--------------------------------------------------------------------------
-*/
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -82,17 +58,11 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Employee-side: Absen GPS
     Route::get('/attendance/tap',        [AttendanceTapController::class, 'tapPage'])->name('attendance.tap');
     Route::post('/attendance/check-in',  [AttendanceTapController::class, 'checkIn'])->name('attendance.checkin');
     Route::post('/attendance/check-out', [AttendanceTapController::class, 'checkOut'])->name('attendance.checkout');
 });
 
-/*
-|--------------------------------------------------------------------------
-| Pilih Site
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth'])
     ->get('/sites/select', function () {
         $sites = \App\Models\Site::orderBy('name')->get();
@@ -108,11 +78,6 @@ Route::middleware(['auth'])
             ->with('success', 'Site aktif telah diubah.');
     })->name('sites.choose');
 
-/*
-|--------------------------------------------------------------------------
-| Admin Area (GM & Manager)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm|manager'])
     ->prefix('admin')->as('admin.')
     ->group(function () {
@@ -123,11 +88,6 @@ Route::middleware(['auth', 'hasrole:gm|manager'])
         Route::resource('divisions', DivisionController::class);
     });
 
-/*
-|--------------------------------------------------------------------------
-| Master Entities (GM only)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/master-entities')->as('admin.master_entities.')
     ->group(function () {
@@ -139,12 +99,6 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::delete('/{master_entity}',    [MasterEntityController::class, 'destroy'])->name('destroy');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Master Data · OVERVIEW (ALL AUTH USERS)
-| - /admin/master/overview
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth'])
     ->prefix('admin/master')->as('admin.master.')
     ->group(function () {
@@ -152,11 +106,6 @@ Route::middleware(['auth'])
         Route::get('overview', [MasterDataController::class, 'overview'])->name('overview');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Master Data · PUBLIC ENTITY (ALL AUTH USERS) — ACCOUNTS (read-only)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'site.selected'])
     ->prefix('admin/master')->as('admin.master.')
     ->group(function () {
@@ -169,25 +118,17 @@ Route::middleware(['auth', 'site.selected'])
         Route::get('accounts/export', [MasterDataController::class, 'export'])
             ->defaults('entity', 'accounts')->name('accounts.export');
 
-        // DETAIL read-only (publicShow)
         Route::get('accounts/{record}', [MasterDataController::class, 'publicShow'])
             ->where('record', '[0-9a-fA-F-]{36}')
             ->name('accounts.show');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Master Data · PERMISSIONS (GM only)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
     ->prefix('admin/master')->as('admin.master.')
     ->group(function () {
-        // (1) versi QUERY — biar URL yang kamu pakai nggak 404
         Route::get('permissions', [MasterDataController::class, 'permissionsQuery'])
             ->name('permissions.q');
 
-        // (2) versi per-record — tetap dipertahankan
         Route::get('{entity}/{record}/permissions', [MasterDataController::class, 'permissions'])
             ->where(['entity' => '^[a-z0-9_]+$', 'record' => '[0-9a-fA-F-]{36}'])
             ->name('permissions');
@@ -197,87 +138,67 @@ Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
             ->name('permissions.update');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Master Data (GM only) — per-entity (full CRUD & actions)
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
+Route::middleware(['auth', 'site.selected', 'can:master.access,entity'])
     ->prefix('admin/master')->as('admin.master.')
     ->group(function () {
         $entityRegex = '^(?!overview$)(?!accounts$)(?!permissions$)[a-z0-9_]+';
 
-        Route::get('{entity}/lookup',          [MasterDataController::class, 'lookup'])
+        Route::get('{entity}/lookup', [MasterDataController::class, 'lookup'])
             ->where('entity', $entityRegex)->name('lookup');
 
-        Route::get('{entity}/export',          [MasterDataController::class, 'export'])
+        Route::get('{entity}/export', [MasterDataController::class, 'export'])
             ->where('entity', $entityRegex)->name('export');
 
-        Route::post('{entity}/import',         [MasterDataController::class, 'import'])
+        Route::post('{entity}/import', [MasterDataController::class, 'import'])
             ->where('entity', $entityRegex)->name('import');
 
         Route::get('{entity}/import-template', [MasterDataController::class, 'importTemplate'])
             ->where('entity', $entityRegex)->name('import.template');
 
-        Route::delete('{entity}/bulk-delete',  [MasterDataController::class, 'bulkDelete'])
+        Route::delete('{entity}/bulk-delete', [MasterDataController::class, 'bulkDelete'])
             ->where('entity', $entityRegex)->name('bulk-delete');
 
         Route::post('{entity}/{record}/duplicate', [MasterDataController::class, 'duplicate'])
             ->where(['entity' => $entityRegex, 'record' => '[0-9a-fA-F-]{36}'])->name('duplicate');
 
-        Route::get('{entity}',               [MasterDataController::class, 'index'])
+        Route::get('{entity}', [MasterDataController::class, 'index'])
             ->where('entity', $entityRegex)->name('index');
 
-        Route::get('{entity}/create',        [MasterDataController::class, 'create'])
+        Route::get('{entity}/create', [MasterDataController::class, 'create'])
             ->where('entity', $entityRegex)->name('create');
 
-        Route::post('{entity}',              [MasterDataController::class, 'store'])
+        Route::post('{entity}', [MasterDataController::class, 'store'])
             ->where('entity', $entityRegex)->name('store');
 
-        Route::get('{entity}/{record}',      [MasterDataController::class, 'show'])
+        Route::get('{entity}/{record}', [MasterDataController::class, 'show'])
             ->where(['entity' => $entityRegex, 'record' => '[0-9a-fA-F-]{36}'])->name('show');
 
         Route::get('{entity}/{record}/edit', [MasterDataController::class, 'edit'])
             ->where(['entity' => $entityRegex, 'record' => '[0-9a-fA-F-]{36}'])->name('edit');
 
-        Route::put('{entity}/{record}',      [MasterDataController::class, 'update'])
+        Route::put('{entity}/{record}', [MasterDataController::class, 'update'])
             ->where(['entity' => $entityRegex, 'record' => '[0-9a-fA-F-]{36}'])->name('update');
 
-        Route::delete('{entity}/{record}',   [MasterDataController::class, 'destroy'])
+        Route::delete('{entity}/{record}', [MasterDataController::class, 'destroy'])
             ->where(['entity' => $entityRegex, 'record' => '[0-9a-fA-F-]{36}'])->name('destroy');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Kelola Akses User (GM only)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/access')->as('admin.access.')
     ->group(function () {
-        Route::get('users',              [UserAccessController::class, 'index'])->name('users.index');
-        Route::get('users/{user}/role',  [UserAccessController::class, 'editRole'])->name('users.role.edit');
+        Route::get('users', [UserAccessController::class, 'index'])->name('users.index');
+        Route::get('users/{user}/role', [UserAccessController::class, 'editRole'])->name('users.role.edit');
         Route::post('users/{user}/role', [UserAccessController::class, 'updateRole'])->name('users.role');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Dashboards per Role
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth', 'hasrole:gm'])->get('/gm',        [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
-Route::middleware(['auth', 'hasrole:manager'])->get('/manager',  [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
-Route::middleware(['auth', 'hasrole:foreman'])->get('/foreman',  [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
+Route::middleware(['auth', 'hasrole:gm'])->get('/gm', [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
+Route::middleware(['auth', 'hasrole:manager'])->get('/manager', [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
+Route::middleware(['auth', 'hasrole:foreman'])->get('/foreman', [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
 Route::middleware(['auth', 'hasrole:operator'])->get('/operator', [RoleDashboardController::class, 'operator'])->name('operator.dashboard');
-Route::middleware(['auth', 'hasrole:hse_officer'])->get('/hse',   [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
-Route::middleware(['auth', 'hasrole:hr'])->get('/hr',             [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
-Route::middleware(['auth', 'hasrole:finance'])->get('/finance',   [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
+Route::middleware(['auth', 'hasrole:hse_officer'])->get('/hse', [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
+Route::middleware(['auth', 'hasrole:hr'])->get('/hr', [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
+Route::middleware(['auth', 'hasrole:finance'])->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
 
-/*
-|--------------------------------------------------------------------------
-| GM: Site Switcher & Site Config
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm'])->post('/admin/site/switch', [SiteContextController::class, 'switch'])->name('admin.site.switch');
 
 Route::middleware(['auth', 'hasrole:gm'])
@@ -291,11 +212,6 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::delete('/{site}',   [SiteController::class, 'destroy'])->name('destroy');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Audit Logs (GM only)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/audit-logs')->as('admin.audit.')
     ->group(function () {
@@ -305,11 +221,6 @@ Route::middleware(['auth', 'hasrole:gm'])
         Route::get('/feed/json', [AuditLogController::class, 'feed'])->name('feed');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Konfigurasi Site (GM only)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin')->as('admin.')
     ->group(function () {
@@ -323,11 +234,6 @@ Route::middleware(['auth', 'hasrole:gm'])
         });
     });
 
-/*
-|--------------------------------------------------------------------------
-| Commodities (auth)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth'])
     ->prefix('admin/commodities')->as('admin.commodities.')
     ->group(function () {
@@ -339,36 +245,24 @@ Route::middleware(['auth'])
         Route::delete('/{commodity}',   [CommodityController::class, 'destroy'])->name('destroy');
     });
 
-/*
-|--------------------------------------------------------------------------
-| Assets (GM & Manager) — site.selected
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth', 'hasrole:gm|manager', 'site.selected'])
+Route::middleware(['auth', 'site.selected', 'can:viewAny,App\Models\Asset'])
     ->prefix('admin')->as('admin.')
     ->group(function () {
         Route::resource('assets', AssetController::class)
             ->parameters(['assets' => 'asset'])
             ->whereUuid(['asset']);
 
-        // Nested assignments di bawah assets
         Route::prefix('assets/{asset}')->as('assets.')->whereUuid(['asset'])->group(function () {
             Route::get('assignments',        [AssetAssignmentController::class, 'index'])->name('assignments.index');
             Route::get('assignments/create', [AssetAssignmentController::class, 'create'])->name('assignments.create');
             Route::post('assignments',       [AssetAssignmentController::class, 'store'])->name('assignments.store');
         });
 
-        // (opsional) flat resource
         Route::resource('asset-assignments', AssetAssignmentController::class)
             ->parameters(['asset-assignments' => 'assetAssignment'])
             ->except(['show']);
     });
 
-/*
-|--------------------------------------------------------------------------
-| HCM (GM & HR) — Blade-only + site.selected
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
     ->prefix('admin')->name('admin.')->group(function () {
 
@@ -384,11 +278,9 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         Route::resource('shifts', ShiftController::class)
             ->parameters(['shifts' => 'shift'])->except(['show']);
 
-        // AJAX helper
         Route::get('shift-rosters/shifts-by-site', [ShiftRosterController::class, 'shiftsBySite'])
             ->name('shift-rosters.shifts-by-site');
 
-        // Overtime (berbasis timesheets)
         Route::get('overtime', [TimesheetController::class, 'otIndex'])->name('overtime.index');
         Route::post('timesheets/{timesheet}/ot/submit',  [TimesheetController::class, 'otSubmit'])
             ->whereUuid('timesheet')->name('timesheets.ot.submit');
@@ -397,11 +289,9 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         Route::post('timesheets/{timesheet}/ot/reject',  [TimesheetController::class, 'otReject'])
             ->whereUuid('timesheet')->name('timesheets.ot.reject');
 
-        // Geofence locations (opsional)
         Route::resource('locations', LocationController::class)
             ->parameters(['locations' => 'location'])->except(['show']);
 
-        // HR Config & Suite
         Route::prefix('hr-entries/types')->name('hr-entries.types.')
             ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
                 Route::get('/',  [HrDailyEntryController::class, 'typesIndex'])->name('index');
@@ -450,7 +340,6 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
                     ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
             });
 
-        // HR Daily CRUD
         Route::resource('hr-entries', HrDailyEntryController::class)
             ->parameters(['hr-entries' => 'entry'])->except(['show'])->whereUuid(['entry']);
 
@@ -485,7 +374,7 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
         Route::get('hr-entries/search/users', [HrDailyEntryController::class, 'searchUsers'])
             ->middleware('can:viewAny,App\Models\User')->name('hr-entries.search.users');
 
-        Route::resource('contracts',        EmploymentContractController::class)
+        Route::resource('contracts', EmploymentContractController::class)
             ->parameters(['contracts' => 'employmentContract'])->except(['show']);
         Route::resource('crew-assignments', CrewAssignmentController::class)
             ->parameters(['crew-assignments' => 'crewAssignment'])->except(['show']);
@@ -494,62 +383,35 @@ Route::middleware(['auth', 'hasrole:gm|hr', 'site.selected'])
 Route::prefix('hr-entries/print-templates')->name('hr-entries.print-templates.')
     ->middleware('can:manage,App\Models\HrDailyEntry')->group(function () {
         Route::get('/', [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
-        Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])
-            ->name('show')->where('type', '[A-Za-z0-9_\-]+');
-        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])
-            ->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
-        Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])
-            ->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
+        Route::get('/{type}', [HrDailyEntryController::class, 'printTemplatesShow'])->name('show')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
     });
-/*
-|--------------------------------------------------------------------------
-| === NEW: PAYROAL (Admin) — HR & GM
-|--------------------------------------------------------------------------
-*/
+
 Route::middleware(['auth', 'hasrole:gm|hr'])
     ->prefix('admin')->as('admin.')
     ->group(function () {
-        // CRUD payroal per user (1:1)
         Route::resource('payroal', PayroalController::class)
             ->parameters(['payroal' => 'payroal'])
-            ->except(['show']) // biasanya diakses via users.show + with('payroal')
+            ->except(['show'])
             ->whereUuid(['payroal']);
 
-        // ✅ Export & Print
         Route::get('payroal/export/csv', [PayroalController::class, 'exportCsv'])->name('payroal.export.csv');
         Route::get('payroal/print',      [PayroalController::class, 'print'])->name('payroal.print');
 
-        // Aksi tambahan: lock/unlock profile payroal
         Route::post('payroal/{payroal}/lock',   [PayroalController::class, 'lock'])->name('payroal.lock')->whereUuid('payroal');
         Route::post('payroal/{payroal}/unlock', [PayroalController::class, 'unlock'])->name('payroal.unlock')->whereUuid('payroal');
 
-        // Helper: cari payroal by user (AJAX lookup)
-        Route::get('payroal/lookup/by-user', [PayroalController::class, 'lookupByUser'])
-            ->name('payroal.lookup.by-user');
+        Route::get('payroal/lookup/by-user', [PayroalController::class, 'lookupByUser'])->name('payroal.lookup.by-user');
     });
 
-/*
-|--------------------------------------------------------------------------
-| === NEW: PAYROAL (Self-service untuk semua user)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth'])->group(function () {
-    // Edit profil payroal milik user yang login
-    Route::get('/me/payroal',        [PayroalProfileController::class, 'edit'])->name('me.payroal.edit');
+    Route::get('/me/payroal', [PayroalProfileController::class, 'edit'])->name('me.payroal.edit');
     Route::match(['put', 'patch'], '/me/payroal', [PayroalProfileController::class, 'update'])->name('me.payroal.update');
-
-    // (opsional) upload foto KTP/NPWP/dokumen payroll via endpoint khusus
     Route::post('/me/payroal/upload', [PayroalProfileController::class, 'upload'])->name('me.payroal.upload');
-
-    Route::get('/me/payroal/download.xls', [PayroalProfileController::class, 'downloadXlsx'])
-        ->name('me.payroal.download.xls');
+    Route::get('/me/payroal/download.xls', [PayroalProfileController::class, 'downloadXlsx'])->name('me.payroal.download.xls');
 });
 
-/*
-|--------------------------------------------------------------------------
-| Manpower Entries (public alias & admin alias)
-|--------------------------------------------------------------------------
-*/
 Route::middleware(['auth'])->group(function () {
     Route::resource('manpower/entries', ManpowerEntryController::class)
         ->parameters(['entries' => 'entry'])
@@ -562,9 +424,4 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
         ->names('manpower.entries');
 });
 
-/*
-|--------------------------------------------------------------------------
-| Auth Routes
-|--------------------------------------------------------------------------
-*/
 require __DIR__ . '/auth.php';

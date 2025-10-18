@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule as UniqueRule; // alias agar jelas
+use Illuminate\Validation\Rule as UniqueRule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Support\SiteContext;
 
@@ -54,18 +54,12 @@ class MasterDataController extends Controller
         return SiteContext::currentSiteId($user);
     }
 
-    /**
-     * Pastikan site_id valid; kalau tidak valid -> NULL.
-     */
     protected function resolveValidSiteId(?string $sid): ?string
     {
         if (!$sid) return null;
         return DB::table('sites')->where('id', $sid)->value('id') ?: null;
     }
 
-    /**
-     * Terapkan scope site (site_id = $sid ATAU NULL) untuk SELECT.
-     */
     protected function applySiteScope($query, ?string $sid)
     {
         if (\Schema::hasColumn('master_records', 'site_id')) {
@@ -75,14 +69,12 @@ class MasterDataController extends Controller
                     $w->where('site_id', $validSid)->orWhereNull('site_id');
                 });
             }
-            // jika $sid tidak valid -> tidak filter (tampilkan semua, termasuk global)
         }
         return $query;
     }
 
     /**
-     * Rule unik code per (entity, site_id). Saat update, set $ignoreId.
-     * Mengembalikan instance rule kompatibel (tanpa return type ketat).
+     * Unique rule "code" per (entity, site_id).
      *
      * @return \Illuminate\Contracts\Validation\Rule|\Illuminate\Contracts\Validation\ValidationRule|\Illuminate\Validation\Rules\Unique
      */
@@ -93,11 +85,8 @@ class MasterDataController extends Controller
                 $q->where('entity', $entity);
                 if (\Schema::hasColumn('master_records', 'site_id')) {
                     $validSid = $this->resolveValidSiteId($sid);
-                    if ($validSid !== null) {
-                        $q->where('site_id', $validSid);
-                    } else {
-                        $q->whereNull('site_id');
-                    }
+                    if ($validSid !== null) $q->where('site_id', $validSid);
+                    else $q->whereNull('site_id');
                 }
             });
 
@@ -123,6 +112,68 @@ class MasterDataController extends Controller
     }
 
     /* =========================
+     | RBAC helpers (per-record)
+     |=========================*/
+    protected function isGm(?\App\Models\User $user): bool
+    {
+        if (!$user) return false;
+
+        if (isset($user->role) && is_string($user->role) && mb_strtolower($user->role) === 'gm') return true;
+
+        if (method_exists($user, 'role')) {
+            try { $user->loadMissing('role'); } catch (\Throwable $e) {}
+            $vals = [
+                mb_strtolower($user->role->key   ?? ''),
+                mb_strtolower($user->role->slug  ?? ''),
+                mb_strtolower($user->role->name  ?? ''),
+                mb_strtolower($user->role->title ?? ''),
+            ];
+            if (in_array('gm', $vals, true)) return true;
+        }
+
+        if (method_exists($user, 'hasRole') && $user->hasRole('gm')) return true;
+
+        return false;
+    }
+
+    /**
+     * Cek izin per-record. Logika:
+     * - GM selalu true
+     * - Jika record TIDAK punya baris permission sama sekali -> true (default open)
+     * - Jika ada baris permission utk record tsb -> user harus punya flag yg diminta
+     */
+    protected function assertRecordAbility(?\App\Models\User $user, string $recordId, string $ability): void
+    {
+        if ($this->isGm($user)) return;
+
+        // ada permission rows utk record ini?
+        $hasAnyRow = DB::table('master_record_permissions')
+            ->where('master_record_id', $recordId)
+            ->exists();
+
+        if (!$hasAnyRow) return; // default open
+
+        // ambil baris untuk user
+        $row = DB::table('master_record_permissions')
+            ->where('master_record_id', $recordId)
+            ->where('user_id', optional($user)->id)
+            ->first(['can_view','can_download','can_update','can_delete']);
+
+        $ok = false;
+        if ($row) {
+            switch ($ability) {
+                case 'view':     $ok = (bool) $row->can_view; break;
+                case 'download': $ok = (bool) $row->can_download; break;
+                case 'update':   $ok = (bool) $row->can_update; break;
+                case 'delete':   $ok = (bool) $row->can_delete; break;
+                default:         $ok = false;
+            }
+        }
+
+        abort_unless($ok, 403, 'Anda tidak berwenang untuk aksi ini pada record tersebut.');
+    }
+
+    /* =========================
      | Overview
      |=========================*/
     public function overview()
@@ -138,7 +189,6 @@ class MasterDataController extends Controller
 
         $currentSiteId = session('site_id');
 
-        // Hitung total per entity_id, scope: site_id = current OR NULL
         $q = DB::table('master_records')
             ->select('master_entity_id', DB::raw('COUNT(*) as total'))
             ->whereIn('master_entity_id', $entities->pluck('id'));
@@ -241,7 +291,7 @@ class MasterDataController extends Controller
         if (!$entityRow) abort(404, 'Unknown entity.');
 
         $rawSid = $this->currentSiteId($r->user());
-        $sid    = $this->resolveValidSiteId($rawSid); // penting: valid/NULL
+        $sid    = $this->resolveValidSiteId($rawSid);
 
         $data = $r->validate([
             'name'        => ['required', 'string', 'max:255'],
@@ -267,12 +317,15 @@ class MasterDataController extends Controller
         return redirect()->route('admin.master.index', $entity)->with('status', 'Record created.');
     }
 
-    public function show(string $entity, string $record)
+    public function show(Request $r, string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
         $row = DB::table('master_records')->where('id', $record)->first();
         if (!$row || (string) $row->entity !== (string) $entity) abort(404);
+
+        // per-record: view
+        $this->assertRecordAbility($r->user(), $record, 'view');
 
         $extraArray = null;
         if (!empty($row->extra)) {
@@ -290,12 +343,15 @@ class MasterDataController extends Controller
         ]);
     }
 
-    public function edit(string $entity, string $record)
+    public function edit(Request $r, string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
         $row = DB::table('master_records')->where('id', $record)->first();
         if (!$row || (string) $row->entity !== (string) $entity) abort(404);
+
+        // per-record: update
+        $this->assertRecordAbility($r->user(), $record, 'update');
 
         $extraArray = null;
         if (!empty($row->extra)) {
@@ -319,7 +375,9 @@ class MasterDataController extends Controller
         $row    = DB::table('master_records')->where('id', $record)->first();
         if (!$row || (string) $row->entity !== (string) $entity) abort(404);
 
-        // site_id tetap, tapi rule unik harus per site milik record tsb (validasi NULL-aware)
+        // per-record: update
+        $this->assertRecordAbility($r->user(), $record, 'update');
+
         $sid = (\Schema::hasColumn('master_records', 'site_id') ? ($row->site_id ?? null) : null);
 
         $data = $r->validate([
@@ -340,17 +398,20 @@ class MasterDataController extends Controller
         return redirect()->route('admin.master.index', $entity)->with('status', 'Record updated.');
     }
 
-    public function destroy(string $entity, string $record)
+    public function destroy(Request $r, string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
         $row = DB::table('master_records')->where('id', $record)->first();
         if (!$row || (string) $row->entity !== (string) $entity) abort(404);
 
+        // per-record: delete
+        $this->assertRecordAbility($r->user(), $record, 'delete');
+
         DB::transaction(function () use ($record) {
             DB::table('master_record_permissions')->where('master_record_id', $record)->delete();
             DB::table('master_records')->where('id', $record)->delete();
-        });
+    });
 
         return redirect()->route('admin.master.index', ['entity' => $entity])
             ->with('status', 'Record deleted.');
@@ -523,7 +584,7 @@ class MasterDataController extends Controller
 
         $callback = function () {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['name', 'code', 'description', 'extra']); // header
+            fputcsv($out, ['name', 'code', 'description', 'extra']);
             fputcsv($out, ['Contoh Nama', 'KODE001', 'Deskripsi opsional', '{"key":"value"}']);
             fclose($out);
         };
@@ -650,12 +711,15 @@ class MasterDataController extends Controller
         return back()->with('status', 'Selected records deleted.');
     }
 
-    public function duplicate(string $entity, string $record)
+    public function duplicate(Request $r, string $entity, string $record)
     {
         $entity = $this->ensureEntity($entity);
 
         $row = DB::table('master_records')->where('entity', $entity)->where('id', $record)->first();
         if (!$row) abort(404);
+
+        // per-record: minimal boleh view untuk menduplikasi (atau update—pilih salah satu)
+        $this->assertRecordAbility($r->user(), $record, 'view');
 
         $newId   = (string) Str::uuid();
         $newCode = $this->makeUniqueCode($entity, $row->code);
@@ -680,10 +744,7 @@ class MasterDataController extends Controller
 
     public function publicShow(Request $r, string $record)
     {
-        // Read-only detail khusus entity "accounts" untuk semua user (auth + site.selected)
         $entity = 'accounts';
-
-        // Scope ke site aktif (site_id = currentSite OR NULL)
         $sid = $this->currentSiteId($r->user());
 
         $q = DB::table('master_records')
@@ -695,7 +756,6 @@ class MasterDataController extends Controller
         $row = $q->first();
         abort_unless($row, 404, 'Record tidak ditemukan.');
 
-        // Decode extra (jika ada)
         $extraArray = null;
         if (!empty($row->extra)) {
             try {
@@ -705,7 +765,6 @@ class MasterDataController extends Controller
             }
         }
 
-        // Gunakan view detail umum yang sudah ada
         return view('admin.master.show', [
             'entity'     => $entity,
             'record'     => $row,
@@ -713,17 +772,15 @@ class MasterDataController extends Controller
         ]);
     }
 
-    public function permissionsQuery(\Illuminate\Http\Request $r)
+    public function permissionsQuery(Request $r)
     {
         $entity = (string) $r->query('entity', '');
         $record = (string) $r->query('record', '');
 
-        // Validasi sederhana
         if ($entity === '' || $record === '' || !preg_match('/^[0-9a-fA-F-]{36}$/', $record)) {
             abort(404, 'Missing or invalid entity/record.');
         }
 
-        // Reuse logic yg sama
         return $this->permissions($entity, $record);
     }
 }

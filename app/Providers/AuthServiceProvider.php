@@ -5,7 +5,8 @@ namespace App\Providers;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use App\Models\HrDailyEntry;
 use App\Policies\HrDailyEntryPolicy;
-
+use App\Models\Asset;
+use App\Policies\AssetPolicy;
 class AuthServiceProvider extends ServiceProvider
 {
     /**
@@ -15,6 +16,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         HrDailyEntry::class => HrDailyEntryPolicy::class,
+        Asset::class => AssetPolicy::class,
         // Tambah mapping lain di sini bila perlu
     ];
 
