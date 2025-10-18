@@ -1,4 +1,4 @@
-{{-- resources/views/layouts/sidenav.blade.php --}}
+{{-- resources/views/layouts/navigation.blade.php --}}
 @php
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\{Auth,DB,Gate,Route};
@@ -19,22 +19,22 @@ $rawRole = $user->role_key
 
 $norm    = Str::of($rawRole)->lower()->replace(['_', '-'], ' ')->squish()->toString();
 $roleKey = [
-  'gm'                      => 'gm',
-  'general manager'         => 'gm',
-  'generalmanager'          => 'gm',
-  'manager'                 => 'manager',
-  'mgr'                     => 'manager',
-  'hr'                      => 'hr',
-  'human resource'          => 'hr',
-  'human resources'         => 'hr',
-  'human capital'           => 'hr',
-  'human capital management'=> 'hr',
-  'hcm'                     => 'hr',
+  'gm'                       => 'gm',
+  'general manager'          => 'gm',
+  'generalmanager'           => 'gm',
+  'manager'                  => 'manager',
+  'mgr'                      => 'manager',
+  'hr'                       => 'hr',
+  'human resource'           => 'hr',
+  'human resources'          => 'hr',
+  'human capital'            => 'hr',
+  'human capital management' => 'hr',
+  'hcm'                      => 'hr',
 ][$norm] ?? $norm;
 
-$isGM      = $roleKey === 'gm';
-$isManager = $roleKey === 'manager';
-$isHR      = $roleKey === 'hr';
+$isGM      = ($roleKey === 'gm');
+$isManager = ($roleKey === 'manager');
+$isHR      = ($roleKey === 'hr');
 
 /* =========================
 | Gates (coarse checks)
@@ -76,7 +76,7 @@ $peopleRoutesActive =
   request()->routeIs('admin.contracts.*')       ||
   request()->routeIs('manpower.entries.*')      ||
   request()->routeIs('admin.manpower.entries.*') ||
-  $payroalAdminActive; // NEW: masukkan payroal admin ke PEOPLE group
+  $payroalAdminActive;
 
 $adminGroupActive =
   request()->routeIs('admin.roles.*')        ||
@@ -157,9 +157,7 @@ $badge = match($roleKey) {
   default       => 'bg-gray-100 text-gray-600 ring-1 ring-gray-200',
 };
 
-/* ==============
-| UI helpers
-================*/
+/* UI helpers */
 $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, string $icon, string $label, ?string $badgeText = null) {
   $base = "group relative p-3 rounded-xl bg-white ring-1 ring-slate-200 transition shadow-sm flex flex-col items-center";
   $hover = $canClick ? " hover:$bgRing" : "";
@@ -170,6 +168,23 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
     : "";
   return $tagOpen.$icon."<span class=\"mt-1 text-[11px] font-semibold text-slate-700\">$label</span>$badge{$tagClose}";
 };
+
+/* Admin links (hindari destructuring di Blade) */
+$adminLinks = [
+  ['route' => 'admin.roles.index',       'label' => 'Roles'],
+  ['route' => 'admin.users.index',       'label' => 'Users'],
+  ['route' => 'admin.divisions.index',   'label' => 'Divisions'],
+  ['route' => 'admin.commodities.index', 'label' => 'Commodities'],
+];
+
+/* ====== Alpine x-data JSON prebuilt (hindari array [] di atribut) ====== */
+$navState = [
+  'openAdmin'  => (bool) $adminGroupActive,
+  'openPeople' => (bool) $peopleRoutesActive,
+  'openHR'     => (bool) ($hrDailyActive || $hrContractsActive || $hrCfgActive),
+  'openMaster' => (bool) $masterRoutesActive,
+];
+$navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
 @endphp
 
 <aside class="bg-gradient-to-b from-white to-slate-50/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-r border-slate-200 h-screen sticky top-0 flex flex-col w-72 shrink-0 shadow-sm">
@@ -200,13 +215,7 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
   </div>
 
   {{-- Nav --}}
-  <nav class="flex-1 overflow-y-auto py-3"
-       x-data="{
-         openAdmin: {{ $adminGroupActive ? 'true' : 'false' }},
-         openPeople: {{ $peopleRoutesActive ? 'true' : 'false' }},
-         openHR: {{ ($hrDailyActive||$hrContractsActive||$hrCfgActive) ? 'true' : 'false' }},
-         openMaster: {{ $masterRoutesActive ? 'true' : 'false' }}
-       }}">
+  <nav class="flex-1 overflow-y-auto py-3" x-data='{!! $navStateJson !!}'>
 
     {{-- Quick Shortcuts --}}
     @php
@@ -296,13 +305,12 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
       </a>
     @endif
 
-    {{-- MASTER DATA (ringkas; Overview untuk semua user) --}}
+    {{-- MASTER DATA --}}
     @php
       $hasMasterRoutes = Route::has('admin.master.overview') || Route::has('admin.master_entities.index');
     @endphp
     @if ($hasMasterRoutes)
-      <div class="mt-3"
-           x-data="{ openMaster: {{ $masterRoutesActive ? 'true' : 'false' }} }">
+      <div class="mt-3">
         <button type="button" @click="openMaster=!openMaster"
                 class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -318,7 +326,6 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
         </button>
 
         <div x-show="openMaster" x-transition.origin.top.left class="mt-2 space-y-1">
-          {{-- Overview untuk semua user --}}
           @if (Route::has('admin.master.overview'))
             <a href="{{ route('admin.master.overview') }}"
                class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.master.overview')) }}">
@@ -326,7 +333,6 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
             </a>
           @endif
 
-          {{-- (Opsional) halaman pengelolaan daftar entity: GM only --}}
           @if ($isGM && $canManageMaster && Route::has('admin.master_entities.index'))
             <a href="{{ route('admin.master_entities.index') }}"
                class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.master_entities.*')) }}">
@@ -338,7 +344,7 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
     @endif
     {{-- /MASTER DATA --}}
 
-    {{-- PEOPLE: HCM & Manpower — hanya HR/GM --}}
+    {{-- PEOPLE --}}
     @php
       $hasPeopleRoutes = (
         Route::has('admin.attendance.index')      ||
@@ -352,12 +358,11 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
         Route::has('admin.crew-assignments.index')||
         Route::has('manpower.entries.index')      ||
         Route::has('admin.manpower.entries.index')||
-        Route::has('admin.payroal.index')         // NEW
+        Route::has('admin.payroal.index')
       );
     @endphp
     @if ($hasPeopleRoutes && $canPeopleMenu)
-      <div class="mt-3"
-           x-data="{ openPeople: {{ $peopleRoutesActive ? 'true' : 'false' }}, openHR: {{ ($hrDailyActive||$hrContractsActive||$hrCfgActive) ? 'true' : 'false' }} }">
+      <div class="mt-3">
         <button type="button" @click="openPeople=!openPeople"
                 class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -429,7 +434,7 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
           @endphp
           @if ($mpEntriesRoute)
             <a href="{{ route($mpEntriesRoute) }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($mpUnifiedActive) }};">
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($mpUnifiedActive) }}">
               Manpower Entries <span class="text-[11px] text-slate-400 ml-1">— unified</span>
             </a>
           @endif
@@ -461,7 +466,6 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
                   </a>
                 @endif
 
-                {{-- NEW: Admin Payroal (HR/GM) --}}
                 @if (Route::has('admin.payroal.index'))
                   <a href="{{ route('admin.payroal.index') }}"
                      class="block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($payroalAdminActive) }}">
@@ -540,7 +544,7 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
       );
     @endphp
     @if ($hasAdminRoutes && $canAdminMenu)
-      <div class="mt-3" x-data="{ openAdmin: {{ $adminGroupActive ? 'true' : 'false' }} }">
+      <div class="mt-3">
         <button type="button" @click="openAdmin=!openAdmin"
                 class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -551,11 +555,17 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
         </button>
 
         <div x-show="openAdmin" x-transition.origin.top.left class="mt-2 space-y-1">
-          @foreach ([['admin.roles.index','Roles'],['admin.users.index','Users'],['admin.divisions.index','Divisions'],['admin.commodities.index','Commodities']] as [$r,$label])
-            @if (Route::has($r))
-              <a href="{{ route($r) }}"
-                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs(Str::beforeLast($r,'.index').'.*')) }}">
-                {{ $label }}
+          @foreach ($adminLinks as $lnk)
+            @php
+              $lnkRoute  = $lnk['route'];
+              $lnkLabel  = $lnk['label'];
+              $lnkPrefix = Str::beforeLast($lnkRoute, '.index');
+              $isActive  = request()->routeIs($lnkPrefix.'.*');
+            @endphp
+            @if (Route::has($lnkRoute))
+              <a href="{{ route($lnkRoute) }}"
+                 class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($isActive) }}">
+                {{ $lnkLabel }}
               </a>
             @endif
           @endforeach
@@ -646,20 +656,20 @@ $quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, strin
         </div>
       @endif
 
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2">
-        <div class="text-sm font-semibold text-slate-800 truncate">{{ $user->name ?? 'Guest User' }}</div>
-        @if($roleKey)
-          <span class="text-[10px] px-2 py-0.5 rounded-full {{ $badge }}">{{ strtoupper($roleKey) }}</span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <div class="text-sm font-semibold text-slate-800 truncate">{{ $user->name ?? 'Guest User' }}</div>
+          @if($roleKey)
+            <span class="text-[10px] px-2 py-0.5 rounded-full {{ $badge }}">{{ strtoupper($roleKey) }}</span>
+          @endif
+        </div>
+        @if(!empty($user->role?->name))
+          <div class="text-xs text-slate-500 truncate">{{ $user->role->name }}</div>
+        @endif
+        @if(!empty($user->email))
+          <div class="text-xs text-slate-400 truncate">{{ $user->email }}</div>
         @endif
       </div>
-      @if(!empty($user->role?->name))
-        <div class="text-xs text-slate-500 truncate">{{ $user->role->name }}</div>
-      @endif
-      @if(!empty($user->email))
-        <div class="text-xs text-slate-400 truncate">{{ $user->email }}</div>
-      @endif
-    </div>
     </div>
 
     <form method="POST" action="{{ route('logout') }}" class="px-4 pb-3">

@@ -40,11 +40,16 @@ class PayroalController extends Controller
         $user    = null;
 
         if ($request->filled('user_id')) {
-            $user = User::query()->select('id','name','email','employee_code')->findOrFail($request->string('user_id'));
+            $user = User::query()
+                ->select('id','name','email','employee_code')
+                ->findOrFail($request->string('user_id'));
         }
 
-        $sites = Site::query()->orderBy('name')->pluck('name','id'); // untuk select site
-        return view('admin.payroal.form', compact('payroal', 'user', 'sites'));
+        $sites  = Site::query()->orderBy('name')->pluck('name','id'); // untuk select site
+        $action = route('admin.payroal.store');
+        $isEdit = false;
+
+        return view('admin.payroal.form', compact('payroal', 'user', 'sites', 'action', 'isEdit'));
     }
 
     /**
@@ -77,7 +82,8 @@ class PayroalController extends Controller
 
         Payroal::create($data);
 
-        return redirect()->route('admin.payroal.index')->with('success', 'Data payroal berhasil dibuat (kode karyawan otomatis).');
+        return redirect()->route('admin.payroal.index')
+            ->with('success', 'Data payroal berhasil dibuat (kode karyawan otomatis).');
     }
 
     /**
@@ -86,8 +92,11 @@ class PayroalController extends Controller
     public function edit(Payroal $payroal)
     {
         $payroal->load(['user:id,name,email,employee_code', 'site:id,code,name']);
-        $sites = Site::query()->orderBy('name')->pluck('name','id');
-        return view('admin.payroal.form', compact('payroal', 'sites'));
+        $sites  = Site::query()->orderBy('name')->pluck('name','id');
+        $action = route('admin.payroal.update', $payroal);
+        $isEdit = true;
+
+        return view('admin.payroal.form', compact('payroal', 'sites', 'action', 'isEdit'));
     }
 
     /**
@@ -125,7 +134,8 @@ class PayroalController extends Controller
 
         $payroal->save();
 
-        return redirect()->route('admin.payroal.index')->with('success', 'Data payroal berhasil diperbarui.');
+        return redirect()->route('admin.payroal.index')
+            ->with('success', 'Data payroal berhasil diperbarui.');
     }
 
     /**
@@ -166,7 +176,7 @@ class PayroalController extends Controller
      * Tampilkan versi printable dari list (menghormati filter q & site_id).
      * Buat view: resources/views/admin/payroal/print.blade.php
      */
- public function print(Request $request)
+    public function print(Request $request)
     {
         $q       = (string) $request->query('q', '');
         $site_id = $request->query('site_id');
