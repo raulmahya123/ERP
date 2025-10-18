@@ -411,8 +411,100 @@ $itemsAssign = $items->where('entry_type','ASSIGN');
 {{-- Chart.js CDN + donut charts --}}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-  // Totals dari server const totalPlan = {{ (int) $totalPlan }}; const totalReal = {{ (int) $totalReal }}; const totalAssign = {{ (int) $totalAssign }}; const combinedLabels = ['PLAN', 'REAL', 'ASSIGN']; const combinedData = [totalPlan, totalReal, totalAssign]; // ===== Palet warna (selaras Tailwind) ===== const C_AMBER = '#f59e0b'; // amber-500 const C_EMERALD = '#10b981'; // emerald-500 const C_SKY = '#0ea5e9'; // sky-500 const toRGB = (hex) => hex.replace('#','').match(/.{2}/g).map(h=>parseInt(h,16)); const rgba = (hex, a=0.28) => { const [r,g,b]=toRGB(hex); return `rgba(${r}, ${g}, ${b}, ${a})`; }; function buildDonut( id, data, colors, centerLabel='Total', valueFmt=null, showLegend=false, mini=false ) { const el = document.getElementById(id); if (!el) return; const hasData = data.some(n => n > 0); const safeData = hasData ? data : [1]; const safeColors = hasData ? colors : ['#e5e7eb']; const chart = new Chart(el, { type: 'doughnut', data: { labels: combinedLabels, datasets: [{ data: safeData, backgroundColor: safeColors.map(c => rgba(c, mini ? 0.32 : 0.28)), borderColor: safeColors, borderWidth: 1.6, hoverOffset: mini ? 3 : 4, }] }, options: { cutout: mini ? '72%' : '65%', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: showLegend, position: 'bottom', labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: (ctx) => { const total = ctx.dataset.data.reduce((a,b)=>a+b,0) || 1; const val = ctx.parsed; const pct = Math.round((val / total) * 100); const label = ctx.label ?? centerLabel; return ` ${label}: ${val} (${pct}%)`; } } } } }, plugins: [{ id: 'centerText', afterDatasetsDraw(chartInstance) { const hasDataReal = data.some(n => n > 0); const total = (hasDataReal ? data : [0]).reduce((a,b)=>a+b,0); const meta0 = chartInstance.getDatasetMeta(0); const firstArc = meta0?.data?.[0]; const { ctx, chartArea } = chartInstance; const cx = firstArc?.x ?? (chartArea.left + (chartArea.right - chartArea.left)/2); const cy = firstArc?.y ?? (chartArea.top + (chartArea.bottom - chartArea.top)/2); const label = centerLabel; const value = valueFmt ? valueFmt(total) : total; ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#0f172a'; ctx.font = mini ? '600 10px ui-sans-serif, system-ui, -apple-system' : '600 13px ui-sans-serif, system-ui, -apple-system'; ctx.fillText(label, cx, cy - (mini ? 5 : 6)); ctx.font = mini ? '700 13px ui-sans-serif, system-ui, -apple-system' : '700 18px ui-sans-serif, system-ui, -apple-system'; ctx.fillText(String(value), cx, cy + (mini ? 12 : 16)); ctx.restore(); } }] }); return chart; } // Donut gabungan (legend aktif) buildDonut('mpChartCombined', [totalPlan, totalReal, totalAssign], [C_AMBER, C_EMERALD, C_SKY], 'Total Entries', null, true, false); // Donut mini per tipe (single slice) buildDonut('mpChartPlan', [totalPlan], [C_AMBER], 'PLAN', null, false, true); buildDonut('mpChartReal', [totalReal], [C_EMERALD], 'REAL', null, false, true); buildDonut('mpChartAssign', [totalAssign], [C_SKY], 'ASSIGN', null, false, true); 
+document.addEventListener('DOMContentLoaded', () => {
+  // Totals dari server
+  const totalPlan   = {{ (int) $totalPlan }};
+  const totalReal   = {{ (int) $totalReal }};
+  const totalAssign = {{ (int) $totalAssign }};
+
+  const combinedLabels = ['PLAN', 'REAL', 'ASSIGN'];
+  const combinedData   = [totalPlan, totalReal, totalAssign];
+
+  // Palet warna (selaras Tailwind)
+  const C_AMBER   = '#f59e0b'; // amber-500
+  const C_EMERALD = '#10b981'; // emerald-500
+  const C_SKY     = '#0ea5e9'; // sky-500
+
+  const toRGB = (hex) => hex.replace('#','').match(/.{2}/g).map(h=>parseInt(h,16));
+  const rgba  = (hex, a=0.28) => { const [r,g,b]=toRGB(hex); return `rgba(${r}, ${g}, ${b}, ${a})`; };
+
+  function buildDonut(id, data, colors, centerLabel='Total', valueFmt=null, showLegend=false, mini=false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const hasData   = data.some(n => n > 0);
+    const safeData  = hasData ? data : [1];            // placeholder agar Chart.js tidak error data 0 semua
+    const safeColor = hasData ? colors : ['#e5e7eb'];
+
+    const chart = new Chart(el, {
+      type: 'doughnut',
+      data: {
+        labels: hasData ? combinedLabels.slice(0, data.length) : ['No data'],
+        datasets: [{
+          data: safeData,
+          backgroundColor: safeColor.map(c => rgba(c, mini ? 0.32 : 0.28)),
+          borderColor: safeColor,
+          borderWidth: 1.6,
+          hoverOffset: mini ? 3 : 4,
+        }]
+      },
+      options: {
+        cutout: mini ? '72%' : '65%',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: showLegend, position: 'bottom', labels: { boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const total = ctx.dataset.data.reduce((a,b)=>a+b,0) || 1;
+                const val   = ctx.parsed;
+                const pct   = Math.round((val / total) * 100);
+                const label = ctx.label ?? centerLabel;
+                return ` ${label}: ${val} (${pct}%)`;
+              }
+            }
+          }
+        }
+      },
+      plugins: [{
+        id: 'centerText',
+        afterDatasetsDraw(chartInstance) {
+          const realHasData = data.some(n => n > 0);
+          const total = (realHasData ? data : [0]).reduce((a,b)=>a+b,0);
+          const meta0 = chartInstance.getDatasetMeta(0);
+          const firstArc = meta0?.data?.[0];
+          const { ctx, chartArea } = chartInstance;
+          const cx = firstArc?.x ?? (chartArea.left + (chartArea.right - chartArea.left)/2);
+          const cy = firstArc?.y ?? (chartArea.top + (chartArea.bottom - chartArea.top)/2);
+          const value = valueFmt ? valueFmt(total) : total;
+
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#0f172a';
+          ctx.font = mini ? '600 10px ui-sans-serif, system-ui, -apple-system' : '600 13px ui-sans-serif, system-ui, -apple-system';
+          ctx.fillText(centerLabel, cx, cy - (mini ? 5 : 6));
+          ctx.font = mini ? '700 13px ui-sans-serif, system-ui, -apple-system' : '700 18px ui-sans-serif, system-ui, -apple-system';
+          ctx.fillText(String(value), cx, cy + (mini ? 12 : 16));
+          ctx.restore();
+        }
+      }]
+    });
+
+    return chart;
+  }
+
+  // Donut gabungan (legend aktif)
+  buildDonut('mpChartCombined', [totalPlan, totalReal, totalAssign], [C_AMBER, C_EMERALD, C_SKY], 'Total Entries', null, true, false);
+
+  // Donut mini per tipe (single slice)
+  buildDonut('mpChartPlan',   [totalPlan],   [C_AMBER],   'PLAN',   null, false, true);
+  buildDonut('mpChartReal',   [totalReal],   [C_EMERALD], 'REAL',   null, false, true);
+  buildDonut('mpChartAssign', [totalAssign], [C_SKY],     'ASSIGN', null, false, true);
+});
 </script>
+
 
 @endsection
