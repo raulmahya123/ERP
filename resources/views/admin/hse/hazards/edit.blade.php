@@ -1,7 +1,6 @@
 {{-- resources/views/admin/hse/hazards/edit.blade.php --}}
 @php
-  /** @var \App\Models\Hazard $hazard */
-  use Illuminate\Support\Str;
+  /** @var \App\Models\HazardReport $hazard */
   use Illuminate\Support\Carbon;
 
   $tz = config('app.timezone','Asia/Jakarta');
@@ -14,83 +13,37 @@
 
 @extends('layouts.app')
 
-@section('title','Edit Hazard '.$hazard->id)
+@section('title','Edit Hazard Report')
 
 @section('content')
 <div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto" x-data="hazardEditForm()">
 
-  {{-- HEADER (serumpun hijau–emas–biru) --}}
+  {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
     <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
 
     <div class="relative px-6 sm:px-10 py-6 text-white">
-      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div class="flex items-center justify-between">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur" aria-hidden="true">
             <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
           </div>
           <div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Edit Hazard</h1>
-            <p class="text-white/90 text-sm mt-1">Perbarui temuan bahaya & tindak lanjutnya.</p>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Edit Hazard Report</h1>
+            <p class="text-white/90 text-sm mt-1">
+              Perbarui temuan bahaya, tindakan segera, dan rekomendasi.
+            </p>
           </div>
         </div>
 
-        {{-- Status & workflow actions --}}
-        <div class="flex items-center gap-2">
-          <span class="px-2 py-1 text-xs rounded-full ring-1 ring-white/30 bg-white/10 backdrop-blur">
-            Status: <strong class="ml-1 uppercase">{{ $hazard->status }}</strong>
-          </span>
-
-          @can('assign', $hazard)
-            @if($hazard->status === 'reported')
-              <form method="POST" action="{{ route('admin.hse.hazards.assign', $hazard) }}" class="workflow-form" data-action-title="Assign to yourself?">
-                @csrf
-                <input type="hidden" name="assignee_id" value="{{ auth()->id() }}">
-                <button type="submit" class="px-3 py-1 rounded-xl bg-sky-600 text-white text-xs font-semibold ring-1 ring-white/20 hover:bg-sky-700">
-                  Quick Assign (me)
-                </button>
-              </form>
-            @endif
-          @endcan
-
-          @can('mitigate', $hazard)
-            @if(in_array($hazard->status, ['reported','assigned']))
-              <form method="POST" action="{{ route('admin.hse.hazards.mitigate', $hazard) }}" class="workflow-form" data-action-title="Mark as mitigated?">
-                @csrf
-                <button type="submit" class="px-3 py-1 rounded-xl bg-amber-600 text-white text-xs font-semibold ring-1 ring-white/20 hover:bg-amber-700">
-                  Mitigate
-                </button>
-              </form>
-            @endif
-          @endcan
-
-          @can('verify', $hazard)
-            @if($hazard->status === 'mitigated')
-              <form method="POST" action="{{ route('admin.hse.hazards.verify', $hazard) }}" class="workflow-form" data-action-title="Verify mitigation?">
-                @csrf
-                <input type="hidden" name="verified_by" value="{{ auth()->id() }}">
-                <button type="submit" class="px-3 py-1 rounded-xl bg-emerald-700 text-white text-xs font-semibold ring-1 ring-white/20 hover:bg-emerald-800">
-                  Verify
-                </button>
-              </form>
-            @endif
-          @endcan
-
-          @can('close', $hazard)
-            @if(in_array($hazard->status, ['verified','mitigated']))
-              <form method="POST" action="{{ route('admin.hse.hazards.close', $hazard) }}" class="workflow-form" data-action-title="Close this hazard?">
-                @csrf
-                <button type="submit" class="px-3 py-1 rounded-xl bg-slate-800 text-white text-xs font-semibold ring-1 ring-white/20 hover:bg-slate-900">
-                  Close
-                </button>
-              </form>
-            @endif
-          @endcan
-        </div>
+        <a href="{{ route('admin.hse.hazards.index') }}"
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
+          ← Back
+        </a>
       </div>
     </div>
   </div>
@@ -100,7 +53,9 @@
 
     {{-- Flash / Errors --}}
     @if (session('success'))
-      <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 text-sm">{{ session('success') }}</div>
+      <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 text-sm">
+        {{ session('success') }}
+      </div>
     @endif
     @if ($errors->any())
       <div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 text-sm">
@@ -110,8 +65,8 @@
       </div>
     @endif
 
-    {{-- ===== FORM UPDATE (UTAMA) ===== --}}
-    <form id="form-update" method="POST" action="{{ route('admin.hse.hazards.update', $hazard) }}" class="space-y-5" @submit.prevent="confirmSave">
+    {{-- ===== FORM UPDATE ===== --}}
+    <form id="hazard-edit-form" method="POST" action="{{ route('admin.hse.hazards.update', $hazard) }}" class="space-y-5" @submit.prevent="confirmSave">
       @csrf
       @method('PUT')
 
@@ -121,18 +76,21 @@
           <input type="datetime-local" name="observed_at"
                  x-model="observedAt"
                  value="{{ old('observed_at', $observedVal) }}"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300" required>
+                 required autocomplete="off"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">
           <p class="text-[11px] mt-1" :class="dateValid ? 'text-slate-500' : 'text-rose-600'">
             <span x-show="!observedAt">Isi tanggal & jam observasi.</span>
             <span x-show="observedAt && !dateValid">Tanggal tidak valid.</span>
           </p>
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Reporter</label>
-          <select name="reporter_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-teal-300 focus:border-teal-300">
+          <select name="reporter_id"
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-teal-300 focus:border-teal-300">
             <option value="">— None —</option>
             @foreach ($reporters as $u)
-              <option value="{{ $u->id }}" @selected(old('reporter_id',$hazard->reporter_id)==$u->id)>{{ $u->name }} — {{ $u->email }}</option>
+              <option value="{{ $u->id }}" @selected(old('reporter_id', $hazard->reporter_id)===$u->id)>{{ $u->name }} — {{ $u->email }}</option>
             @endforeach
           </select>
         </div>
@@ -140,60 +98,85 @@
 
       <div>
         <label class="block text-sm font-medium mb-1">Location</label>
-        <input type="text" name="location" value="{{ old('location', $hazard->location) }}"
-               class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300" maxlength="255">
+        <input type="text" name="location" x-model.trim="location"
+               value="{{ old('location', $hazard->location) }}" maxlength="255" autocomplete="off"
+               class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">
       </div>
 
+      {{-- Category + (UI-only) Severity Label --}}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Category</label>
-          <input type="text" name="category" value="{{ old('category', $hazard->category) }}"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300" maxlength="60">
+          <div class="flex flex-wrap gap-2 mt-1">
+            <template x-for="c in catOptions" :key="c">
+              <button type="button" @click="category=c"
+                      class="px-2.5 py-1 rounded-full text-xs ring-1"
+                      :class="category===c ? 'bg-emerald-600 text-white ring-emerald-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
+                <span x-text="c"></span>
+              </button>
+            </template>
+          </div>
+          <input type="text" name="category" x-model.trim="category" maxlength="60" autocomplete="off"
+                 value="{{ old('category', $hazard->category) }}" placeholder="housekeeping, traffic, electrical, ..."
+                 class="mt-2 w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">
         </div>
+
+        {{-- UI helper saja, TIDAK di-post --}}
         <div>
-          <label class="block text-sm font-medium mb-1">Severity (label)</label>
-          <input type="text" name="severity" value="{{ old('severity', $hazard->severity) }}"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-amber-300 focus:border-amber-300" maxlength="30">
+          <label class="block text-sm font-medium mb-1">Severity (label) — UI</label>
+          <div class="flex flex-wrap gap-2 mt-1">
+            <template x-for="s in sevLabelOptions" :key="s">
+              <button type="button" @click="severityLabel=s"
+                      class="px-2.5 py-1 rounded-full text-xs ring-1"
+                      :class="severityLabel===s ? 'bg-amber-600 text-white ring-amber-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
+                <span x-text="s"></span>
+              </button>
+            </template>
+          </div>
+          <input type="text" x-model.trim="severityLabel" maxlength="30" autocomplete="off"
+                 placeholder="low / medium / high / critical"
+                 class="mt-2 w-full rounded-xl border-slate-200 ring-1 px-3 py-2 bg-slate-50" readonly>
         </div>
       </div>
 
       <div>
         <label class="block text-sm font-medium mb-1">Description</label>
-        <textarea name="description" rows="3" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">{{ old('description', $hazard->description) }}</textarea>
+        <textarea name="description" rows="3"
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">{{ old('description', $hazard->description) }}</textarea>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Immediate Action</label>
-          <textarea name="immediate_action" rows="2" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-sky-300 focus:border-sky-300">{{ old('immediate_action', $hazard->immediate_action) }}</textarea>
+          <textarea name="immediate_action" rows="2"
+                    class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-sky-300 focus:border-sky-300">{{ old('immediate_action', $hazard->immediate_action) }}</textarea>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Recommendation</label>
-          <textarea name="recommendation" rows="2" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-indigo-300 focus:border-indigo-300">{{ old('recommendation', $hazard->recommendation) }}</textarea>
+          <textarea name="recommendation" rows="2"
+                    class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-indigo-300 focus:border-indigo-300">{{ old('recommendation', $hazard->recommendation) }}</textarea>
         </div>
       </div>
 
-      {{-- Risk matrices (auto LxS) --}}
+      {{-- Risk matrices (auto L×S) --}}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Likelihood (1–5)</label>
           <input type="number" min="1" max="5" name="likelihood_initial"
-                 x-model.number="likeInit"
-                 value="{{ old('likelihood_initial', $hazard->likelihood_initial) }}"
+                 x-model.number="likeInit" value="{{ old('likelihood_initial', $hazard->likelihood_initial) }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Severity (1–5)</label>
           <input type="number" min="1" max="5" name="severity_initial"
-                 x-model.number="sevInit"
-                 value="{{ old('severity_initial', $hazard->severity_initial) }}"
+                 x-model.number="sevInit" value="{{ old('severity_initial', $hazard->severity_initial) }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Risk (LxS)</label>
+          <label class="block text-sm font-medium mb-1">Risk (L×S)</label>
           <input type="number" min="0" name="risk_initial"
                  :value="riskInit"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" readonly>
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 bg-slate-50" readonly>
         </div>
       </div>
 
@@ -201,22 +184,20 @@
         <div>
           <label class="block text-sm font-medium mb-1">Residual Likelihood</label>
           <input type="number" min="1" max="5" name="likelihood_residual"
-                 x-model.number="likeRes"
-                 value="{{ old('likelihood_residual', $hazard->likelihood_residual) }}"
+                 x-model.number="likeRes" value="{{ old('likelihood_residual', $hazard->likelihood_residual) }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Residual Severity</label>
           <input type="number" min="1" max="5" name="severity_residual"
-                 x-model.number="sevRes"
-                 value="{{ old('severity_residual', $hazard->severity_residual) }}"
+                 x-model.number="sevRes" value="{{ old('severity_residual', $hazard->severity_residual) }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Residual Risk</label>
           <input type="number" min="0" name="risk_residual"
                  :value="riskRes"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" readonly>
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 bg-slate-50" readonly>
         </div>
       </div>
 
@@ -226,13 +207,14 @@
           <select name="assignee_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
             <option value="">— None —</option>
             @foreach ($assignees as $u)
-              <option value="{{ $u->id }}" @selected(old('assignee_id', $hazard->assignee_id)==$u->id)>{{ $u->name }} — {{ $u->email }}</option>
+              <option value="{{ $u->id }}" @selected(old('assignee_id', $hazard->assignee_id)===$u->id)>{{ $u->name }} — {{ $u->email }}</option>
             @endforeach
           </select>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Due Date</label>
-          <input type="date" name="due_date" value="{{ old('due_date', $hazard->due_date) }}" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <input type="date" name="due_date" value="{{ old('due_date', optional($hazard->due_date)->format('Y-m-d')) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
       </div>
 
@@ -242,9 +224,11 @@
           <option value="">— None —</option>
           @foreach ($incidents as $i)
             @php
-              $iot = $i->occurred_at instanceof \Illuminate\Support\Carbon ? $i->occurred_at->timezone($tz) : Carbon::parse($i->occurred_at)->timezone($tz);
+              $iot = $i->occurred_at instanceof \Illuminate\Support\Carbon
+                       ? $i->occurred_at->timezone($tz)
+                       : \Illuminate\Support\Carbon::parse($i->occurred_at)->timezone($tz);
             @endphp
-            <option value="{{ $i->id }}" @selected(old('linked_incident_id', $hazard->linked_incident_id)==$i->id)>
+            <option value="{{ $i->id }}" @selected(old('linked_incident_id', $hazard->linked_incident_id)===$i->id)>
               {{ $i->code }} — {{ $iot->format('Y-m-d H:i') }}
             </option>
           @endforeach
@@ -253,15 +237,28 @@
 
       <div>
         <label class="block text-sm font-medium mb-1">Status</label>
-        <select name="status" x-model="status" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+        <div class="flex flex-wrap gap-2 mt-1">
+          @php $statusOld = old('status', $hazard->status ?? 'reported'); @endphp
           @foreach (['reported'=>'Reported','assigned'=>'Assigned','mitigated'=>'Mitigated','verified'=>'Verified','closed'=>'Closed'] as $k=>$v)
-            <option value="{{ $k }}" @selected(old('status', $hazard->status)==$k)>{{ $v }}</option>
+            <button type="button" @click="status='{{ $k }}'"
+                    class="px-2.5 py-1 rounded-full text-xs ring-1"
+                    :class="status==='{{ $k }}' ? 'bg-sky-600 text-white ring-sky-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
+              {{ $v }}
+            </button>
+          @endforeach
+        </div>
+        <select name="status" x-model="status"
+                class="mt-2 w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          @foreach (['reported'=>'Reported','assigned'=>'Assigned','mitigated'=>'Mitigated','verified'=>'Verified','closed'=>'Closed'] as $k=>$v)
+            <option value="{{ $k }}" @selected($statusOld===$k)>{{ $v }}</option>
           @endforeach
         </select>
       </div>
 
       <div class="flex items-center justify-between">
-        <a href="{{ route('admin.hse.hazards.index') }}" class="px-4 py-2 rounded-xl ring-1 ring-slate-200 text-slate-700 bg-white hover:bg-slate-50">← Back</a>
+        <a href="{{ route('admin.hse.hazards.index') }}"
+           class="px-4 py-2 rounded-xl ring-1 ring-slate-200 text-slate-700 bg-white hover:bg-slate-50">← Back</a>
+
         <button type="submit"
                 :disabled="submitting || !canTry"
                 class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -274,9 +271,9 @@
       </div>
     </form>
 
-    {{-- ===== FORM DELETE (TERPISAH, TIDAK NESTED) ===== --}}
+    {{-- ===== FORM DELETE (TERPISAH) ===== --}}
     @can('delete', $hazard)
-      <form id="form-delete" method="POST" action="{{ route('admin.hse.hazards.destroy', $hazard) }}" class="mt-4">
+      <form id="hazard-delete-form" method="POST" action="{{ route('admin.hse.hazards.destroy', $hazard) }}" class="mt-4">
         @csrf @method('DELETE')
         <button type="button" class="px-3 py-2 rounded-xl bg-rose-600 text-white ring-1 ring-rose-700/20 hover:bg-rose-700"
                 @click="confirmDelete">
@@ -285,6 +282,7 @@
       </form>
     @endcan
 
+    {{-- Meta kecil --}}
     <div class="mt-6 text-xs text-slate-500">
       <div><span class="font-medium">ID:</span> {{ $hazard->id }}</div>
       <div><span class="font-medium">Created:</span> {{ $hazard->created_at }}</div>
@@ -299,14 +297,21 @@
 <script>
 function hazardEditForm(){
   return {
-    // hydrate
+    // hydrate dari server
     observedAt: @json(old('observed_at', $observedVal)),
-    likeInit: @json(old('likelihood_initial', (int)($hazard->likelihood_initial ?? 0))),
-    sevInit:  @json(old('severity_initial', (int)($hazard->severity_initial ?? 0))),
-    likeRes:  @json(old('likelihood_residual', (int)($hazard->likelihood_residual ?? 0))),
-    sevRes:   @json(old('severity_residual', (int)($hazard->severity_residual ?? 0))),
-    status:   @json(old('status', $hazard->status ?? 'reported')),
+    location:   @json(old('location', $hazard->location)),
+    category:   @json(old('category', $hazard->category)),
+    severityLabel: @json(old('severity','')), // UI only (tidak dikirim)
+    likeInit:   @json(old('likelihood_initial', (int)($hazard->likelihood_initial ?? 0))),
+    sevInit:    @json(old('severity_initial',  (int)($hazard->severity_initial  ?? 0))),
+    likeRes:    @json(old('likelihood_residual', (int)($hazard->likelihood_residual ?? 0))),
+    sevRes:     @json(old('severity_residual',  (int)($hazard->severity_residual  ?? 0))),
+    status:     @json(old('status', $hazard->status ?? 'reported')),
     submitting: false,
+
+    // quick options
+    catOptions: ['housekeeping','traffic','electrical','working at height','PPE','fire safety','chemical','environmental'],
+    sevLabelOptions: ['low','medium','high','critical'],
 
     // computed
     get riskInit(){ const a = +this.likeInit||0, b = +this.sevInit||0; return Math.max(0, a*b); },
@@ -320,25 +325,31 @@ function hazardEditForm(){
 
     // actions
     confirmSave(){
-      const form = document.getElementById('form-update');
+      const form = document.getElementById('hazard-edit-form');
       if (!this.canTry) {
-        alert('Tanggal Observed At tidak valid.'); return;
+        if (!this.observedAt) { alert('Observed At wajib diisi.'); return; }
+        if (!this.dateValid)  { alert('Tanggal Observed At tidak valid.'); return; }
       }
       if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
       Swal.fire({
-        title: 'Simpan perubahan Hazard?',
+        title: 'Simpan perubahan hazard?',
+        text: 'Pastikan data sudah benar.',
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#059669',
         cancelButtonColor: '#0284c7',
         confirmButtonText: 'Ya, simpan',
         cancelButtonText: 'Batal',
-        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
-      }).then(r => { if (r.isConfirmed) { this.submitting = true; form.submit(); }});
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+        }
+      }).then((res) => { if (res.isConfirmed) { this.submitting = true; form.submit(); } });
     },
 
     confirmDelete(){
-      const form = document.getElementById('form-delete');
+      const form = document.getElementById('hazard-delete-form');
       if (typeof Swal === 'undefined') { if (confirm('Delete this hazard?')) form.submit(); return; }
       Swal.fire({
         title: 'Hapus Hazard?',
@@ -349,32 +360,14 @@ function hazardEditForm(){
         cancelButtonColor: '#64748b',
         confirmButtonText: 'Ya, hapus',
         cancelButtonText: 'Batal',
-        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
-      }).then(r => { if (r.isConfirmed) form.submit(); });
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+        }
+      }).then((res) => { if (res.isConfirmed) form.submit(); });
     }
   }
 }
-
-// SweetAlert confirm untuk workflow mini-forms (assign/mitigate/verify/close)
-document.addEventListener('DOMContentLoaded', () => {
-  const forms = document.querySelectorAll('form.workflow-form');
-  forms.forEach(f => {
-    f.addEventListener('submit', (e) => {
-      const title = f.dataset.actionTitle || 'Lanjutkan aksi?';
-      if (typeof Swal === 'undefined') return; // fallback: submit biasa (sudah ada confirm bawaan versi lama)
-      e.preventDefault();
-      Swal.fire({
-        title,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#0ea5e9',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Ya',
-        cancelButtonText: 'Batal',
-        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
-      }).then(r => { if (r.isConfirmed) f.submit(); });
-    });
-  });
-});
 </script>
 @endpush

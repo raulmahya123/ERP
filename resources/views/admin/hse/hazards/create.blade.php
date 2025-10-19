@@ -5,13 +5,12 @@
 
 @section('content')
 @php
-  use Illuminate\Support\Carbon;
   $tz = config('app.timezone','Asia/Jakarta');
 @endphp
 
 <div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto" x-data="createHazardForm()">
 
-  {{-- HEADER (serumpun hijau–emas–biru) --}}
+  {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
@@ -20,7 +19,7 @@
     <div class="relative px-6 sm:px-10 py-6 text-white">
       <div class="flex items-center justify-between">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur" aria-hidden="true">
             <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
@@ -60,7 +59,8 @@
           <input type="datetime-local" name="observed_at"
                  x-model="observedAt"
                  value="{{ old('observed_at') }}"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300" required>
+                 required autocomplete="off"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">
           <p class="text-[11px] mt-1" :class="dateValid ? 'text-slate-500' : 'text-rose-600'">
             <span x-show="!observedAt">Isi tanggal & jam observasi.</span>
             <span x-show="observedAt && !dateValid">Tanggal tidak valid.</span>
@@ -69,7 +69,8 @@
 
         <div>
           <label class="block text-sm font-medium mb-1">Reporter</label>
-          <select name="reporter_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-teal-300 focus:border-teal-300">
+          <select name="reporter_id"
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-teal-300 focus:border-teal-300">
             <option value="">— None —</option>
             @foreach ($reporters as $u)
               <option value="{{ $u->id }}" @selected(old('reporter_id')==$u->id)>{{ $u->name }} — {{ $u->email }}</option>
@@ -81,11 +82,11 @@
       <div>
         <label class="block text-sm font-medium mb-1">Location</label>
         <input type="text" name="location" x-model.trim="location"
-               value="{{ old('location') }}"
-               class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300" maxlength="255">
+               value="{{ old('location') }}" maxlength="255" autocomplete="off"
+               class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">
       </div>
 
-      {{-- Category & Severity with quick-pills --}}
+      {{-- Category + (UI-only) Severity Label --}}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Category</label>
@@ -98,13 +99,14 @@
               </button>
             </template>
           </div>
-          <input type="text" name="category" x-model.trim="category"
+          <input type="text" name="category" x-model.trim="category" maxlength="60" autocomplete="off"
                  value="{{ old('category') }}" placeholder="housekeeping, traffic, electrical, ..."
-                 class="mt-2 w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300" maxlength="60">
+                 class="mt-2 w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300">
         </div>
 
+        {{-- UI helper saja, TIDAK di-post (tidak ada kolom `severity` di DB) --}}
         <div>
-          <label class="block text-sm font-medium mb-1">Severity (label)</label>
+          <label class="block text-sm font-medium mb-1">Severity (label) — UI</label>
           <div class="flex flex-wrap gap-2 mt-1">
             <template x-for="s in sevLabelOptions" :key="s">
               <button type="button" @click="severityLabel=s"
@@ -114,9 +116,9 @@
               </button>
             </template>
           </div>
-          <input type="text" name="severity" x-model.trim="severityLabel"
-                 value="{{ old('severity') }}" placeholder="low / medium / high"
-                 class="mt-2 w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-amber-300 focus:border-amber-300" maxlength="30">
+          <input type="text" x-model.trim="severityLabel" maxlength="30" autocomplete="off"
+                 placeholder="low / medium / high / critical"
+                 class="mt-2 w-full rounded-xl border-slate-200 ring-1 px-3 py-2 bg-slate-50" readonly>
         </div>
       </div>
 
@@ -139,27 +141,25 @@
         </div>
       </div>
 
-      {{-- Risk matrices (auto LxS) --}}
+      {{-- Risk matrices (auto L×S) --}}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Likelihood (1–5)</label>
           <input type="number" min="1" max="5" name="likelihood_initial"
-                 x-model.number="likeInit"
-                 value="{{ old('likelihood_initial') }}"
+                 x-model.number="likeInit" value="{{ old('likelihood_initial') }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Severity (1–5)</label>
           <input type="number" min="1" max="5" name="severity_initial"
-                 x-model.number="sevInit"
-                 value="{{ old('severity_initial') }}"
+                 x-model.number="sevInit" value="{{ old('severity_initial') }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Risk (LxS)</label>
+          <label class="block text-sm font-medium mb-1">Risk (L×S)</label>
           <input type="number" min="0" name="risk_initial"
                  :value="riskInit"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" readonly>
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 bg-slate-50" readonly>
         </div>
       </div>
 
@@ -167,22 +167,20 @@
         <div>
           <label class="block text-sm font-medium mb-1">Residual Likelihood</label>
           <input type="number" min="1" max="5" name="likelihood_residual"
-                 x-model.number="likeRes"
-                 value="{{ old('likelihood_residual') }}"
+                 x-model.number="likeRes" value="{{ old('likelihood_residual') }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Residual Severity</label>
           <input type="number" min="1" max="5" name="severity_residual"
-                 x-model.number="sevRes"
-                 value="{{ old('severity_residual') }}"
+                 x-model.number="sevRes" value="{{ old('severity_residual') }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Residual Risk</label>
           <input type="number" min="0" name="risk_residual"
                  :value="riskRes"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" readonly>
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 bg-slate-50" readonly>
         </div>
       </div>
 
@@ -209,7 +207,9 @@
           <option value="">— None —</option>
           @foreach ($incidents as $i)
             @php
-              $iot = $i->occurred_at instanceof \Illuminate\Support\Carbon ? $i->occurred_at->timezone($tz) : Carbon::parse($i->occurred_at)->timezone($tz);
+              $iot = $i->occurred_at instanceof \Illuminate\Support\Carbon
+                       ? $i->occurred_at->timezone($tz)
+                       : \Illuminate\Support\Carbon::parse($i->occurred_at)->timezone($tz);
             @endphp
             <option value="{{ $i->id }}" @selected(old('linked_incident_id')==$i->id)>
               {{ $i->code }} — {{ $iot->format('Y-m-d H:i') }}
@@ -262,11 +262,11 @@
 <script>
 function createHazardForm(){
   return {
-    // hydrate from old()
+    // hydrate
     observedAt: @json(old('observed_at','')),
     location:   @json(old('location','')),
     category:   @json(old('category','')),
-    severityLabel: @json(old('severity','')),
+    severityLabel: @json(old('severity','')), // UI only (tidak dikirim)
     likeInit:   @json(old('likelihood_initial', null)),
     sevInit:    @json(old('severity_initial',  null)),
     likeRes:    @json(old('likelihood_residual', null)),
@@ -291,21 +291,18 @@ function createHazardForm(){
     // actions
     confirmSubmit(){
       const form = document.getElementById('hazard-create-form');
-
       if (!this.canTry) {
         if (!this.observedAt) { alert('Observed At wajib diisi.'); return; }
         if (!this.dateValid)  { alert('Tanggal Observed At tidak valid.'); return; }
       }
-
       if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
-
       Swal.fire({
         title: 'Simpan Hazard?',
         text: 'Pastikan data sudah benar.',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#059669', // emerald-600
-        cancelButtonColor: '#0284c7',  // sky-600
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#0284c7',
         confirmButtonText: 'Ya, simpan',
         cancelButtonText: 'Batal',
         customClass: {
@@ -313,9 +310,7 @@ function createHazardForm(){
           confirmButton: 'rounded-lg px-4 py-2 font-semibold',
           cancelButton: 'rounded-lg px-4 py-2 font-semibold'
         }
-      }).then((res) => {
-        if (res.isConfirmed) { this.submitting = true; form.submit(); }
-      });
+      }).then((res) => { if (res.isConfirmed) { this.submitting = true; form.submit(); } });
     }
   }
 }
