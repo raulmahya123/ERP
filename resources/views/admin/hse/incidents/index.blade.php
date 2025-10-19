@@ -37,13 +37,15 @@
             </span>
           @endisset
 
-          <a href="{{ route('admin.hse.incidents.create') }}"
-             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-            </svg>
-            New Incident
-          </a>
+          @if (Route::has('admin.hse.incidents.create'))
+            <a href="{{ route('admin.hse.incidents.create') }}"
+               class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+              New Incident
+            </a>
+          @endif
         </div>
       </div>
     </div>
@@ -55,6 +57,20 @@
     $status = $status ?? request('status');
     $from   = $from ?? request('from');
     $to     = $to ?? request('to');
+
+    // helper kecil untuk bikin link sort
+    $sort   = request('sort');   // code|occurred_at|category|severity|status
+    $order  = request('order','asc');
+    function sort_link($key, $label) {
+      $currSort = request('sort');
+      $currOrder= request('order','asc');
+      $nextOrder= ($currSort === $key && $currOrder === 'asc') ? 'desc' : 'asc';
+      $params   = array_merge(request()->query(), ['sort'=>$key,'order'=>$nextOrder]);
+      $url      = request()->url().'?'.http_build_query($params);
+      $active   = $currSort === $key;
+      $arrow    = $active ? ($currOrder === 'asc' ? '▲' : '▼') : '';
+      return '<a href="'.$url.'" class="inline-flex items-center gap-1 hover:underline '.($active?'text-emerald-700 font-semibold':'').'">'.$label.' <span class="text-[10px] opacity-70">'.$arrow.'</span></a>';
+    }
   @endphp
   <div class="px-6 sm:px-10 py-5 bg-white border-t border-slate-100">
     <form method="GET" class="grid gap-3 lg:grid-cols-[1fr_220px_220px_220px_auto]">
@@ -123,29 +139,37 @@
         <table class="min-w-full text-sm">
           <thead class="bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-b border-slate-200">
             <tr>
-              <th class="text-left px-4 py-3 font-semibold">Code</th>
-              <th class="text-left px-4 py-3 font-semibold">Occurred</th>
-              <th class="text-left px-4 py-3 font-semibold">Category</th>
-              <th class="text-left px-4 py-3 font-semibold">Severity</th>
-              <th class="text-left px-4 py-3 font-semibold">Status</th>
-              <th class="text-center px-4 py-3 font-semibold w-44">Actions</th>
+              <th class="text-left px-4 py-3 font-semibold">{!! sort_link('code','Code') !!}</th>
+              <th class="text-left px-4 py-3 font-semibold">{!! sort_link('occurred_at','Occurred') !!}</th>
+              <th class="text-left px-4 py-3 font-semibold">{!! sort_link('category','Category') !!}</th>
+              <th class="text-left px-4 py-3 font-semibold">{!! sort_link('severity','Severity') !!}</th>
+              <th class="text-left px-4 py-3 font-semibold">{!! sort_link('status','Status') !!}</th>
+              <th class="text-center px-4 py-3 font-semibold w-48">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             @forelse($items as $row)
               <tr class="hover:bg-emerald-50/40">
                 <td class="px-4 py-3 font-mono text-emerald-700">{{ $row->code ?? '—' }}</td>
-                <td class="px-4 py-3 text-slate-700">{{ optional($row->occurred_at)->format('Y-m-d H:i') ?? '—' }}</td>
+                <td class="px-4 py-3 text-slate-700">
+                  @php
+                    $dt = $row->occurred_at ?? null;
+                    if ($dt && !($dt instanceof \Illuminate\Support\Carbon)) {
+                      try { $dt = \Illuminate\Support\Carbon::parse($dt); } catch (\Throwable $e) { $dt = null; }
+                    }
+                  @endphp
+                  {{ $dt ? $dt->timezone(config('app.timezone','Asia/Jakarta'))->format('Y-m-d H:i') : '—' }}
+                </td>
                 <td class="px-4 py-3 text-slate-900">{{ $row->category ?? '—' }}</td>
                 <td class="px-4 py-3">
                   @php $sev = strtolower($row->severity ?? ''); @endphp
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
                     @class([
                       'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' => $sev==='low',
-                      'bg-amber-50 text-amber-800 ring-1 ring-amber-200' => $sev==='medium',
-                      'bg-orange-50 text-orange-700 ring-1 ring-orange-200' => $sev==='high',
-                      'bg-rose-50 text-rose-700 ring-1 ring-rose-200'       => $sev==='critical',
-                      'bg-slate-100 text-slate-700 ring-1 ring-slate-200'   => !in_array($sev,['low','medium','high','critical']),
+                      'bg-amber-50 text-amber-800 ring-1 ring-amber-200'      => $sev==='medium',
+                      'bg-orange-50 text-orange-700 ring-1 ring-orange-200'   => $sev==='high',
+                      'bg-rose-50 text-rose-700 ring-1 ring-rose-200'         => $sev==='critical',
+                      'bg-slate-100 text-slate-700 ring-1 ring-slate-200'     => !in_array($sev,['low','medium','high','critical']),
                     ])">
                     {{ $sev ? ucfirst($sev) : '—' }}
                   </span>
@@ -154,10 +178,10 @@
                   @php $st = strtolower($row->status ?? 'reported'); @endphp
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
                     @class([
-                      'bg-amber-50 text-amber-800 ring-1 ring-amber-200'     => $st==='reported',
-                      'bg-sky-50 text-sky-700 ring-1 ring-sky-200'           => $st==='under_investigation',
-                      'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'  => $st==='action_in_progress',
-                      'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'=> $st==='closed',
+                      'bg-amber-50 text-amber-800 ring-1 ring-amber-200'       => $st==='reported',
+                      'bg-sky-50 text-sky-700 ring-1 ring-sky-200'             => $st==='under_investigation',
+                      'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'    => $st==='action_in_progress',
+                      'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' => $st==='closed',
                     ])">
                     {{ \Illuminate\Support\Str::headline($st) }}
                   </span>
@@ -170,20 +194,25 @@
                         Detail
                       </a>
                     @endif
-                    <a href="{{ route('admin.hse.incidents.edit', $row) }}"
-                       class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white ring-1 ring-emerald-700/20 hover:bg-emerald-700">
-                      Edit
-                    </a>
-                    <button type="button"
-                            onclick="confirmDeleteIncident(this)"
-                            data-id="{{ $row->id }}"
-                            data-code="{{ e($row->code ?? $row->id) }}"
-                            class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100">
-                      Hapus
-                    </button>
-                    <form id="del-incident-{{ $row->id }}" action="{{ route('admin.hse.incidents.destroy', $row) }}" method="POST" class="hidden">
-                      @csrf @method('DELETE')
-                    </form>
+                    @if (Route::has('admin.hse.incidents.edit'))
+                      <a href="{{ route('admin.hse.incidents.edit', $row) }}"
+                         class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white ring-1 ring-emerald-700/20 hover:bg-emerald-700">
+                        Edit
+                      </a>
+                    @endif
+
+                    @if (Route::has('admin.hse.incidents.destroy'))
+                      <button type="button"
+                              onclick="confirmDeleteIncident(this)"
+                              data-id="{{ $row->id }}"
+                              data-code="{{ e($row->code ?? $row->id) }}"
+                              class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100">
+                        Hapus
+                      </button>
+                      <form id="del-incident-{{ $row->id }}" action="{{ route('admin.hse.incidents.destroy', $row) }}" method="POST" class="hidden">
+                        @csrf @method('DELETE')
+                      </form>
+                    @endif
                   </div>
                 </td>
               </tr>
@@ -191,7 +220,9 @@
               <tr>
                 <td colspan="6" class="px-6 py-12 text-center text-slate-600">
                   Belum ada incident.
-                  <a href="{{ route('admin.hse.incidents.create') }}" class="font-semibold text-emerald-700 hover:text-emerald-800 underline">Tambah sekarang</a>.
+                  @if (Route::has('admin.hse.incidents.create'))
+                    <a href="{{ route('admin.hse.incidents.create') }}" class="font-semibold text-emerald-700 hover:text-emerald-800 underline">Tambah sekarang</a>.
+                  @endif
                 </td>
               </tr>
             @endforelse
@@ -201,7 +232,11 @@
 
       {{-- Pagination --}}
       <div class="px-4 py-4 border-t bg-slate-50">
-        {{ $items->withQueryString()->onEachSide(1)->links() }}
+        @if (method_exists($items,'withQueryString'))
+          {{ $items->withQueryString()->onEachSide(1)->links() }}
+        @elseif (method_exists($items,'links'))
+          {{ $items->links() }}
+        @endif
       </div>
     </div>
   </div>
@@ -216,7 +251,8 @@ function confirmDeleteIncident(el){
   const code = el.dataset.code || '';
   if (typeof Swal === 'undefined') {
     if (confirm('Hapus incident: ' + code + ' ?')) {
-      document.getElementById('del-incident-' + id).submit();
+      const f = document.getElementById('del-incident-' + id);
+      if (f) f.submit();
     }
     return;
   }
@@ -234,7 +270,10 @@ function confirmDeleteIncident(el){
       confirmButton: 'rounded-lg px-4 py-2 font-semibold',
       cancelButton: 'rounded-lg px-4 py-2 font-semibold'
     }
-  }).then((r)=>{ if(r.isConfirmed){ document.getElementById('del-incident-'+id).submit(); }});
+  }).then((r)=>{ if(r.isConfirmed){
+      const f = document.getElementById('del-incident-'+id);
+      if (f) f.submit();
+    }});
 }
 </script>
 @endpush

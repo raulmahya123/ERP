@@ -1,128 +1,348 @@
+{{-- resources/views/admin/hse/environmental-samples/edit.blade.php --}}
 @extends('layouts.app')
 
+@section('title','Edit Environmental Sample')
+
 @section('content')
-<div class="mx-auto max-w-3xl">
-    <div class="flex items-start justify-between mb-6">
-        <h1 class="text-2xl font-semibold">Edit Environmental Sample</h1>
+@php
+  /** @var \App\Models\EnvironmentalSample $sample */
+  use Illuminate\Support\Carbon;
+  $tz = config('app.timezone','Asia/Jakarta');
+  $sampledVal = optional(
+      $sample->sampled_at instanceof \Illuminate\Support\Carbon
+        ? $sample->sampled_at->timezone($tz)
+        : ($sample->sampled_at ? Carbon::parse($sample->sampled_at)->timezone($tz) : null)
+    )->format('Y-m-d\TH:i');
+@endphp
+
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto" x-data="envSampleEditForm()">
+  {{-- HEADER (serumpun hijau–emas–biru) --}}
+  <div class="relative overflow-hidden rounded-t-3xl">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
+
+    <div class="relative px-6 sm:px-10 py-6 text-white">
+      <div class="flex items-center justify-between">
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+            <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Edit Environmental Sample</h1>
+            <p class="text-white/90 text-sm mt-1">Perbarui hasil sampling & metadata.</p>
+          </div>
+        </div>
+
+        <a href="{{ route('admin.hse.environmental-samples.index') }}"
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
+          ← Back
+        </a>
+      </div>
     </div>
+  </div>
+
+  {{-- BODY --}}
+  <div class="p-6 bg-white">
+
+    {{-- Flash --}}
+    @if (session('success'))
+      <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 text-sm">{{ session('success') }}</div>
+    @endif
+    @if ($errors->any())
+      <div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 text-sm">
+        <ul class="list-disc pl-5">
+          @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
+        </ul>
+      </div>
+    @endif
 
     {{-- ===== FORM UPDATE ===== --}}
-    <form id="form-update" method="POST" action="{{ route('admin.hse.environmental-samples.update', $sample) }}" class="space-y-5">
-        @csrf
-        @method('PUT')
+    <form id="form-update" method="POST" action="{{ route('admin.hse.environmental-samples.update', $sample) }}" class="space-y-5" @submit.prevent="confirmSave">
+      @csrf
+      @method('PUT')
 
-        @if (session('success'))
-            <div class="p-3 rounded bg-emerald-100 text-emerald-800">{{ session('success') }}</div>
-        @endif
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Sampled At <span class="text-rose-600">*</span></label>
+          <input type="datetime-local" name="sampled_at"
+                 x-model="sampledAt"
+                 value="{{ old('sampled_at', $sampledVal) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-emerald-300 focus:border-emerald-300" required>
+          <p class="text-[11px] mt-1" :class="dateValid ? 'text-slate-500' : 'text-rose-600'">
+            <span x-show="!sampledAt">Isi tanggal & jam sampling.</span>
+            <span x-show="sampledAt && !dateValid">Tanggal tidak valid.</span>
+          </p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Type <span class="text-rose-600">*</span></label>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <template x-for="(label,key) in typeLabels" :key="key">
+              <button type="button" @click="type = key"
+                      class="px-2.5 py-1 rounded-full text-xs ring-1"
+                      :class="type===key ? 'bg-sky-600 text-white ring-sky-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
+                <span x-text="label"></span>
+              </button>
+            </template>
+          </div>
+          <select name="type" x-model="type"
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2 focus:ring-sky-300 focus:border-sky-300" required>
+            @foreach (['air'=>'Air','emission'=>'Emission','noise'=>'Noise'] as $k=>$v)
+              <option value="{{ $k }}" @selected(old('type', $sample->type)===$k)>{{ $v }}</option>
+            @endforeach
+          </select>
+        </div>
+      </div>
 
-        @if ($errors->any())
-            <div class="p-3 rounded bg-red-100 text-red-700">
-                <ul class="list-disc pl-5">
-                    @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
-                </ul>
-            </div>
-        @endif
+      <div>
+        <label class="block text-sm font-medium mb-1">Location</label>
+        <input type="text" name="location" x-model.trim="location"
+               value="{{ old('location', $sample->location) }}"
+               class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" maxlength="255">
+      </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium mb-1">Sampled At <span class="text-red-500">*</span></label>
-                <input type="datetime-local" name="sampled_at"
-                       value="{{ old('sampled_at', optional($sample->sampled_at)->format('Y-m-d\TH:i')) }}"
-                       class="w-full border rounded p-2" required>
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Type <span class="text-red-500">*</span></label>
-                <select name="type" class="w-full border rounded p-2" required>
-                    @foreach (['air'=>'Air','emission'=>'Emission','noise'=>'Noise'] as $k=>$v)
-                        <option value="{{ $k }}" @selected(old('type', $sample->type)===$k)>{{ $v }}</option>
-                    @endforeach
-                </select>
-            </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Parameter <span class="text-rose-600">*</span></label>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <template x-for="p in paramOptions" :key="p">
+              <button type="button" @click="parameter=p"
+                      class="px-2.5 py-1 rounded-full text-xs ring-1"
+                      :class="parameter===p ? 'bg-emerald-600 text-white ring-emerald-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
+                <span x-text="p"></span>
+              </button>
+            </template>
+          </div>
+          <input type="text" name="parameter" x-model.trim="parameter"
+                 value="{{ old('parameter', $sample->parameter) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
         </div>
 
         <div>
-            <label class="block text-sm font-medium mb-1">Location</label>
-            <input type="text" name="location" maxlength="255"
-                   value="{{ old('location', $sample->location) }}"
-                   class="w-full border rounded p-2">
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-                <label class="block text-sm font-medium mb-1">Parameter <span class="text-red-500">*</span></label>
-                <input type="text" name="parameter" value="{{ old('parameter', $sample->parameter) }}"
-                       class="w-full border rounded p-2" required>
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Value</label>
-                <input type="number" step="0.0001" name="value" value="{{ old('value', $sample->value) }}"
-                       class="w-full border rounded p-2">
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Unit</label>
-                <input type="text" name="unit" maxlength="20" value="{{ old('unit', $sample->unit) }}"
-                       class="w-full border rounded p-2">
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium mb-1">Method</label>
-                <input type="text" name="method" maxlength="100" value="{{ old('method', $sample->method) }}"
-                       class="w-full border rounded p-2">
-            </div>
-            <div>
-                <label class="block text-sm font-medium mb-1">Instrument</label>
-                <input type="text" name="instrument" maxlength="100" value="{{ old('instrument', $sample->instrument) }}"
-                       class="w-full border rounded p-2">
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-                <label class="block text-sm font-medium mb-1">Limit Value</label>
-                <input type="number" step="0.0001" name="limit_value" value="{{ old('limit_value', $sample->limit_value) }}"
-                       class="w-full border rounded p-2">
-            </div>
-            <div class="flex items-end gap-2">
-                <label class="inline-flex items-center gap-2">
-                    <input type="checkbox" name="is_compliant" value="1" class="h-4 w-4"
-                           @checked(old('is_compliant', (int) $sample->is_compliant))>
-                    <span class="text-sm">Compliant with limit?</span>
-                </label>
-            </div>
-            <div class="flex items-end">
-                <span class="text-xs text-gray-500">Centang jika hasil ≤ limit.</span>
-            </div>
+          <label class="block text-sm font-medium mb-1">Value</label>
+          <input type="number" step="0.0001" name="value" x-model.number="value"
+                 value="{{ old('value', $sample->value) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <p class="text-[11px] mt-1" :class="valueOk ? 'text-slate-500' : 'text-rose-600'">
+            <span x-show="!value && value!==0">Opsional, isi angka desimal.</span>
+            <span x-show="(value || value===0) && !valueOk">Nilai tidak valid.</span>
+          </p>
         </div>
 
         <div>
-            <label class="block text-sm font-medium mb-1">Meta (JSON)</label>
-            <textarea name="meta" rows="3" class="w-full border rounded p-2"
-                      placeholder='{"note":"optional"}'>{{ old('meta', is_array($sample->meta) ? json_encode($sample->meta) : $sample->meta) }}</textarea>
+          <label class="block text-sm font-medium mb-1">Unit</label>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <template x-for="u in unitOptions" :key="u">
+              <button type="button" @click="unit=u"
+                      class="px-2.5 py-1 rounded-full text-xs ring-1"
+                      :class="unit===u ? 'bg-amber-600 text-white ring-amber-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
+                <span x-text="u"></span>
+              </button>
+            </template>
+          </div>
+          <input type="text" name="unit" x-model.trim="unit"
+                 value="{{ old('unit', $sample->unit) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" maxlength="20">
         </div>
+      </div>
 
-        <div class="flex items-center gap-3">
-            <a href="{{ route('admin.hse.environmental-samples.index') }}" class="px-3 py-2 rounded border">Back</a>
-            <button type="submit" class="px-4 py-2 rounded bg-emerald-600 text-white">Save Changes</button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Method</label>
+          <input type="text" name="method" x-model.trim="method"
+                 value="{{ old('method', $sample->method) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" maxlength="100">
         </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Instrument</label>
+          <input type="text" name="instrument" x-model.trim="instrument"
+                 value="{{ old('instrument', $sample->instrument) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" maxlength="100">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Limit Value</label>
+          <input type="number" step="0.0001" name="limit_value" x-model.number="limit"
+                 value="{{ old('limit_value', $sample->limit_value) }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+        </div>
+        <div class="flex items-end gap-2">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="is_compliant" value="1" class="h-4 w-4"
+                   :checked="computedCompliant === null ? {{ old('is_compliant', (int) $sample->is_compliant) ? 'true' : 'false' }} : computedCompliant"
+                   @change="manualCompliant = $event.target.checked">
+            <span class="text-sm">Compliant with limit?</span>
+          </label>
+        </div>
+        <div class="flex items-end">
+          <span class="text-xs"
+                :class="computedCompliant === null ? 'text-slate-500' : (computedCompliant ? 'text-emerald-600' : 'text-rose-600')">
+            <template x-if="computedCompliant === null">Centang jika hasil ≤ limit.</template>
+            <template x-if="computedCompliant === true">Auto: value ≤ limit (OK)</template>
+            <template x-if="computedCompliant === false">Auto: value &gt; limit (Not OK)</template>
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1">Meta (JSON)</label>
+        <textarea name="meta" rows="3" x-model="meta"
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
+                  placeholder='{"note":"optional"}'>{{ old('meta', is_array($sample->meta) ? json_encode($sample->meta) : $sample->meta) }}</textarea>
+        <p class="text-[11px] mt-1" :class="jsonOk ? 'text-slate-500' : 'text-rose-600'">
+          <span x-show="!meta">Opsional. Simpan info tambahan (JSON).</span>
+          <span x-show="meta && !jsonOk">JSON tidak valid.</span>
+        </p>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <a href="{{ route('admin.hse.environmental-samples.index') }}"
+           class="px-4 py-2 rounded-xl ring-1 ring-slate-200 text-slate-700 bg-white hover:bg-slate-50">← Back</a>
+
+        <button type="submit"
+                :disabled="submitting || !canTry"
+                class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span x-text="submitting ? 'Saving…' : 'Save Changes'"></span>
+        </button>
+      </div>
     </form>
 
     {{-- FORM DELETE TERPISAH (tidak nested) --}}
     @can('delete', $sample)
-    <form method="POST" action="{{ route('admin.hse.environmental-samples.destroy', $sample) }}"
-          class="mt-4"
-          onsubmit="return confirm('Delete this sample?');">
+      <form id="form-delete" method="POST" action="{{ route('admin.hse.environmental-samples.destroy', $sample) }}" class="mt-4">
         @csrf
         @method('DELETE')
-        <button type="submit" class="px-3 py-2 rounded bg-red-600 text-white">Delete</button>
-    </form>
+        <button type="button" class="px-3 py-2 rounded-xl bg-rose-600 text-white ring-1 ring-rose-700/20 hover:bg-rose-700"
+                @click="confirmDelete">
+          Delete
+        </button>
+      </form>
     @endcan
 
-    <div class="mt-6 text-xs text-gray-500">
-        <div>ID: {{ $sample->id }}</div>
-        <div>Created: {{ $sample->created_at }}</div>
-        <div>Updated: {{ $sample->updated_at }}</div>
+    <div class="mt-6 text-xs text-slate-500">
+      <div><span class="font-medium">ID:</span> {{ $sample->id }}</div>
+      <div><span class="font-medium">Created:</span> {{ $sample->created_at }}</div>
+      <div><span class="font-medium">Updated:</span> {{ $sample->updated_at }}</div>
     </div>
+  </div>
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function envSampleEditForm(){
+  return {
+    // hydrate from old() / model
+    sampledAt: @json(old('sampled_at', $sampledVal)),
+    type:      @json(old('type', $sample->type ?? 'air')),
+    location:  @json(old('location', $sample->location)),
+    parameter: @json(old('parameter', $sample->parameter)),
+    value:     @json(old('value', $sample->value)),
+    unit:      @json(old('unit', $sample->unit)),
+    method:    @json(old('method', $sample->method)),
+    instrument:@json(old('instrument', $sample->instrument)),
+    limit:     @json(old('limit_value', $sample->limit_value)),
+    meta:      @json(old('meta', is_array($sample->meta ?? null) ? json_encode($sample->meta) : ($sample->meta ?? ''))),
+    manualCompliant: @json(!is_null(old('is_compliant'))), // if user ticked in previous submit
+    submitting:false,
+
+    typeLabels: { air:'Air', emission:'Emission', noise:'Noise' },
+    paramMap: {
+      air: ['PM2.5','PM10','SO₂','NOx','CO','O₃'],
+      emission: ['TSP','SO₂','NOx','CO','Opacity'],
+      noise: ['dBA','Leq','Lmax']
+    },
+    unitMap: {
+      air: ['µg/m³','ppm'],
+      emission: ['mg/Nm³','ppm','%'],
+      noise: ['dBA']
+    },
+
+    // computed helpers
+    get paramOptions(){ return this.paramMap[this.type] || []; },
+    get unitOptions(){ return this.unitMap[this.type] || []; },
+
+    get dateValid(){
+      if (!this.sampledAt) return false;
+      const d = new Date(this.sampledAt);
+      return !isNaN(d.getTime());
+    },
+    get valueOk(){
+      if (this.value === null || this.value === '' || typeof this.value === 'undefined') return true;
+      const n = Number(this.value);
+      return Number.isFinite(n);
+    },
+    get jsonOk(){
+      if (!this.meta) return true;
+      try { JSON.parse(this.meta); return true; } catch(e){ return false; }
+    },
+    // Auto-compute compliance when both numbers are present (unless user manually toggled)
+    get computedCompliant(){
+      const v = Number(this.value), l = Number(this.limit);
+      if (!Number.isFinite(v) || !Number.isFinite(l)) return null;
+      return v <= l;
+    },
+    get canTry(){
+      return this.dateValid && !!this.type && !!this.parameter && this.valueOk && this.jsonOk;
+    },
+
+    // actions
+    confirmSave(){
+      const form = document.getElementById('form-update');
+
+      if (!this.canTry) {
+        if (!this.dateValid) { alert('Tanggal Sampled At tidak valid / kosong.'); return; }
+        if (!this.type) { alert('Type wajib diisi.'); return; }
+        if (!this.parameter) { alert('Parameter wajib diisi.'); return; }
+        if (!this.valueOk) { alert('Value harus berupa angka.'); return; }
+        if (!this.jsonOk) { alert('Meta harus JSON valid.'); return; }
+      }
+
+      // set checkbox automatically if applicable and not manually overridden
+      const chk = document.querySelector('input[name="is_compliant"]');
+      if (chk && this.computedCompliant !== null && !this.manualCompliant) {
+        chk.checked = this.computedCompliant;
+      }
+
+      if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
+
+      Swal.fire({
+        title: 'Simpan perubahan sample?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#0284c7',
+        confirmButtonText: 'Ya, simpan',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
+      }).then(r => { if (r.isConfirmed) { this.submitting = true; form.submit(); }});
+    },
+
+    confirmDelete(){
+      const form = document.getElementById('form-delete');
+      if (typeof Swal === 'undefined') { if (confirm('Delete this sample?')) form.submit(); return; }
+      Swal.fire({
+        title: 'Hapus sample?',
+        text: 'Tindakan ini tidak bisa dibatalkan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, hapus',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
+      }).then(r => { if (r.isConfirmed) form.submit(); });
+    }
+  }
+}
+</script>
+@endpush
