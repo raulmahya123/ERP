@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Hse\StoreIncidentRequest;
 use App\Http\Requests\Hse\UpdateIncidentRequest;
 use App\Models\Incident;
+use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 
 class IncidentController extends Controller
 {
@@ -19,12 +21,11 @@ class IncidentController extends Controller
 
     public function index(Request $request)
     {
-        // authorizeResource akan memanggil policy->viewAny() untuk action index
         $siteId = $this->currentSiteId();
         $q      = trim((string) $request->query('q', ''));
-        $status = $request->query('status');
-        $from   = $request->query('from');
-        $to     = $request->query('to');
+        $status = $request->query('status');          // reported|under_investigation|action_in_progress|closed
+        $from   = $request->query('from');            // yyyy-mm-dd
+        $to     = $request->query('to');              // yyyy-mm-dd
 
         $items = Incident::query()
             ->with(['site:id,name,code', 'reporter:id,name,email'])
@@ -38,17 +39,17 @@ class IncidentController extends Controller
                 });
             })
             ->when($status, fn($qq) => $qq->where('status', $status))
-            ->when($from, fn($qq) => $qq->where('occurred_at', '>=', $from))
-            ->when($to, fn($qq) => $qq->where('occurred_at', '<=', $to))
+            ->when($from, fn($qq) => $qq->where('occurred_at', '>=', Carbon::parse($from)->startOfDay()))
+            ->when($to,   fn($qq) => $qq->where('occurred_at', '<=', Carbon::parse($to)->endOfDay()))
             ->orderByDesc('occurred_at')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         return view('admin.hse.incidents.index', compact('items', 'q', 'status', 'from', 'to'));
     }
 
     public function create()
     {
-        // policy->create() dipanggil otomatis oleh authorizeResource
         $incident = new Incident();
         return view('admin.hse.incidents.create', compact('incident'));
     }
@@ -56,8 +57,12 @@ class IncidentController extends Controller
     public function store(StoreIncidentRequest $request)
     {
         $data = $request->validated();
-        $data['site_id'] = $data['site_id'] ?? $this->currentSiteId();
-        $data['code']    = $data['code'] ?? $this->generateCode('INC');
+
+        // Default yang sering kosong dari form
+        $data['site_id']     = $data['site_id']     ?? $this->currentSiteId();
+        $data['occurred_at'] = $data['occurred_at'] ?? now();
+        $data['status']      = $data['status']      ?? 'reported';
+        $data['code']        = $data['code']        ?? $this->generateCode('INC', $data['site_id']);
 
         $incident = Incident::create($data);
 
@@ -68,20 +73,26 @@ class IncidentController extends Controller
 
     public function edit(Incident $incident)
     {
-        // policy->view() sudah dipanggil otomatis untuk route model
         return view('admin.hse.incidents.edit', compact('incident'));
     }
 
     public function update(UpdateIncidentRequest $request, Incident $incident)
     {
-        // policy->update() otomatis
-        $incident->update($request->validated());
+        $data = $request->validated();
+
+        // Jangan kosongkan nilai penting bila tidak dikirim
+        $data['site_id']     = $data['site_id']     ?? $incident->site_id ?? $this->currentSiteId();
+        $data['occurred_at'] = $data['occurred_at'] ?? $incident->occurred_at ?? now();
+        $data['status']      = $data['status']      ?? $incident->status ?? 'reported';
+        $data['code']        = $data['code']        ?? $incident->code ?? $this->generateCode('INC', $data['site_id']);
+
+        $incident->update($data);
+
         return back()->with('success', 'Incident updated.');
     }
 
     public function destroy(Incident $incident)
     {
-        // policy->delete() otomatis
         $incident->delete();
         return redirect()->route('admin.hse.incidents.index')->with('success', 'Incident deleted.');
     }
@@ -92,8 +103,20 @@ class IncidentController extends Controller
         return session('site_id');
     }
 
-    protected function generateCode(string $prefix): string
+    /**
+     * Generator kode: INC-{SITECODE}-{YYYYMMDD}-{RANDOM}
+     */
+    protected function generateCode(string $prefix, ?string $siteId = null): string
     {
-        return sprintf('%s-%s-%s', $prefix, now()->format('Ymd'), Str::upper(Str::random(6)));
+        $siteCode = 'GEN';
+        if ($siteId) {
+            $siteCode = strtoupper((string) (Site::query()->whereKey($siteId)->value('code') ?? 'GEN'));
+        }
+        return sprintf('%s-%s-%s-%s',
+            $prefix,
+            $siteCode,
+            now()->format('Ymd'),
+            Str::upper(Str::random(6))
+        );
     }
 }
