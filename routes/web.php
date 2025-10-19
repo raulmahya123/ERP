@@ -35,8 +35,10 @@ use App\Http\Controllers\Admin\Hse\PicaController as HsePicaController;
 use App\Http\Controllers\Admin\Hse\EnvironmentalSampleController as HseEnvSampleController;
 use App\Http\Controllers\Admin\Hse\HazardReportController as HseHazardController;
 use App\Http\Controllers\Admin\Hse\MediaAttachmentController as HseMediaController;
-
 use App\Http\Controllers\Admin\Hse\KpiIndicatorController as HseKpiController;
+use App\Http\Controllers\Admin\PayroalHistoryController; // <-- penting
+
+use App\Models\PayroalHistory;
 
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
@@ -119,7 +121,7 @@ Route::middleware(['auth', 'site.selected'])
             ->name('accounts.show');
     });
 
-Route::middleware(['auth', 'hasrole:gm', 'site.selected'])
+Route::middleware(['auth', 'hasrole:gm'])
     ->prefix('admin/master')->as('admin.master.')
     ->group(function () {
         Route::get('permissions', [MasterDataController::class, 'permissionsQuery'])
@@ -424,16 +426,11 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
     ->prefix('admin/hse')->as('admin.hse.')
     ->group(function () {
         Route::get('ping', fn() => 'OK');
-        /*
-            |----------------------------------------------------------------------
-            | Incidents
-            |----------------------------------------------------------------------
-            */
+
+        // Incidents
         Route::resource('incidents', HseIncidentController::class)
             ->parameters(['incidents' => 'incident'])
             ->whereUuid(['incident']);
-
-        // Aksi siklus (opsional, siap pakai jika controllernya kamu buat)
         Route::post('incidents/{incident}/submit', [HseIncidentController::class, 'submit'])
             ->name('incidents.submit')->whereUuid('incident');
         Route::post('incidents/{incident}/start-investigation', [HseIncidentController::class, 'startInvestigation'])
@@ -441,29 +438,19 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
         Route::post('incidents/{incident}/close', [HseIncidentController::class, 'close'])
             ->name('incidents.close')->whereUuid('incident');
 
-        /*
-            |----------------------------------------------------------------------
-            | Incident Investigations
-            |----------------------------------------------------------------------
-            */
+        // Investigations
         Route::resource('investigations', HseInvestigationController::class)
             ->parameters(['investigations' => 'investigation'])
             ->whereUuid(['investigation']);
-
         Route::post('investigations/{investigation}/complete', [HseInvestigationController::class, 'complete'])
             ->name('investigations.complete')->whereUuid('investigation');
         Route::post('investigations/{investigation}/reopen', [HseInvestigationController::class, 'reopen'])
             ->name('investigations.reopen')->whereUuid('investigation');
 
-        /*
-            |----------------------------------------------------------------------
-            | PICA
-            |----------------------------------------------------------------------
-            */
+        // PICA
         Route::resource('picas', HsePicaController::class)
             ->parameters(['picas' => 'pica'])
             ->whereUuid(['pica']);
-
         Route::post('picas/{pica}/mark-effective', [HsePicaController::class, 'markEffective'])
             ->name('picas.mark-effective')->whereUuid('pica');
         Route::post('picas/{pica}/mark-ineffective', [HsePicaController::class, 'markIneffective'])
@@ -471,15 +458,10 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
         Route::post('picas/{pica}/close', [HsePicaController::class, 'close'])
             ->name('picas.close')->whereUuid('pica');
 
-        /*
-            |----------------------------------------------------------------------
-            | Hazard Reports (Leading)
-            |----------------------------------------------------------------------
-            */
+        // Hazards
         Route::resource('hazards', HseHazardController::class)
             ->parameters(['hazards' => 'hazard'])
             ->whereUuid(['hazard']);
-
         Route::post('hazards/{hazard}/assign', [HseHazardController::class, 'assign'])
             ->name('hazards.assign')->whereUuid('hazard');
         Route::post('hazards/{hazard}/mitigate', [HseHazardController::class, 'mitigate'])
@@ -489,46 +471,61 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
         Route::post('hazards/{hazard}/close', [HseHazardController::class, 'close'])
             ->name('hazards.close')->whereUuid('hazard');
 
-        /*
-            |----------------------------------------------------------------------
-            | Environmental Samples
-            |----------------------------------------------------------------------
-            */
+        // Environmental Samples
         Route::resource('environmental-samples', HseEnvSampleController::class)
             ->parameters(['environmental-samples' => 'sample'])
             ->whereUuid(['sample']);
 
-        /*
-            |----------------------------------------------------------------------
-            | Media Attachments (polymorphic)
-            |----------------------------------------------------------------------
-            | type: incidents|investigations|picas|hazards|environmental-samples
-            */
+        // Media (polymorphic)
         Route::post('media/{type}/{id}', [HseMediaController::class, 'store'])
             ->name('media.store')
             ->where(['type' => 'incidents|investigations|picas|hazards|environmental-samples', 'id' => '[0-9a-fA-F-]{36}']);
-
         Route::delete('media/{attachment}', [HseMediaController::class, 'destroy'])
             ->name('media.destroy')->whereUuid('attachment');
 
-
+        // KPI
         Route::resource('kpi-indicators', HseKpiController::class)
             ->parameters(['kpi-indicators' => 'kpi'])
             ->whereUuid(['kpi']);
-
-        // Filter cepat via URL, contoh: /admin/hse/kpi-indicators/type/leading
         Route::get('kpi-indicators/type/{type}', [HseKpiController::class, 'index'])
             ->name('kpi-indicators.type')
             ->whereIn('type', ['leading', 'lagging', 'operational']);
-
-        // (opsional) Export CSV
         Route::get('kpi-indicators/export/csv', [HseKpiController::class, 'exportCsv'])
             ->name('kpi-indicators.export.csv');
-
-        // (opsional) Import CSV
         Route::post('kpi-indicators/import', [HseKpiController::class, 'import'])
             ->name('kpi-indicators.import');
     });
 
+/*
+|--------------------------------------------------------------------------
+| PAYROAL HISTORY (HR/GM/superadmin) — pakai hasrole (BUKAN role)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth','hasrole:hr|gm|superadmin'])
+    ->prefix('admin/payroal/history')->name('admin.payroal_history.')
+    ->group(function () {
+        Route::get('/',        [PayroalHistoryController::class,'index'])->name('index');
+        Route::get('/create',  [PayroalHistoryController::class,'create'])->name('create');
+        Route::post('/',       [PayroalHistoryController::class,'store'])->name('store');
+        Route::post('/{history}/lock', [PayroalHistoryController::class,'lock'])->name('lock')->whereUuid('history');
+        Route::post('/{history}/send', [PayroalHistoryController::class,'sendOne'])->name('sendOne')->whereUuid('history');
+        Route::post('/send-bulk',      [PayroalHistoryController::class,'sendBulk'])->name('sendBulk');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Payslip public token (tanpa login) & list milik user (login)
+|--------------------------------------------------------------------------
+*/
+Route::get('/me/payslip/{token}', function (string $token) {
+    $h = PayroalHistory::where('view_token',$token)->firstOrFail();
+    return view('my.payslip', ['h'=>$h]);
+})->name('my.payslip.view');
+Route::get('/_mailtest', function () {
+    \Illuminate\Support\Facades\Mail::raw('Test email OK yakk hehehe', function($m) {
+        $m->to('imyharis@gmail.com')->subject('Test SMTP');
+    });
+    return 'Sent (check inbox / spam)';
+})->middleware('auth');
 
 require __DIR__ . '/auth.php';

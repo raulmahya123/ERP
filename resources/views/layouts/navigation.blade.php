@@ -69,6 +69,9 @@ $masterRoutesActive = request()->routeIs('admin.master.*'); // overview + sub-ro
 $payroalAdminActive = request()->routeIs('admin.payroal.*');
 $payroalMeActive    = request()->routeIs('me.payroal.*');
 
+/** NEW: Payroal History active flags */
+$payHistActive      = request()->routeIs('admin.payroal_history.*'); // index/create/lock/send
+
 /** NEW: HSE KPI active flag */
 $hseKpiActive = request()->routeIs('admin.hse.kpi-indicators.*'); // NEW
 
@@ -93,7 +96,8 @@ $peopleRoutesActive =
   request()->routeIs('admin.contracts.*')       ||
   request()->routeIs('manpower.entries.*')      ||
   request()->routeIs('admin.manpower.entries.*') ||
-  $payroalAdminActive;
+  $payroalAdminActive ||
+  $payHistActive; // NEW: ikut buka People bila di halaman payslip
 
 $adminGroupActive =
   request()->routeIs('admin.roles.*')        ||
@@ -198,7 +202,7 @@ $adminLinks = [
 $navState = [
   'openAdmin'  => (bool) $adminGroupActive,
   'openPeople' => (bool) $peopleRoutesActive,
-  'openHR'     => (bool) ($hrDailyActive || $hrContractsActive || $hrCfgActive),
+  'openHR'     => (bool) ($hrDailyActive || $hrContractsActive || $hrCfgActive || $payroalAdminActive || $payHistActive),
   'openMaster' => (bool) $masterRoutesActive,
   'openHse'    => (bool) $hseRoutesActive, // NEW
 ];
@@ -386,7 +390,9 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
         Route::has('admin.crew-assignments.index')||
         Route::has('manpower.entries.index')      ||
         Route::has('admin.manpower.entries.index')||
-        Route::has('admin.payroal.index')
+        Route::has('admin.payroal.index')         ||
+        Route::has('admin.payroal_history.index') ||   // NEW
+        Route::has('admin.payroal_history.create')     // NEW
       );
     @endphp
     @if ($hasPeopleRoutes && $canPeopleMenu)
@@ -468,7 +474,7 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
           @endif
 
           {{-- HR Suite (sub) --}}
-          @if (Route::has('admin.hr-entries.index') || Route::has('admin.contracts.index') || Route::has('admin.payroal.index'))
+          @if (Route::has('admin.hr-entries.index') || Route::has('admin.contracts.index') || Route::has('admin.payroal.index') || Route::has('admin.payroal_history.index'))
             <div class="mt-2">
               <button type="button" @click="openHR=!openHR"
                       class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between pl-7 pr-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
@@ -500,6 +506,28 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
                     Data Payroal
                   </a>
                 @endif
+
+                {{-- NEW: Payslip Bulanan (HR) --}}
+                @if (($isHR || $isGM) && (Route::has('admin.payroal_history.index') || Route::has('admin.payroal_history.create')))
+                  <div class="mx-3 pl-12 pr-3 mt-1">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Payslip Bulanan</div>
+
+                    @if (Route::has('admin.payroal_history.index'))
+                      <a href="{{ route('admin.payroal_history.index') }}"
+                         class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-semibold transition {{ $activeClasses($payHistActive && request()->routeIs('admin.payroal_history.index')) }}">
+                        • Daftar Payslip
+                      </a>
+                    @endif
+
+                    @if (Route::has('admin.payroal_history.create'))
+                      <a href="{{ route('admin.payroal_history.create') }}"
+                         class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-semibold transition {{ $activeClasses($payHistActive && request()->routeIs('admin.payroal_history.create')) }}">
+                        • Generate Draft
+                      </a>
+                    @endif
+                  </div>
+                @endif
+                {{-- /NEW --}}
 
                 @if ($canManageHrConfig && (
                       Route::has('admin.hr-entries.meta-form.index')        ||
