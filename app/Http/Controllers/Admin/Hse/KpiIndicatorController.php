@@ -5,85 +5,87 @@ namespace App\Http\Controllers\Admin\Hse;
 use App\Http\Controllers\Controller;
 use App\Models\KpiIndicator;
 use App\Models\Site;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\View\View;
 
 class KpiIndicatorController extends Controller
 {
+    public function __construct()
+    {
+        // Pastikan ada KpiIndicatorPolicy terdaftar di AuthServiceProvider
+        $this->authorizeResource(KpiIndicator::class, 'kpi');
+    }
+
+    // KpiIndicatorController@index
     public function index(Request $request)
     {
-        $siteId = session('site_id');
-        $type   = $request->route('type') ?: $request->query('type'); // leading|lagging|operational
+        $siteId = $this->currentSiteId();
+        $type   = $request->route('type') ?: $request->query('type');
         $q      = trim((string) $request->query('q', ''));
-        $from   = $request->query('from'); // YYYY-MM-DD
+        $from   = $request->query('from');
         $to     = $request->query('to');
 
-        $rows = KpiIndicator::query()
-            ->when($siteId, fn ($qq) => $qq->where('site_id', $siteId))
-            ->when($type,   fn ($qq) => $qq->where('type', $type))
+        $items = \App\Models\KpiIndicator::query()
+            ->when($siteId, fn($qq) => $qq->where('site_id', $siteId))
+            ->when($type,   fn($qq) => $qq->where('type', $type))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('name', 'like', "%{$q}%")
-                      ->orWhere('unit', 'like', "%{$q}%")
-                      ->orWhere('notes', 'like', "%{$q}%");
+                        ->orWhere('unit', 'like', "%{$q}%")
+                        ->orWhere('notes', 'like', "%{$q}%");
                 });
             })
-            ->when($from, fn ($qq) => $qq->where('date', '>=', $from))
-            ->when($to,   fn ($qq) => $qq->where('date', '<=', $to))
+            ->when($from, fn($qq) => $qq->where('date', '>=', $from))
+            ->when($to,   fn($qq) => $qq->where('date', '<=', $to))
             ->orderByDesc('date')
             ->orderBy('name')
-            ->paginate(25);
+            ->paginate(25)
+            ->withQueryString();
 
-        // mapping kode site untuk tabel index
-        $siteMap = Site::query()->pluck('code', 'id');
-        $rows->getCollection()->transform(function ($r) use ($siteMap) {
-            $r->site_code = $r->site_id ? ($siteMap[$r->site_id] ?? null) : null;
-            return $r;
-        });
-
-        return view('admin.hse.kpis.index', compact('rows', 'type', 'q', 'from', 'to'));
+        // kalau masih butuh site_code, bisa transform di sini
+        return view('admin.hse.kpi_indicators.index', compact('items', 'type', 'q', 'from', 'to'));
     }
 
-    public function create()
+
+    public function create(): View
     {
         $record = new KpiIndicator();
-        // opsional: kirim daftar site agar bisa dipilih manual (kalau tidak, pakai session('site_id'))
-        $sites  = Site::orderBy('name')->get(['id', 'code', 'name']);
-
+        $sites  = Site::orderBy('name')->get(['id', 'code', 'name']); // kalau mau pilih site manual
         return view('admin.hse.kpis.create', compact('record', 'sites'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $data = $this->validateData($request);
-        $data['site_id'] = $data['site_id'] ?? session('site_id');
+        $data['site_id'] = $data['site_id'] ?? $this->currentSiteId();
 
         $record = KpiIndicator::create($data);
 
         return redirect()
-            ->route('admin.hse.kpi-indicators.edit', ['kpi' => $record]) // <— penting: param kpi
+            ->route('admin.hse.kpi-indicators.edit', ['kpi' => $record])
             ->with('success', 'KPI created.');
     }
 
-    public function edit(KpiIndicator $kpi)
+    public function edit(KpiIndicator $kpi): View
     {
         $record = $kpi;
-        $sites  = Site::orderBy('name')->get(['id', 'code', 'name']); // opsional dropdown
-
+        $sites  = Site::orderBy('name')->get(['id', 'code', 'name']);
         return view('admin.hse.kpis.edit', compact('record', 'sites'));
     }
 
-    public function update(Request $request, KpiIndicator $kpi)
+    public function update(Request $request, KpiIndicator $kpi): RedirectResponse
     {
         $data = $this->validateData($request, $kpi->id);
-        $data['site_id'] = $data['site_id'] ?? session('site_id');
+        $data['site_id'] = $data['site_id'] ?? $this->currentSiteId();
 
         $kpi->update($data);
 
         return back()->with('success', 'KPI updated.');
     }
 
-    public function destroy(KpiIndicator $kpi)
+    public function destroy(KpiIndicator $kpi): RedirectResponse
     {
         $kpi->delete();
 
@@ -92,15 +94,15 @@ class KpiIndicatorController extends Controller
             ->with('success', 'KPI deleted.');
     }
 
-    /* === Opsional: Export / Import sederhana === */
+    /* ===== Opsional: Export / Import sederhana (ORM saja) ===== */
     public function exportCsv(Request $request)
     {
-        $siteId = session('site_id');
+        $siteId = $this->currentSiteId();
         $type   = $request->query('type');
 
         $rows = KpiIndicator::query()
-            ->when($siteId, fn ($qq) => $qq->where('site_id', $siteId))
-            ->when($type,   fn ($qq) => $qq->where('type', $type))
+            ->when($siteId, fn($qq) => $qq->where('site_id', $siteId))
+            ->when($type,   fn($qq) => $qq->where('type', $type))
             ->orderBy('date')->orderBy('type')->orderBy('name')
             ->get(['date', 'type', 'name', 'value', 'unit', 'notes']);
 
@@ -124,46 +126,38 @@ class KpiIndicatorController extends Controller
         ]);
     }
 
-    public function import(Request $request)
+    public function import(Request $request): RedirectResponse
     {
         $request->validate([
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
         ]);
 
-        $siteId = session('site_id');
-        $fh     = fopen($request->file('file')->getRealPath(), 'r');
-        $header = fgetcsv($fh);
+        $siteId = $this->currentSiteId();
         $count  = 0;
 
-        while (($row = fgetcsv($fh)) !== false) {
-            [$date, $type, $name, $value, $unit, $notes] = array_pad($row, 6, null);
-            if (!in_array($type, ['leading', 'lagging', 'operational'], true)) {
-                continue;
+        if (($fh = fopen($request->file('file')->getRealPath(), 'r')) !== false) {
+            $header = fgetcsv($fh);
+            while (($row = fgetcsv($fh)) !== false) {
+                [$date, $type, $name, $value, $unit, $notes] = array_pad($row, 6, null);
+                if (!in_array($type, ['leading', 'lagging', 'operational'], true)) {
+                    continue;
+                }
+                KpiIndicator::updateOrCreate(
+                    ['site_id' => $siteId, 'date' => $date, 'type' => $type, 'name' => $name],
+                    ['value' => $value ?? 0, 'unit' => $unit, 'notes' => $notes]
+                );
+                $count++;
             }
-            KpiIndicator::updateOrCreate(
-                [
-                    'site_id' => $siteId,
-                    'date'    => $date,
-                    'type'    => $type,
-                    'name'    => $name,
-                ],
-                [
-                    'value' => $value ?? 0,
-                    'unit'  => $unit,
-                    'notes' => $notes,
-                ]
-            );
-            $count++;
+            fclose($fh);
         }
-        fclose($fh);
 
         return back()->with('success', "Imported {$count} rows.");
     }
 
-    /** Validate helper */
+    /** ===== Helper ===== */
     protected function validateData(Request $request, ?string $ignoreId = null): array
     {
-        $sessionSiteId = session('site_id');
+        $sessionSiteId = $this->currentSiteId();
 
         $validator = Validator::make($request->all(), [
             'site_id' => ['nullable', 'uuid'],
@@ -178,18 +172,14 @@ class KpiIndicatorController extends Controller
 
         $validator->after(function ($v) use ($request, $ignoreId, $sessionSiteId) {
             $siteId = $request->input('site_id') ?: $sessionSiteId;
-
-            if (!$siteId) {
-                // kalau site tidak ada, biarkan validasi umum yang menolak bila perlu
-                return;
-            }
+            if (!$siteId) return;
 
             $exists = KpiIndicator::query()
                 ->where('site_id', $siteId)
                 ->where('date', $request->input('date'))
                 ->where('type', $request->input('type'))
                 ->where('name', $request->input('name'))
-                ->when($ignoreId, fn ($qq) => $qq->where('id', '!=', $ignoreId))
+                ->when($ignoreId, fn($qq) => $qq->where('id', '!=', $ignoreId))
                 ->exists();
 
             if ($exists) {
@@ -201,5 +191,10 @@ class KpiIndicatorController extends Controller
         $data['site_id'] = $data['site_id'] ?? $sessionSiteId;
 
         return $data;
+    }
+
+    protected function currentSiteId(): ?string
+    {
+        return session('site_id');
     }
 }

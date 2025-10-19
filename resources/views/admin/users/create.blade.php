@@ -23,29 +23,29 @@
 
     {{-- Alerts (server rendered) --}}
     @if (session('success'))
-      <div class="mb-4 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-900 px-4 py-3 flex items-center gap-2">
-        <svg class="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <span class="text-sm font-medium">{{ session('success') }}</span>
-      </div>
+    <div class="mb-4 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-900 px-4 py-3 flex items-center gap-2">
+      <svg class="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      </svg>
+      <span class="text-sm font-medium">{{ session('success') }}</span>
+    </div>
     @endif
     @if (session('error'))
-      <div class="mb-4 rounded-xl bg-red-50 ring-1 ring-red-200 text-red-700 px-4 py-3 flex items-center gap-2">
-        <svg class="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-        <span class="text-sm font-medium">{{ session('error') }}</span>
-      </div>
+    <div class="mb-4 rounded-xl bg-red-50 ring-1 ring-red-200 text-red-700 px-4 py-3 flex items-center gap-2">
+      <svg class="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+      <span class="text-sm font-medium">{{ session('error') }}</span>
+    </div>
     @endif
     @if ($errors->any())
-      <div class="mb-4 rounded-xl bg-amber-50 ring-1 ring-amber-200 text-amber-800 px-4 py-3">
-        <ul class="list-disc list-inside text-sm">
-          @foreach ($errors->all() as $error)
-            <li>{{ $error }}</li>
-          @endforeach
-        </ul>
-      </div>
+    <div class="mb-4 rounded-xl bg-amber-50 ring-1 ring-amber-200 text-amber-800 px-4 py-3">
+      <ul class="list-disc list-inside text-sm">
+        @foreach ($errors->all() as $error)
+        <li>{{ $error }}</li>
+        @endforeach
+      </ul>
+    </div>
     @endif
 
     {{-- FORM --}}
@@ -120,7 +120,7 @@
           @change="dirty=true">
           <option value="">— Pilih Role —</option>
           @foreach($roles as $role)
-            <option value="{{ $role->id }}" @selected(old('role_id')==$role->id)>{{ $role->name }}</option>
+          <option value="{{ $role->id }}" @selected(old('role_id')==$role->id)>{{ $role->name }}</option>
           @endforeach
         </select>
         @error('role_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
@@ -134,7 +134,7 @@
           @change="dirty=true">
           <option value="">— (Opsional) Pilih Division —</option>
           @foreach($divisions as $division)
-            <option value="{{ $division->id }}" @selected(old('division_id')==$division->id)>{{ $division->name }}</option>
+          <option value="{{ $division->id }}" @selected(old('division_id')==$division->id)>{{ $division->name }}</option>
           @endforeach
         </select>
         @error('division_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
@@ -151,7 +151,7 @@
           @change="dirty=true">
           <option value="">— Auto (SiteConfig.default_for_users) —</option>
           @foreach($sites as $site)
-            <option value="{{ $site->id }}" @selected(old('default_site_id')==$site->id)>{{ $site->name }}</option>
+          <option value="{{ $site->id }}" @selected(old('default_site_id')==$site->id)>{{ $site->name }}</option>
           @endforeach
         </select>
         @error('default_site_id') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
@@ -166,121 +166,199 @@
       {{-- Tombol --}}
       <div class="flex items-center justify-between pt-2">
         <a href="{{ route('admin.users.index') }}"
-           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl ring-1 ring-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium">
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl ring-1 ring-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium">
           ← Batal
         </a>
 
         <button type="submit"
-          :disabled="!canSubmit"
+          :disabled="submitting || !readyToTry"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-semibold shadow
                  bg-emerald-600 hover:bg-emerald-700 ring-1 ring-emerald-700/20 disabled:opacity-40 disabled:cursor-not-allowed">
-          Simpan
+          <svg x-show="submitting" class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+          <span x-text="submitting ? 'Menyimpan…' : 'Simpan'"></span>
         </button>
       </div>
     </form>
   </div>
 </div>
-
-{{-- Alpine (jika belum ada di layout) --}}
-<script defer src="https://unpkg.com/alpinejs"></script>
 @endsection
 
 @push('scripts')
+{{-- SweetAlert2 (opsional, untuk konfirmasi) --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
-function createUserForm(){
-  return {
-    // state
-    name: @json(old('name', '')),
-    email: @json(old('email', '')),
-    pwd: '',
-    confirm: '',
-    roleId: @json(old('role_id', '')),
-    divisionId: @json(old('division_id', '')),
-    defaultSiteId: @json(old('default_site_id','')),
-    showPwd:false,
-    showConfirm:false,
-    caps:false,
-    dirty:false,
+  function _createUserFormFactory() {
+    return {
+      // state
+      name: @json(old('name', '')),
+      email: @json(old('email', '')),
+      pwd: '',
+      confirm: '',
+      roleId: @json(old('role_id', '')),
+      divisionId: @json(old('division_id', '')),
+      defaultSiteId: @json(old('default_site_id', '')),
+      showPwd: false,
+      showConfirm: false,
+      caps: false,
+      dirty: false,
+      submitting: false,
 
-    // computed
-    get matches(){ return this.confirm && this.pwd === this.confirm },
-    get rules(){
-      return {
-        min: (this.pwd||'').length >= 8,
-        upper: /[A-Z]/.test(this.pwd||''),
-        num: /\d/.test(this.pwd||''),
-        sym: /[^A-Za-z0-9]/.test(this.pwd||'')
-      }
-    },
-    get score(){ return Object.values(this.rules).filter(Boolean).length },
-    get strength(){
-      const s = this.score;
-      const map = {
-        0:{width:10,label:'Very weak',color:'bg-rose-500',textColor:'text-rose-600'},
-        1:{width:25,label:'Weak',     color:'bg-rose-500',textColor:'text-rose-600'},
-        2:{width:50,label:'Fair',     color:'bg-amber-500',textColor:'text-amber-600'},
-        3:{width:75,label:'Good',     color:'bg-yellow-500',textColor:'text-yellow-600'},
-        4:{width:100,label:'Strong',  color:'bg-emerald-500',textColor:'text-emerald-600'},
-      };
-      return map[s] || map[0];
-    },
-    get canSubmit(){
-      return this.name && this.email && this.pwd && this.confirm && this.matches && this.score >= 3;
-    },
-
-    confirmSubmit(){
-      const form = document.getElementById('create-user-form');
-      if (typeof Swal === 'undefined') { form.submit(); return; }
-
-      Swal.fire({
-        title: 'Simpan data user baru?',
-        text: 'Pastikan Email, Role, Division, & Default Site sudah benar.',
-        icon: 'question',
-        showCancelButton: true,
-        // serumpun hijau–biru–emas
-        confirmButtonColor: '#059669', // emerald-600
-        cancelButtonColor: '#0284c7',  // sky-600
-        confirmButtonText: 'Ya, simpan',
-        cancelButtonText: 'Batal',
-        customClass: {
-          popup: 'rounded-2xl',
-          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+      // computed
+      get matches() {
+        return this.confirm && this.pwd === this.confirm
+      },
+      get rules() {
+        return {
+          min: (this.pwd || '').length >= 8,
+          upper: /[A-Z]/.test(this.pwd || ''),
+          num: /\d/.test(this.pwd || ''),
+          sym: /[^A-Za-z0-9]/.test(this.pwd || '')
         }
-      }).then((res) => {
-        if (res.isConfirmed) form.submit();
-      });
+      },
+      get score() {
+        return Object.values(this.rules).filter(Boolean).length
+      },
+      get strength() {
+        const s = this.score;
+        const map = {
+          0: {
+            width: 10,
+            label: 'Very weak',
+            color: 'bg-rose-500',
+            textColor: 'text-rose-600'
+          },
+          1: {
+            width: 25,
+            label: 'Weak',
+            color: 'bg-rose-500',
+            textColor: 'text-rose-600'
+          },
+          2: {
+            width: 50,
+            label: 'Fair',
+            color: 'bg-amber-500',
+            textColor: 'text-amber-600'
+          },
+          3: {
+            width: 75,
+            label: 'Good',
+            color: 'bg-yellow-500',
+            textColor: 'text-yellow-600'
+          },
+          4: {
+            width: 100,
+            label: 'Strong',
+            color: 'bg-emerald-500',
+            textColor: 'text-emerald-600'
+          },
+        };
+        return map[s] || map[0];
+      },
+
+      // syarat minimum agar boleh mencoba submit (longgar)
+      get readyToTry() {
+        return this.name && this.email && this.pwd && this.confirm && this.matches;
+      },
+
+      confirmSubmit() {
+        const form = document.getElementById('create-user-form');
+
+        if (!this.readyToTry) {
+          // Pesan ringan, biar tahu kenapa belum bisa
+          if (!this.name) {
+            alert('Nama wajib diisi.');
+            return;
+          }
+          if (!this.email) {
+            alert('Email wajib diisi.');
+            return;
+          }
+          if (!this.pwd || !this.confirm) {
+            alert('Password & konfirmasi wajib diisi.');
+            return;
+          }
+          if (!this.matches) {
+            alert('Konfirmasi password belum cocok.');
+            return;
+          }
+        }
+
+        if (typeof Swal === 'undefined') {
+          this.submitting = true;
+          form.submit();
+          return;
+        }
+
+        Swal.fire({
+          title: 'Simpan data user baru?',
+          text: 'Pastikan Email, Role, Division, & Default Site sudah benar.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#059669', // emerald-600
+          cancelButtonColor: '#0284c7', // sky-600
+          confirmButtonText: 'Ya, simpan',
+          cancelButtonText: 'Batal',
+          customClass: {
+            popup: 'rounded-2xl',
+            confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+            cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+          }
+        }).then((res) => {
+          if (res.isConfirmed) {
+            this.submitting = true;
+            form.submit();
+          }
+        });
+      }
     }
   }
-}
 
-// Flash popup (opsional)
-@if (session('success'))
+  // Pastikan tersedia global utk x-data="createUserForm()"
+  window.createUserForm = function() {
+    return _createUserFormFactory();
+  }
+
+  // Jika Alpine sudah ada, daftarkan saat init juga (aman urutan load)
+  document.addEventListener('alpine:init', () => {
+    window.createUserForm = window.createUserForm || function() {
+      return _createUserFormFactory();
+    }
+  });
+
+  @if(session('success'))
   window.addEventListener('DOMContentLoaded', () => {
     if (typeof Swal !== 'undefined') {
       Swal.fire({
         icon: 'success',
         title: 'Berhasil',
         text: @json(session('success')),
-        timer: 1800, showConfirmButton: false,
-        customClass: { popup: 'rounded-2xl' }
+        timer: 1800,
+        showConfirmButton: false,
+        customClass: {
+          popup: 'rounded-2xl'
+        }
       });
     }
   });
-@endif
+  @endif
 
-@if (session('error'))
+  @if(session('error'))
   window.addEventListener('DOMContentLoaded', () => {
     if (typeof Swal !== 'undefined') {
       Swal.fire({
         icon: 'error',
         title: 'Gagal',
         text: @json(session('error')),
-        customClass: { popup: 'rounded-2xl' }
+        customClass: {
+          popup: 'rounded-2xl'
+        }
       });
     }
   });
-@endif
+  @endif
 </script>
 @endpush

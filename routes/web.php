@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleDashboardController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Admin\Hse\HazardReportController as HseHazardController
 use App\Http\Controllers\Admin\Hse\MediaAttachmentController as HseMediaController;
 
 use App\Http\Controllers\Admin\Hse\KpiIndicatorController as HseKpiController;
+
 Route::pattern('record', '[0-9a-fA-F-]{36}');
 Route::pattern('entity', '[a-z0-9_]+');
 
@@ -421,12 +423,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected'])
     ->prefix('admin/hse')->as('admin.hse.')
     ->group(function () {
-
+        Route::get('ping', fn() => 'OK');
         /*
-        |----------------------------------------------------------------------
-        | Incidents
-        |----------------------------------------------------------------------
-        */
+            |----------------------------------------------------------------------
+            | Incidents
+            |----------------------------------------------------------------------
+            */
         Route::resource('incidents', HseIncidentController::class)
             ->parameters(['incidents' => 'incident'])
             ->whereUuid(['incident']);
@@ -440,10 +442,10 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
             ->name('incidents.close')->whereUuid('incident');
 
         /*
-        |----------------------------------------------------------------------
-        | Incident Investigations
-        |----------------------------------------------------------------------
-        */
+            |----------------------------------------------------------------------
+            | Incident Investigations
+            |----------------------------------------------------------------------
+            */
         Route::resource('investigations', HseInvestigationController::class)
             ->parameters(['investigations' => 'investigation'])
             ->whereUuid(['investigation']);
@@ -454,10 +456,10 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
             ->name('investigations.reopen')->whereUuid('investigation');
 
         /*
-        |----------------------------------------------------------------------
-        | PICA
-        |----------------------------------------------------------------------
-        */
+            |----------------------------------------------------------------------
+            | PICA
+            |----------------------------------------------------------------------
+            */
         Route::resource('picas', HsePicaController::class)
             ->parameters(['picas' => 'pica'])
             ->whereUuid(['pica']);
@@ -470,10 +472,10 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
             ->name('picas.close')->whereUuid('pica');
 
         /*
-        |----------------------------------------------------------------------
-        | Hazard Reports (Leading)
-        |----------------------------------------------------------------------
-        */
+            |----------------------------------------------------------------------
+            | Hazard Reports (Leading)
+            |----------------------------------------------------------------------
+            */
         Route::resource('hazards', HseHazardController::class)
             ->parameters(['hazards' => 'hazard'])
             ->whereUuid(['hazard']);
@@ -488,20 +490,20 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
             ->name('hazards.close')->whereUuid('hazard');
 
         /*
-        |----------------------------------------------------------------------
-        | Environmental Samples
-        |----------------------------------------------------------------------
-        */
+            |----------------------------------------------------------------------
+            | Environmental Samples
+            |----------------------------------------------------------------------
+            */
         Route::resource('environmental-samples', HseEnvSampleController::class)
             ->parameters(['environmental-samples' => 'sample'])
             ->whereUuid(['sample']);
 
         /*
-        |----------------------------------------------------------------------
-        | Media Attachments (polymorphic)
-        |----------------------------------------------------------------------
-        | type: incidents|investigations|picas|hazards|environmental-samples
-        */
+            |----------------------------------------------------------------------
+            | Media Attachments (polymorphic)
+            |----------------------------------------------------------------------
+            | type: incidents|investigations|picas|hazards|environmental-samples
+            */
         Route::post('media/{type}/{id}', [HseMediaController::class, 'store'])
             ->name('media.store')
             ->where(['type' => 'incidents|investigations|picas|hazards|environmental-samples', 'id' => '[0-9a-fA-F-]{36}']);
@@ -517,7 +519,7 @@ Route::middleware(['auth', 'hasrole:gm|manager|hr|hse_officer', 'site.selected']
         // Filter cepat via URL, contoh: /admin/hse/kpi-indicators/type/leading
         Route::get('kpi-indicators/type/{type}', [HseKpiController::class, 'index'])
             ->name('kpi-indicators.type')
-            ->whereIn('type', ['leading','lagging','operational']);
+            ->whereIn('type', ['leading', 'lagging', 'operational']);
 
         // (opsional) Export CSV
         Route::get('kpi-indicators/export/csv', [HseKpiController::class, 'exportCsv'])

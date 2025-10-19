@@ -6,63 +6,105 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Hse\StoreEnvironmentalSampleRequest;
 use App\Http\Requests\Hse\UpdateEnvironmentalSampleRequest;
 use App\Models\EnvironmentalSample;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class EnvironmentalSampleController extends Controller
 {
-    public function index(Request $request)
+    public function __construct()
     {
-        $siteId = session('site_id');
+        // Resource policy untuk EnvironmentalSample (route param: 'sample' sesuai routes/web.php)
+        $this->authorizeResource(EnvironmentalSample::class, 'sample');
+    }
+
+    /**
+     * GET /environmental-samples
+     */
+    public function index(Request $request): View
+    {
+        $siteId = $this->currentSiteId();
         $q      = trim((string) $request->query('q', ''));
-        $type   = $request->query('type');
+        $type   = $request->query('type'); // 'air' | 'emission' | 'noise'
 
         $items = EnvironmentalSample::query()
             ->with('site:id,name,code')
-            ->when($siteId, fn($qq) => $qq->where('site_id', $siteId))
+            ->when($siteId, fn ($qq) => $qq->where('site_id', $siteId))
             ->when($q !== '', function ($qq) use ($q) {
-                $qq->where('parameter', 'like', "%{$q}%")
-                   ->orWhere('location', 'like', "%{$q}%")
-                   ->orWhere('method', 'like', "%{$q}%")
-                   ->orWhere('instrument', 'like', "%{$q}%");
+                $qq->where(function ($w) use ($q) {
+                    $w->where('parameter', 'like', "%{$q}%")
+                      ->orWhere('location', 'like', "%{$q}%")
+                      ->orWhere('method', 'like', "%{$q}%")
+                      ->orWhere('instrument', 'like', "%{$q}%");
+                });
             })
-            ->when($type, fn($qq) => $qq->where('type', $type))
+            ->when($type, fn ($qq) => $qq->where('type', $type))
             ->orderByDesc('sampled_at')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();
 
         return view('admin.hse.env_samples.index', compact('items', 'q', 'type'));
     }
 
-    public function create()
+    /**
+     * GET /environmental-samples/create
+     */
+    public function create(): View
     {
         $sample = new EnvironmentalSample();
         return view('admin.hse.env_samples.create', compact('sample'));
     }
 
-    public function store(StoreEnvironmentalSampleRequest $request)
+    /**
+     * POST /environmental-samples
+     */
+    public function store(StoreEnvironmentalSampleRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $data['site_id'] = $data['site_id'] ?? session('site_id');
+        $data['site_id'] = $data['site_id'] ?? $this->currentSiteId();
 
         $model = EnvironmentalSample::create($data);
-        return redirect()->route('admin.hse.environmental-samples.edit', $model)
+
+        return redirect()
+            ->route('admin.hse.environmental-samples.edit', $model)
             ->with('success', 'Sample created.');
     }
 
-    public function edit(EnvironmentalSample $environmental_sample)
+    /**
+     * GET /environmental-samples/{sample}/edit
+     */
+    public function edit(EnvironmentalSample $sample): View
     {
-        $sample = $environmental_sample;
         return view('admin.hse.env_samples.edit', compact('sample'));
     }
 
-    public function update(UpdateEnvironmentalSampleRequest $request, EnvironmentalSample $environmental_sample)
+    /**
+     * PUT/PATCH /environmental-samples/{sample}
+     */
+    public function update(UpdateEnvironmentalSampleRequest $request, EnvironmentalSample $sample): RedirectResponse
     {
-        $environmental_sample->update($request->validated());
+        $sample->update($request->validated());
+
         return back()->with('success', 'Sample updated.');
     }
 
-    public function destroy(EnvironmentalSample $environmental_sample)
+    /**
+     * DELETE /environmental-samples/{sample}
+     */
+    public function destroy(EnvironmentalSample $sample): RedirectResponse
     {
-        $environmental_sample->delete();
-        return redirect()->route('admin.hse.environmental-samples.index')->with('success', 'Sample deleted.');
+        $sample->delete();
+
+        return redirect()
+            ->route('admin.hse.environmental-samples.index')
+            ->with('success', 'Sample deleted.');
+    }
+
+    /* =========================
+     | Helpers
+     |=========================*/
+    protected function currentSiteId(): ?string
+    {
+        return session('site_id');
     }
 }

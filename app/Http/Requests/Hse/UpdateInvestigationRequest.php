@@ -3,26 +3,33 @@
 namespace App\Http\Requests\Hse;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\IncidentInvestigation;
 
 class UpdateInvestigationRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        /** @var \App\Models\IncidentInvestigation $investigation */
+        $investigation = $this->route('investigation');
+        return $investigation && $this->user()?->can('update', $investigation);
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'incident_id'           => ['required','uuid','exists:incidents,id'],
+            'lead_investigator_id'  => ['nullable','uuid','exists:users,id'],
+
+            'started_at'            => ['nullable','date'],
+            'completed_at'          => ['nullable','date','after_or_equal:started_at'],
+
+            'method'                => ['nullable','string','max:50'],
+            'findings_summary'      => ['nullable','string'],
+            'root_cause'            => ['nullable','string'],
+            'corrective_actions'    => ['nullable','string'],
+
+            'status'                => ['nullable','in:open,review,closed'],
+            'meta'                  => ['nullable','array'],
         ];
     }
 }

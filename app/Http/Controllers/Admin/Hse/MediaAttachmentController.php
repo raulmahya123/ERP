@@ -16,6 +16,15 @@ use Illuminate\Validation\Rule;
 
 class MediaAttachmentController extends Controller
 {
+    public function __construct()
+{
+    $this->authorizeResource(\App\Models\HazardReport::class, 'hazard');
+
+    $this->middleware('can:assign,hazard')->only('assign');
+    $this->middleware('can:mitigate,hazard')->only('mitigate');
+    $this->middleware('can:verify,hazard')->only('verify');
+    $this->middleware('can:close,hazard')->only('close');
+}
     /** POST /admin/hse/media/{type}/{id} */
     public function store(StoreMediaAttachmentRequest $request, string $type, string $id)
     {

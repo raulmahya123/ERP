@@ -11,8 +11,15 @@ use Illuminate\Support\Str;
 
 class IncidentController extends Controller
 {
+    public function __construct()
+    {
+        // Kaitkan ke IncidentPolicy (butuh mapping di AuthServiceProvider)
+        $this->authorizeResource(Incident::class, 'incident');
+    }
+
     public function index(Request $request)
     {
+        // authorizeResource akan memanggil policy->viewAny() untuk action index
         $siteId = $this->currentSiteId();
         $q      = trim((string) $request->query('q', ''));
         $status = $request->query('status');
@@ -41,6 +48,7 @@ class IncidentController extends Controller
 
     public function create()
     {
+        // policy->create() dipanggil otomatis oleh authorizeResource
         $incident = new Incident();
         return view('admin.hse.incidents.create', compact('incident'));
     }
@@ -50,31 +58,40 @@ class IncidentController extends Controller
         $data = $request->validated();
         $data['site_id'] = $data['site_id'] ?? $this->currentSiteId();
         $data['code']    = $data['code'] ?? $this->generateCode('INC');
+
         $incident = Incident::create($data);
 
-        return redirect()->route('admin.hse.incidents.edit', $incident)
+        return redirect()
+            ->route('admin.hse.incidents.edit', $incident)
             ->with('success', 'Incident created.');
     }
 
     public function edit(Incident $incident)
     {
+        // policy->view() sudah dipanggil otomatis untuk route model
         return view('admin.hse.incidents.edit', compact('incident'));
     }
 
     public function update(UpdateIncidentRequest $request, Incident $incident)
     {
+        // policy->update() otomatis
         $incident->update($request->validated());
         return back()->with('success', 'Incident updated.');
     }
 
     public function destroy(Incident $incident)
     {
+        // policy->delete() otomatis
         $incident->delete();
         return redirect()->route('admin.hse.incidents.index')->with('success', 'Incident deleted.');
     }
 
     /** Helpers */
-    protected function currentSiteId(): ?string { return session('site_id'); }
+    protected function currentSiteId(): ?string
+    {
+        return session('site_id');
+    }
+
     protected function generateCode(string $prefix): string
     {
         return sprintf('%s-%s-%s', $prefix, now()->format('Ymd'), Str::upper(Str::random(6)));

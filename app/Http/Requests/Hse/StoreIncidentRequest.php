@@ -3,26 +3,29 @@
 namespace App\Http\Requests\Hse;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Incident;
 
 class StoreIncidentRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        // izinkan jika user boleh create Incident (policy)
+        return $this->user()?->can('create', Incident::class) ?? false;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'site_id'     => ['nullable','uuid','exists:sites,id'],
+            'occurred_at' => ['required','date'],
+            'location'    => ['nullable','string','max:255'],
+            'category'    => ['nullable','string','max:50'],
+            'severity'    => ['nullable','string','max:30'],
+            'description' => ['nullable','string'],
+            'status'      => ['nullable','in:reported,under_investigation,action_in_progress,closed'],
+            'code'        => ['nullable','string','max:40','unique:incidents,code'],
+            'tags'        => ['nullable','array'],
+            'meta'        => ['nullable','array'],
         ];
     }
 }
