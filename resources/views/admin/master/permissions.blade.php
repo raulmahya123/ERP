@@ -1,12 +1,12 @@
-{{-- resources/views/admin/master/permissions.blade.php --}}
-@extends('layouts.app')
+
+{{-- resources/views/admin/master/permissions.blade.php --}}@extends('layouts.app')
 
 @section('content')
 <style>[x-cloak]{display:none}</style>
 
 <div x-data="permTable()" class="max-w-7xl mx-auto p-6 space-y-6">
 
-  {{-- HERO / TITLE (serumpun hijau-emas-biru) --}}
+  {{-- HERO / TITLE --}}
   <div class="relative overflow-hidden rounded-3xl shadow-xl ring-1 ring-emerald-900/10">
     <div class="absolute inset-0 bg-[radial-gradient(120%_100%_at_0%_0%,rgba(255,255,255,.35)_0%,transparent_50%)]"></div>
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
@@ -37,10 +37,26 @@
     </div>
   </div>
 
+  {{-- FLASH / VALIDATION --}}
+  @if (session('status'))
+    <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200">{{ session('status') }}</div>
+  @endif
+  @if ($errors->any())
+    <div class="p-3 rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200">
+      <div class="font-semibold mb-1">Gagal menyimpan:</div>
+      <ul class="list-disc list-inside space-y-0.5 text-sm">
+        @foreach ($errors->all() as $e)
+          <li>{{ $e }}</li>
+        @endforeach
+      </ul>
+    </div>
+  @endif
+
   {{-- FORM --}}
   <form method="POST" action="{{ route('admin.master.permissions.update', ['entity'=>$entity,'record'=>$record->id]) }}"
         class="space-y-4">
     @csrf
+    @method('PUT') {{-- konsisten dengan route update --}}
 
     <div class="bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
       {{-- TABLE HEADER / CONTROLS --}}
@@ -101,6 +117,7 @@
 
                 @foreach (['can_view'=>'view','can_download'=>'download','can_update'=>'update','can_delete'=>'delete'] as $col => $label)
                   <td class="px-4 py-3 text-center">
+                    {{-- default 0 saat unchecked --}}
                     <input type="hidden" name="permissions[{{ $loop->parent->index }}][{{ $col }}]" value="0">
                     <input
                       x-ref="{{ $col }}_{{ $loop->parent->index }}"
@@ -147,7 +164,6 @@
 function permTable(){
   return {
     checkAll(col, val){
-      // select all checkboxes whose x-ref starts with `${col}_`
       document.querySelectorAll(`[x-ref^="${col}_"]`).forEach(cb => { cb.checked = !!val; });
     },
     uncheckAll(){

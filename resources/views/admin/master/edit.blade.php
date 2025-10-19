@@ -34,7 +34,7 @@
   </div>
 </div>
 
-<div class="max-w-3xl mx-auto p-0 sm:p-2">
+<div class="max-w-4xl mx-auto p-0 sm:p-2">
   {{-- FLASH --}}
   @if (session('status'))
     <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
@@ -54,8 +54,18 @@
 
   {{-- FORM CARD --}}
   <div class="bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
-    <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50">
+    <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 flex items-center justify-between">
       <h2 class="font-semibold text-slate-800">Form: {{ Str::headline($entity) }}</h2>
+
+      {{-- Meta ringkas --}}
+      <div class="hidden sm:flex items-center gap-4 text-xs text-slate-600">
+        <div class="px-2 py-1 rounded-lg bg-white ring-1 ring-slate-200">
+          <span class="font-semibold">ID:</span> <span class="font-mono">{{ $record->id }}</span>
+        </div>
+        <div class="px-2 py-1 rounded-lg bg-white ring-1 ring-slate-200">
+          <span class="font-semibold">Updated:</span> {{ $record->updated_at ? \Illuminate\Support\Carbon::parse($record->updated_at)->format('Y-m-d H:i') : '—' }}
+        </div>
+      </div>
     </div>
 
     <div class="p-6">
@@ -124,10 +134,22 @@
 
         {{-- Footer Actions --}}
         <div class="flex items-center justify-between pt-1">
-          <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$record->id]) }}"
-             class="px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 ring-1 ring-amber-300/40">
-            Permissions
-          </a>
+          @if (Route::has('admin.master.permissions'))
+            @can('manage-master-data')
+              <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$record->id]) }}"
+                 class="px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 ring-1 ring-amber-300/40">
+                Permissions
+              </a>
+            @else
+              @if (auth()->check() && method_exists(auth()->user(), 'hasRole') && auth()->user()->hasRole('gm'))
+                <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$record->id]) }}"
+                   class="px-4 py-2 rounded-xl bg-amber-400 text-slate-900 font-semibold hover:bg-amber-300 ring-1 ring-amber-300/40">
+                  Permissions
+                </a>
+              @endif
+            @endcan
+          @endif
+
           <div class="flex gap-2">
             <a href="{{ route('admin.master.index', $entity) }}"
                class="px-4 py-2 rounded-xl bg-white ring-1 ring-slate-200 text-slate-700 hover:bg-slate-50">

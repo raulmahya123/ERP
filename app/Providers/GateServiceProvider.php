@@ -20,18 +20,23 @@ class GateServiceProvider extends ServiceProvider
         Gate::define('manage-site-config', fn($user) => $this->isGm($user));
         Gate::define('view-all-sites',     fn($user) => $this->isGm($user));
 
-        Gate::define('master.access', function ($user, string $entity): bool {
+        // 🔧 Tidak lagi type-hint "string $entity"
+        Gate::define('master.access', function ($user, $entity = null): bool {
             if ($this->isGm($user)) return true;
 
-            $entity = strtolower(preg_replace('/[^a-z0-9_]/i', '', $entity) ?: '');
+            // Normalisasi input entity (null/string/FQCN/object/array)
+            $entityKey = $this->normalizeEntity($entity);
+
+            // Jika entity kosong dan bukan GM → tolak dengan aman
+            if ($entityKey === '') return false;
 
             if ($this->hasPerm($user, [
                 'master.manage',
-                "master.{$entity}.manage",
-                "master.{$entity}.view",
+                "master.{$entityKey}.manage",
+                "master.{$entityKey}.view",
             ])) return true;
 
-            return $this->hasCustomMatrix($user->id, $entity);
+            return $this->hasCustomMatrix($user->id, $entityKey);
         });
 
         Gate::define('assets.view', function ($user): bool {
@@ -125,5 +130,37 @@ class GateServiceProvider extends ServiceProvider
         }
 
         return false;
+    }
+
+    /**
+     * Normalisasi berbagai bentuk $entity jadi key huruf kecil tanpa spasi
+     * Contoh:
+     *  - 'Division'          => 'division'
+     *  - 'App\Models\Site'   => 'site'
+     *  - new Location()      => 'location'
+     *  - ['entity' => 'Role']=> 'role'
+     *  - null / ''           => ''
+     */
+    private function normalizeEntity($entity): string
+    {
+        // array bentuk ['entity' => '...'] atau ['key' => '...']
+        if (is_array($entity)) {
+            $entity = $entity['entity'] ?? $entity['key'] ?? reset($entity) ?? null;
+        }
+
+        // object model → class_basename
+        if (is_object($entity)) {
+            $entity = class_basename($entity);
+        }
+
+        // string FQCN / nama manusiawi
+        $raw = is_string($entity) ? $entity : '';
+
+        // ganti pemisah ke underscore, buang karakter aneh, ke lower
+        $s = str_replace(['\\','/','.','-',' '], '_', $raw);
+        $s = preg_replace('/[^a-zA-Z0-9_]/', '', $s ?? '');
+        $s = strtolower($s ?? '');
+
+        return $s ?: '';
     }
 }

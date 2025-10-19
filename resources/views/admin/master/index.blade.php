@@ -8,7 +8,7 @@
 
 <div class="max-w-7xl mx-auto space-y-6">
 
-  {{-- HERO / PAGE TITLE (serumpun hijau-emas-biru) --}}
+  {{-- HERO / PAGE TITLE --}}
   <div class="relative overflow-hidden rounded-3xl shadow-xl ring-1 ring-emerald-900/10">
     <div class="absolute inset-0 bg-[radial-gradient(120%_100%_at_0%_0%,rgba(255,255,255,.35)_0%,transparent_50%)]"></div>
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
@@ -44,7 +44,7 @@
     </div>
   </div>
 
-  {{-- FLASH MESSAGES --}}
+  {{-- FLASH / ERRORS --}}
   @if (session('status'))
     <div class="px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
       {{ session('status') }}
@@ -59,18 +59,19 @@
     </div>
   @endif
 
-  {{-- TOOLBAR + TABLE WRAPPER --}}
+  {{-- TABLE WRAPPER --}}
   <div class="bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+
     {{-- TOOLBAR --}}
     <div class="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+
         {{-- Search --}}
         <form method="GET" class="w-full md:max-w-md">
           <label class="sr-only" for="q">Search</label>
           <div class="flex gap-2">
             <input id="q" type="text" name="q" value="{{ $search }}" placeholder="Cari name/code/description..."
-                   class="w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600"
-            >
+                   class="w-full rounded-xl border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
             <button class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-sm font-semibold shadow-sm hover:from-emerald-700 hover:to-teal-800 transition">
               Search
             </button>
@@ -80,17 +81,19 @@
         {{-- Tools --}}
         <div class="flex flex-wrap items-center gap-2">
           @if (Route::has('admin.master.import.template'))
-            <a href="{{ route('admin.master.import.template', $entity) }}"
+            <a href="{{ route('admin.master.import.template', $entity) }}{{ $search ? ('?q='.urlencode($search)) : '' }}"
                class="px-3 py-2 rounded-xl text-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">
               Template
             </a>
           @endif
+
           @if (Route::has('admin.master.export'))
-            <a href="{{ route('admin.master.export', $entity) }}"
+            <a href="{{ route('admin.master.export', $entity) }}{{ $search ? ('?q='.urlencode($search)) : '' }}"
                class="px-3 py-2 rounded-xl text-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">
               Export CSV
             </a>
           @endif
+
           @if (Route::has('admin.master.import'))
             <form method="POST" action="{{ route('admin.master.import', $entity) }}" enctype="multipart/form-data" class="flex items-center">
               @csrf
@@ -125,6 +128,7 @@
                   {{ $r->name }}
                 </a>
               </td>
+
               <td class="px-4 py-3 text-slate-700">
                 @if($r->code)
                   <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs ring-1 ring-sky-200 bg-sky-50 text-sky-800">
@@ -134,14 +138,16 @@
                   —
                 @endif
               </td>
+
               <td class="px-4 py-3 text-slate-600">
                 <span title="{{ $r->description }}">{{ Str::limit((string) $r->description, 120) ?: '—' }}</span>
               </td>
+
               <td class="px-4 py-3 text-slate-500">
                 {{ $r->updated_at ? \Illuminate\Support\Carbon::parse($r->updated_at)->format('Y-m-d H:i') : '—' }}
               </td>
 
-              {{-- ACTIONS DROPDOWN --}}
+              {{-- ACTIONS --}}
               <td class="px-4 py-3 text-center">
                 <div x-data="{open:false}" class="relative inline-block">
                   <button @click="open=!open" @keydown.escape.window="open=false" type="button"
@@ -153,7 +159,6 @@
                     </svg>
                   </button>
 
-                  {{-- DROPDOWN MENU --}}
                   <div x-cloak x-show="open" @click.outside="open=false" x-transition.origin.top.right
                        class="absolute right-0 mt-2 w-44 rounded-xl bg-white shadow-lg ring-1 ring-slate-200 overflow-hidden z-20">
                     <a href="{{ route('admin.master.show', ['entity'=>$entity,'record'=>$r->id]) }}"
@@ -163,6 +168,7 @@
                       </svg>
                       Show
                     </a>
+
                     <a href="{{ route('admin.master.edit', ['entity'=>$entity,'record'=>$r->id]) }}"
                        class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-sky-50/70">
                       <svg class="h-4 w-4 text-sky-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -170,15 +176,30 @@
                       </svg>
                       Edit
                     </a>
+
                     @if (Route::has('admin.master.permissions'))
-                      <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$r->id]) }}"
-                         class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-amber-50/70">
-                        <svg class="h-4 w-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c1.657 0 3-1.567 3-3.5S13.657 4 12 4 9 5.567 9 7.5 10.343 11 12 11zm0 2c-2.761 0-5 2.015-5 4.5V20h10v-2.5c0-2.485-2.239-4.5-5-4.5z"/>
-                        </svg>
-                        Permissions
-                      </a>
+                      @can('manage-master-data')
+                        <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$r->id]) }}"
+                           class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-amber-50/70">
+                          <svg class="h-4 w-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c1.657 0 3-1.567 3-3.5S13.657 4 12 4 9 5.567 9 7.5 10.343 11 12 11zm0 2c-2.761 0-5 2.015-5 4.5V20h10v-2.5c0-2.485-2.239-4.5-5-4.5z"/>
+                          </svg>
+                          Permissions
+                        </a>
+                      @else
+                        {{-- fallback: tetap tampilkan jika GM (opsional, tergantung kebijakan) --}}
+                        @if (auth()->check() && method_exists(auth()->user(), 'hasRole') && auth()->user()->hasRole('gm'))
+                          <a href="{{ route('admin.master.permissions', ['entity'=>$entity,'record'=>$r->id]) }}"
+                             class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-amber-50/70">
+                            <svg class="h-4 w-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c1.657 0 3-1.567 3-3.5S13.657 4 12 4 9 5.567 9 7.5 10.343 11 12 11zm0 2c-2.761 0-5 2.015-5 4.5V20h10v-2.5c0-2.485-2.239-4.5-5-4.5z"/>
+                            </svg>
+                            Permissions
+                          </a>
+                        @endif
+                      @endcan
                     @endif
+
                     <form method="POST" action="{{ route('admin.master.destroy', ['entity'=>$entity,'record'=>$r->id]) }}"
                           onsubmit="return confirm('Hapus data ini?')" class="border-t border-slate-100">
                       @csrf @method('DELETE')
@@ -217,9 +238,9 @@
     </div>
   </div>
 
-  {{-- PAGINATION (seragam) --}}
+  {{-- PAGINATION --}}
   <div class="mt-4">
-    {{ $records->onEachSide(1)->links() }}
+    {{ $records->onEachSide(1)->withQueryString()->links() }}
   </div>
 </div>
 @endsection
