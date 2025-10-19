@@ -48,6 +48,9 @@ use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\AttendanceController as AttendanceTapController; // self-service tap
 use App\Http\Controllers\PayroalProfileController;                         // self-service payroll profile
 
+use App\Http\Controllers\Scm\{TripController, HourMeterController, FuelLogController, WbTicketController, BreakdownController};
+
+
 use App\Models\PayroalHistory;
 
 /* --------------------------------------------------------------------------
@@ -73,7 +76,7 @@ Route::middleware(['auth'])->group(function () {
     // Profile
     Route::get('/profile',   [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile',[ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Attendance (self-service)
     Route::get('/attendance/tap',        [AttendanceTapController::class, 'tapPage'])->name('attendance.tap');
@@ -108,12 +111,12 @@ Route::middleware(['auth'])->group(function () {
 |-------------------------------------------------------------------------- */
 Route::middleware(['auth'])->group(function () {
     Route::middleware('hasrole:gm')->get('/gm',          [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
-    Route::middleware('hasrole:manager')->get('/manager',[RoleDashboardController::class, 'manager'])->name('manager.dashboard');
-    Route::middleware('hasrole:foreman')->get('/foreman',[RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
-    Route::middleware('hasrole:operator')->get('/operator',[RoleDashboardController::class, 'operator'])->name('operator.dashboard');
+    Route::middleware('hasrole:manager')->get('/manager', [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
+    Route::middleware('hasrole:foreman')->get('/foreman', [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
+    Route::middleware('hasrole:operator')->get('/operator', [RoleDashboardController::class, 'operator'])->name('operator.dashboard');
     Route::middleware('hasrole:hse_officer')->get('/hse', [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
     Route::middleware('hasrole:hr')->get('/hr',          [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
-    Route::middleware('hasrole:finance')->get('/finance',[RoleDashboardController::class, 'finance'])->name('finance.dashboard');
+    Route::middleware('hasrole:finance')->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
 });
 
 /* --------------------------------------------------------------------------
@@ -136,7 +139,7 @@ Route::prefix('admin/master-entities')->as('admin.master_entities.')->middleware
     Route::get('/create',                [MasterEntityController::class, 'create'])->name('create');
     Route::post('/',                     [MasterEntityController::class, 'store'])->name('store');
     Route::get('/{master_entity}/edit',  [MasterEntityController::class, 'edit'])->name('edit');
-    Route::match(['post','put','patch'],'/{master_entity}', [MasterEntityController::class, 'update'])->name('update');
+    Route::match(['post', 'put', 'patch'], '/{master_entity}', [MasterEntityController::class, 'update'])->name('update');
     Route::delete('/{master_entity}',    [MasterEntityController::class, 'destroy'])->name('destroy');
 });
 
@@ -188,14 +191,14 @@ Route::prefix('admin/master')->as('admin.master.')->group(function () {
             ->group(function () {
                 Route::get('/',                    [MasterDataController::class, 'show'])->name('show');
                 Route::get('edit',                 [MasterDataController::class, 'edit'])->name('edit');
-                Route::match(['post','put','patch'],'/', [MasterDataController::class, 'update'])->name('update');
+                Route::match(['post', 'put', 'patch'], '/', [MasterDataController::class, 'update'])->name('update');
                 Route::delete('/',                 [MasterDataController::class, 'destroy'])->name('destroy');
 
                 Route::post('duplicate',           [MasterDataController::class, 'duplicate'])->name('duplicate');
 
                 // per-record permissions
                 Route::get('permissions',                [MasterDataController::class, 'permissions'])->name('permissions');
-                Route::match(['post','put','patch'],'permissions', [MasterDataController::class, 'permissionsUpdate'])->name('permissions.update');
+                Route::match(['post', 'put', 'patch'], 'permissions', [MasterDataController::class, 'permissionsUpdate'])->name('permissions.update');
             });
     });
 });
@@ -208,7 +211,7 @@ Route::prefix('admin/commodities')->as('admin.commodities.')->middleware(['auth'
     Route::get('/create',             [CommodityController::class, 'create'])->name('create');
     Route::post('/',                  [CommodityController::class, 'store'])->name('store');
     Route::get('/{commodity}/edit',   [CommodityController::class, 'edit'])->name('edit');
-    Route::match(['post','put','patch'],'/{commodity}', [CommodityController::class, 'update'])->name('update');
+    Route::match(['post', 'put', 'patch'], '/{commodity}', [CommodityController::class, 'update'])->name('update');
     Route::delete('/{commodity}',     [CommodityController::class, 'destroy'])->name('destroy');
 });
 
@@ -255,7 +258,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'hasrole:gm|hr', 'site
     Route::prefix('hr-entries/types')->name('hr-entries.types.')->middleware('can:manage,App\\Models\\HrDailyEntry')->group(function () {
         Route::get('/',  [HrDailyEntryController::class, 'typesIndex'])->name('index');
         Route::post('/', [HrDailyEntryController::class, 'typesStore'])->name('store');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])->name('update')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])->name('update')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'typesDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
         Route::post('/reorder', [HrDailyEntryController::class, 'typesReorder'])->name('reorder');
     });
@@ -265,7 +268,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'hasrole:gm|hr', 'site
         Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
         Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaFormConfigManage'])->name('manage')->where('type', '[A-Za-z0-9_\-]+');
         Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])->name('show')->where('type', '^(?!manage$)[A-Za-z0-9_\-]+');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'metaFormConfigDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
     });
 
@@ -274,7 +277,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'hasrole:gm|hr', 'site
         Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');
         Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaSchemasManage'])->name('manage')->where('type', '[A-Za-z0-9_\-]+');
         Route::get('/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])->name('show')->where('type', '^(?!manage$)[A-Za-z0-9_\-]+');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'metaSchemasDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
     });
 
@@ -282,7 +285,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'hasrole:gm|hr', 'site
     Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')->middleware('can:manage,App\\Models\\HrDailyEntry')->group(function () {
         Route::get('/', [HrDailyEntryController::class, 'approvalSchemasIndex'])->name('index');
         Route::get('/{type}', [HrDailyEntryController::class, 'approvalSchemasShow'])->name('show')->where('type', '[A-Za-z0-9_\-]+');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'approvalSchemasDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
     });
 
@@ -319,7 +322,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'hasrole:gm|hr', 'site
 Route::prefix('hr-entries/print-templates')->as('hr-entries.print-templates.')->middleware('can:manage,App\\Models\\HrDailyEntry')->group(function () {
     Route::get('/',        [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
     Route::get('/{type}',  [HrDailyEntryController::class, 'printTemplatesShow'])->where('type', '[A-Za-z0-9_\-]+')->name('show');
-    Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])->where('type', '[A-Za-z0-9_\-]+')->name('upsert');
+    Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])->where('type', '[A-Za-z0-9_\-]+')->name('upsert');
     Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])->where('type', '[A-Za-z0-9_\-]+')->name('destroy');
 });
 
@@ -338,7 +341,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'hasrole:gm|hr'])->gro
 // Self-service payroll profile (authenticated)
 Route::middleware(['auth'])->group(function () {
     Route::get('/me/payroal',               [PayroalProfileController::class, 'edit'])->name('me.payroal.edit');
-    Route::match(['put','patch'], '/me/payroal', [PayroalProfileController::class, 'update'])->name('me.payroal.update');
+    Route::match(['put', 'patch'], '/me/payroal', [PayroalProfileController::class, 'update'])->name('me.payroal.update');
     Route::post('/me/payroal/upload',       [PayroalProfileController::class, 'upload'])->name('me.payroal.upload');
     Route::get('/me/payroal/download.xls',  [PayroalProfileController::class, 'downloadXlsx'])->name('me.payroal.download.xls');
 });
@@ -412,6 +415,64 @@ Route::prefix('admin/payroal/history')->as('admin.payroal_history.')->middleware
     Route::post('/send-bulk',     [PayroalHistoryController::class, 'sendBulk'])->name('sendBulk');
 });
 
+
+Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
+    ->prefix('scm')->name('scm.')
+    ->group(function () {
+        Route::resource('trips', TripController::class);
+        Route::post('trips/{trip}/submit',   [TripController::class, 'submit'])->name('trips.submit');
+        Route::post('trips/{trip}/validate', [TripController::class, 'validateData'])->name('trips.validate');
+        Route::post('trips/{trip}/approve',  [TripController::class, 'approve'])->name('trips.approve');
+
+        Route::resource('hour-meters', HourMeterController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['hour-meters' => 'hour_meter'])
+            ->names([
+                'index'   => 'hour_meters.index',
+                'create'  => 'hour_meters.create',
+                'store'   => 'hour_meters.store',
+                'edit'    => 'hour_meters.edit',
+                'update'  => 'hour_meters.update',
+                'destroy' => 'hour_meters.destroy',
+            ]);
+        Route::resource('fuel-logs', FuelLogController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['fuel-logs' => 'fuel_log'])
+            ->names([
+                'index'   => 'fuel_logs.index',
+                'create'  => 'fuel_logs.create',
+                'store'   => 'fuel_logs.store',
+                'edit'    => 'fuel_logs.edit',
+                'update'  => 'fuel_logs.update',
+                'destroy' => 'fuel_logs.destroy',
+            ]);
+
+        Route::resource('wb-tickets', WbTicketController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['wb-tickets' => 'wb_ticket'])
+            ->names([
+                'index'   => 'wb_tickets.index',
+                'create'  => 'wb_tickets.create',
+                'store'   => 'wb_tickets.store',
+                'edit'    => 'wb_tickets.edit',
+                'update'  => 'wb_tickets.update',
+                'destroy' => 'wb_tickets.destroy',
+            ]);
+    });
+
+    Route::resource('breakdowns', BreakdownController::class)
+    ->only(['index','create','store','edit','update','destroy'])
+    ->parameters(['breakdowns' => 'breakdown'])
+    ->names([
+        'index'   => 'breakdowns.index',
+        'create'  => 'breakdowns.create',
+        'store'   => 'breakdowns.store',
+        'edit'    => 'breakdowns.edit',
+        'update'  => 'breakdowns.update',
+        'destroy' => 'breakdowns.destroy',
+    ]);
+
+
 /* --------------------------------------------------------------------------
 | Payslip public token (no login)
 |-------------------------------------------------------------------------- */
@@ -419,8 +480,8 @@ Route::get('/me/payslip/{token}', function (string $token) {
     $h = PayroalHistory::where('view_token', $token)->firstOrFail();
     return view('my.payslip', ['h' => $h]); // Public read-only view
 })->where('token', '[A-Za-z0-9_\-]{24,200}')
-  ->middleware(['throttle:60,1', 'cache.headers:private;max_age=60;etag'])
-  ->name('my.payslip.view');
+    ->middleware(['throttle:60,1', 'cache.headers:private;max_age=60;etag'])
+    ->name('my.payslip.view');
 
 /* --------------------------------------------------------------------------
 | Dev-only SMTP test endpoint
