@@ -2,12 +2,19 @@
 @php
   /** @var \App\Models\Incident $incident */
   use Illuminate\Support\Str;
-  // Format default datetime-local (respect app timezone)
-  $occurVal = optional(
-      $incident->occurred_at instanceof \Illuminate\Support\Carbon
-        ? $incident->occurred_at->timezone(config('app.timezone','Asia/Jakarta'))
-        : (\Illuminate\Support\Carbon::parse($incident->occurred_at ?? null)->timezone(config('app.timezone','Asia/Jakarta')) ?? null)
-    )->format('Y-m-d\TH:i');
+  use Illuminate\Support\Carbon;
+
+  // Normalisasi occurred_at -> datetime-local sesuai timezone app
+  $tz = config('app.timezone', 'Asia/Jakarta');
+  $occurVal = '';
+  try {
+      $occ = $incident->occurred_at instanceof \Illuminate\Support\Carbon
+          ? $incident->occurred_at
+          : ($incident->occurred_at ? Carbon::parse($incident->occurred_at) : null);
+      if ($occ) { $occurVal = $occ->timezone($tz)->format('Y-m-d\TH:i'); }
+  } catch (\Throwable $e) { $occurVal = ''; }
+
+  $statusOld = old('status', $incident->status ?? 'reported');
 @endphp
 
 @extends('layouts.app')
@@ -15,9 +22,54 @@
 @section('title','Edit Incident '.$incident->code)
 
 @section('content')
-<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto" x-data="editIncidentForm()">
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto"
+     x-data="{
+        occurredAt: @js($occurVal),
+        location:   @js(old('location', $incident->location)),
+        category:   @js(old('category', $incident->category)),
+        severity:   @js(old('severity', $incident->severity)),
+        description:@js(old('description', $incident->description)),
+        status:     @js($statusOld),
+        submitting: false,
 
-  {{-- HEADER (serumpun hijau–emas–biru, konsisten HSE) --}}
+        catOptions: ['Near Miss','Property Damage','Injury','Environmental','Unsafe Act','Unsafe Condition'],
+        sevOptions: ['Minor','Moderate','Major','Critical'],
+
+        get dateValid(){
+          if(!this.occurredAt) return false;
+          const d = new Date(this.occurredAt);
+          return !Number.isNaN(d.getTime());
+        },
+        get readyToTry(){ return this.dateValid; },
+
+        toggleClosed(){ this.status = this.status === 'closed' ? 'reported' : 'closed'; },
+
+        confirmSubmit(){
+          const form = document.getElementById('incident-edit-form');
+          if (!this.readyToTry) {
+            if (!this.occurredAt) { alert('Tanggal kejadian wajib diisi.'); return; }
+            if (!this.dateValid)  { alert('Tanggal kejadian tidak valid.'); return; }
+          }
+          if (typeof Swal === 'undefined' || !Swal?.fire) { this.submitting = true; form.submit(); return; }
+          Swal.fire({
+            title: 'Simpan perubahan?',
+            text: 'Perubahan akan memperbarui data incident.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#0f766e',
+            cancelButtonColor: '#0284c7',
+            confirmButtonText: 'Ya, update',
+            cancelButtonText: 'Batal',
+            customClass: {
+              popup: 'rounded-2xl',
+              confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+              cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+            }
+          }).then((res)=>{ if (res.isConfirmed) { this.submitting = true; form.submit(); }});
+        }
+     }">
+
+  {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
@@ -26,7 +78,7 @@
     <div class="relative px-6 sm:px-10 py-6 text-white">
       <div class="flex items-center justify-between">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur" aria-hidden="true">
             <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
@@ -35,12 +87,13 @@
             <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Edit Incident — {{ $incident->code ?? $incident->id }}
             </h1>
-            <p class="text-white/90 text-sm mt-1">Perbarui data insiden: waktu, lokasi, klasifikasi, deskripsi, dan status.</p>
+            <p class="text-white/90 text-sm mt-1">Perbarui waktu, lokasi, klasifikasi, deskripsi, dan status.</p>
           </div>
         </div>
 
         <a href="{{ route('admin.hse.incidents.index') }}"
-           class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition"
+           aria-label="Back to list">
           ← Kembali
         </a>
       </div>
@@ -72,6 +125,7 @@
       </div>
     @endif
 
+    @can('update', $incident)
     <form id="incident-edit-form"
           method="POST"
           action="{{ route('admin.hse.incidents.update', $incident) }}"
@@ -80,7 +134,21 @@
       @csrf
       @method('PUT')
 
-      <div class="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-5 space-y-4">
+      <div class="rounded-2xl ring-1 ring-slate-200 p-4 sm:p-5 space-y-4">
+
+        {{-- Code (immutable) --}}
+        <div class="grid grid-cols-1 gap-4">
+          <label class="block">
+            <span class="text-xs font-semibold text-slate-600">Code</span>
+            <input
+              type="text"
+              value="{{ $incident->code }}"
+              disabled
+              class="mt-1 w-full rounded-lg border border-slate-300 bg-slate-50 text-slate-600 px-3 py-2 ring-1 ring-slate-200"
+              aria-readonly="true" />
+            {{-- Tidak ada name="code" supaya tidak terkirim (immutable) --}}
+          </label>
+        </div>
 
         {{-- Row 1: Occurred At + Location --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -90,11 +158,11 @@
               type="datetime-local"
               name="occurred_at"
               x-model="occurredAt"
-              value="{{ old('occurred_at', $occurVal) }}"
               required
+              autocomplete="off"
               class="mt-1 w-full rounded-lg border @error('occurred_at') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             <p class="text-[11px] mt-1" :class="dateValid ? 'text-slate-500' : 'text-rose-600'">
-              <span x-show="!occurredAt">Isi tanggal & jam kejadian.</span>
+              <span x-show="!occurredAt">Isi tanggal &amp; jam kejadian.</span>
               <span x-show="occurredAt && !dateValid">Tanggal tidak valid.</span>
             </p>
             @error('occurred_at') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
@@ -106,14 +174,15 @@
               type="text"
               name="location"
               x-model.trim="location"
-              value="{{ old('location', $incident->location) }}"
               placeholder="Pit A / Workshop / Jetty…"
+              maxlength="120"
+              autocomplete="off"
               class="mt-1 w-full rounded-lg border @error('location') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             @error('location') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
           </label>
         </div>
 
-        {{-- Row 2: Category + Severity (dengan quick-pills) --}}
+        {{-- Row 2: Category + Severity --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block">
             <span class="text-xs font-semibold text-slate-600">Category</span>
@@ -130,8 +199,9 @@
               type="text"
               name="category"
               x-model.trim="category"
-              value="{{ old('category', $incident->category) }}"
               placeholder="Near Miss / Property Damage / Injury / Environmental…"
+              maxlength="80"
+              autocomplete="off"
               class="mt-2 w-full rounded-lg border @error('category') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             @error('category') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
           </label>
@@ -151,8 +221,9 @@
               type="text"
               name="severity"
               x-model.trim="severity"
-              value="{{ old('severity', $incident->severity) }}"
               placeholder="Minor / Moderate / Major / Critical…"
+              maxlength="40"
+              autocomplete="off"
               class="mt-2 w-full rounded-lg border @error('severity') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             @error('severity') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
           </label>
@@ -166,6 +237,7 @@
             x-model.trim="description"
             rows="4"
             placeholder="Ringkasan kronologi, kerusakan, dan dampak."
+            maxlength="2000"
             class="mt-1 w-full rounded-lg border @error('description') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2">{{ old('description', $incident->description) }}</textarea>
           @error('description') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
         </label>
@@ -174,7 +246,6 @@
         <label class="block">
           <span class="text-xs font-semibold text-slate-600">Status</span>
           <div class="mt-1 flex flex-wrap gap-2">
-            @php $statusOld = old('status', $incident->status ?? 'reported'); @endphp
             @foreach (['reported','under_investigation','action_in_progress','closed'] as $st)
               <button type="button"
                       @click="status='{{ $st }}'"
@@ -205,7 +276,6 @@
         </a>
 
         <div class="flex items-center gap-2">
-          {{-- Optional: Quick close/open toggles --}}
           <button type="button"
                   @click="toggleClosed()"
                   class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm">
@@ -224,70 +294,20 @@
         </div>
       </div>
     </form>
+    @else
+      {{-- Read-only jika tidak boleh update --}}
+      <div class="rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200 p-4 mb-4 text-sm">
+        Anda tidak memiliki izin untuk mengubah incident ini.
+      </div>
+      <a href="{{ route('admin.hse.incidents.index') }}"
+         class="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50">
+        ← Back
+      </a>
+    @endcan
   </div>
 </div>
 @endsection
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-function editIncidentForm(){
-  return {
-    // hydrate dari server (old() fallback)
-    occurredAt: @json(old('occurred_at', $occurVal)),
-    location: @json(old('location', $incident->location)),
-    category: @json(old('category', $incident->category)),
-    severity: @json(old('severity', $incident->severity)),
-    description: @json(old('description', $incident->description)),
-    status: @json(old('status', $incident->status ?? 'reported')),
-    submitting: false,
-
-    catOptions: ['Near Miss','Property Damage','Injury','Environmental','Unsafe Act','Unsafe Condition'],
-    sevOptions: ['Minor','Moderate','Major','Critical'],
-
-    get dateValid(){
-      if(!this.occurredAt) return false;
-      const d = new Date(this.occurredAt);
-      return !isNaN(d.getTime());
-    },
-    get readyToTry(){
-      // Minimal UI check; backend tetap validasi lengkap
-      return this.dateValid;
-    },
-
-    toggleClosed(){
-      this.status = this.status === 'closed' ? 'reported' : 'closed';
-    },
-
-    confirmSubmit(){
-      const form = document.getElementById('incident-edit-form');
-
-      if (!this.readyToTry) {
-        if (!this.occurredAt) { alert('Tanggal kejadian wajib diisi.'); return; }
-        if (!this.dateValid)  { alert('Tanggal kejadian tidak valid.'); return; }
-      }
-
-      if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
-
-      Swal.fire({
-        title: 'Simpan perubahan?',
-        text: 'Perubahan akan memperbarui data incident.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#0f766e', // teal-700
-        cancelButtonColor: '#0284c7',  // sky-600
-        confirmButtonText: 'Ya, update',
-        cancelButtonText: 'Batal',
-        customClass: {
-          popup: 'rounded-2xl',
-          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
-        }
-      }).then((res)=>{
-        if (res.isConfirmed) { this.submitting = true; form.submit(); }
-      });
-    }
-  }
-}
-</script>
 @endpush
