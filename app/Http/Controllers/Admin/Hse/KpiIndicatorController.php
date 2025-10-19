@@ -53,7 +53,7 @@ class KpiIndicatorController extends Controller
     {
         $record = new KpiIndicator();
         $sites  = Site::orderBy('name')->get(['id', 'code', 'name']); // kalau mau pilih site manual
-        return view('admin.hse.kpis.create', compact('record', 'sites'));
+        return view('admin.hse.kpi_indicators.create', compact('record', 'sites'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -72,7 +72,7 @@ class KpiIndicatorController extends Controller
     {
         $record = $kpi;
         $sites  = Site::orderBy('name')->get(['id', 'code', 'name']);
-        return view('admin.hse.kpis.edit', compact('record', 'sites'));
+        return view('admin.hse.kpi_indicators.edit', compact('record', 'sites'));
     }
 
     public function update(Request $request, KpiIndicator $kpi): RedirectResponse

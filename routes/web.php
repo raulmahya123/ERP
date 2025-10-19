@@ -386,10 +386,12 @@ Route::prefix('admin/hse')->as('admin.hse.')->middleware(['auth', 'hasrole:gm|ma
     Route::post('hazards/{hazard}/mitigate', [HseHazardController::class, 'mitigate'])->whereUuid('hazard')->name('hazards.mitigate');
     Route::post('hazards/{hazard}/verify',   [HseHazardController::class, 'verify'])->whereUuid('hazard')->name('hazards.verify');
     Route::post('hazards/{hazard}/close',    [HseHazardController::class, 'close'])->whereUuid('hazard')->name('hazards.close');
+    Route::resource('environmental-samples', HseEnvSampleController::class)
+        ->parameters(['environmental-samples' => 'sample'])
+        ->names('environmental-samples');
 
-    // Environmental Samples
-    Route::resource('environmental-samples', HseEnvSampleController::class)->parameters(['environmental-samples' => 'sample'])->whereUuid(['sample']);
-
+    Route::patch('environmental-samples/{sample}/status', [HseEnvSampleController::class, 'updateStatus'])
+        ->name('environmental-samples.update-status');
     // Media (polymorphic)
     Route::post('media/{type}/{id}', [HseMediaController::class, 'store'])
         ->where(['type' => 'incidents|investigations|picas|hazards|environmental-samples', 'id' => '[0-9a-fA-F-]{36}'])

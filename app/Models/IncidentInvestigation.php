@@ -12,18 +12,27 @@ class IncidentInvestigation extends Model
     use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
-        'incident_id','lead_investigator_id','started_at','completed_at',
-        'method','findings_summary','root_cause','corrective_actions','status','meta',
+        'code',                                // ← tambahkan ini
+        'incident_id',
+        'lead_investigator_id',
+        'started_at',
+        'completed_at',
+        'method',
+        'findings_summary',
+        'root_cause',
+        'corrective_actions',
+        'status',
+        'meta',
     ];
 
     protected $casts = [
-        'started_at'  => 'datetime',
-        'completed_at'=> 'datetime',
-        'meta'        => 'array',
+        'started_at'   => 'datetime',
+        'completed_at' => 'datetime',
+        'meta'         => 'array',
     ];
 
     public $incrementing = false;
-    protected $keyType   = 'string';
+    protected $keyType = 'string';
 
     /** Relations */
     public function incident()         { return $this->belongsTo(Incident::class); }

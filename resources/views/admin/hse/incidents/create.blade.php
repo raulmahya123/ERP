@@ -1,14 +1,75 @@
 {{-- resources/views/admin/hse/incidents/create.blade.php --}}
+@php
+  use Illuminate\Support\Str;
+  use Illuminate\Support\Carbon;
+
+  // Default datetime-local (timezone aplikasi)
+  $tz = config('app.timezone','Asia/Jakarta');
+  try {
+    $occurDefault = old('occurred_at') ?: now($tz)->format('Y-m-d\TH:i');
+    // Validasi cepat format; fallback ke now() jika invalid
+    new DateTime($occurDefault);
+  } catch (\Throwable $e) {
+    $occurDefault = now($tz)->format('Y-m-d\TH:i');
+  }
+  $statusOld = old('status','reported');
+@endphp
+
 @extends('layouts.app')
 
 @section('title','Create Incident')
 
 @section('content')
-@php use Illuminate\Support\Str; @endphp
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden"
+     x-data="{
+       occurredAt: @js($occurDefault),
+       location:   @js(old('location','')),
+       category:   @js(old('category','')),
+       severity:   @js(old('severity','')),
+       description:@js(old('description','')),
+       status:     @js($statusOld ?: 'reported'),
+       submitting: false,
 
-<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden" x-data="createIncidentForm()">
+       // opsi cepat
+       catOptions: ['Near Miss','Property Damage','Injury','Environmental','Unsafe Act','Unsafe Condition'],
+       sevOptions: ['Minor','Moderate','Major','Critical'],
 
-  {{-- HEADER (serumpun hijau–emas–biru, konsisten HSE) --}}
+       // computed
+       get dateValid(){
+         if(!this.occurredAt) return false;
+         const d = new Date(this.occurredAt);
+         return !Number.isNaN(d.getTime());
+       },
+       get readyToTry(){ return this.dateValid; },
+
+       confirmSubmit(){
+         const form = document.getElementById('incident-form');
+         if (!this.readyToTry) {
+           if (!this.occurredAt) { alert('Tanggal kejadian wajib diisi.'); return; }
+           if (!this.dateValid)  { alert('Tanggal kejadian tidak valid.'); return; }
+         }
+         if (typeof Swal === 'undefined' || !Swal?.fire) {
+           this.submitting = true; form.submit(); return;
+         }
+         Swal.fire({
+           title: 'Simpan Incident?',
+           text: 'Pastikan data sudah benar.',
+           icon: 'question',
+           showCancelButton: true,
+           confirmButtonColor: '#059669',
+           cancelButtonColor: '#0284c7',
+           confirmButtonText: 'Ya, simpan',
+           cancelButtonText: 'Batal',
+           customClass: {
+             popup: 'rounded-2xl',
+             confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+             cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+           }
+         }).then((res)=>{ if (res.isConfirmed) { this.submitting = true; form.submit(); }});
+       }
+     }">
+
+  {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
@@ -17,19 +78,20 @@
     <div class="relative px-6 sm:px-10 py-6 text-white">
       <div class="flex items-center justify-between">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur" aria-hidden="true">
             <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
           </div>
           <div>
             <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">New Incident</h1>
-            <p class="text-white/90 text-sm mt-1">Catat insiden HSE: waktu kejadian, lokasi, klasifikasi, dan status.</p>
+            <p class="text-white/90 text-sm mt-1">Catat insiden HSE: waktu, lokasi, klasifikasi, dan status.</p>
           </div>
         </div>
 
         <a href="{{ route('admin.hse.incidents.index') }}"
-           class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition"
+           aria-label="Back to list">
           ← Kembali
         </a>
       </div>
@@ -49,6 +111,7 @@
       </div>
     @endif
 
+    @can('create', \App\Models\Incident::class)
     <form id="incident-form" method="POST" action="{{ route('admin.hse.incidents.store') }}" class="space-y-6" @submit.prevent="confirmSubmit">
       @csrf
 
@@ -62,8 +125,8 @@
               type="datetime-local"
               name="occurred_at"
               x-model="occurredAt"
-              value="{{ old('occurred_at') }}"
               required
+              autocomplete="off"
               class="mt-1 w-full rounded-lg border @error('occurred_at') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             <p class="text-[11px] mt-1" :class="dateValid ? 'text-slate-500' : 'text-rose-600'">
               <span x-show="!occurredAt">Isi tanggal & jam kejadian.</span>
@@ -78,8 +141,9 @@
               type="text"
               name="location"
               x-model.trim="location"
-              value="{{ old('location') }}"
               placeholder="Pit A / Workshop / Jetty…"
+              maxlength="120"
+              autocomplete="off"
               class="mt-1 w-full rounded-lg border @error('location') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             @error('location') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
           </label>
@@ -102,8 +166,9 @@
               type="text"
               name="category"
               x-model.trim="category"
-              value="{{ old('category') }}"
               placeholder="Near Miss / Property Damage / Injury / Environmental…"
+              maxlength="80"
+              autocomplete="off"
               class="mt-2 w-full rounded-lg border @error('category') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             @error('category') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
           </label>
@@ -123,8 +188,9 @@
               type="text"
               name="severity"
               x-model.trim="severity"
-              value="{{ old('severity') }}"
               placeholder="Minor / Moderate / Major / Critical…"
+              maxlength="40"
+              autocomplete="off"
               class="mt-2 w-full rounded-lg border @error('severity') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2" />
             @error('severity') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
           </label>
@@ -138,6 +204,7 @@
             x-model.trim="description"
             rows="4"
             placeholder="Ringkasan kronologi, kerusakan, dan dampak."
+            maxlength="2000"
             class="mt-1 w-full rounded-lg border @error('description') border-rose-300 focus:ring-rose-300 @else border-slate-300 focus:ring-emerald-300 @enderror px-3 py-2 ring-1 ring-slate-200 focus:ring-2">{{ old('description') }}</textarea>
           @error('description') <p class="text-[11px] text-rose-600 mt-1">{{ $message }}</p> @enderror
         </label>
@@ -146,7 +213,6 @@
         <label class="block">
           <span class="text-xs font-semibold text-slate-600">Status</span>
           <div class="mt-1 flex flex-wrap gap-2">
-            @php $statusOld = old('status','reported'); @endphp
             @foreach (['reported','under_investigation','action_in_progress','closed'] as $st)
               <button type="button"
                       @click="status='{{ $st }}'"
@@ -185,67 +251,19 @@
         </button>
       </div>
     </form>
+    @else
+      <div class="rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200 p-4 mb-4 text-sm">
+        Anda tidak memiliki izin untuk membuat incident.
+      </div>
+      <a href="{{ route('admin.hse.incidents.index') }}"
+         class="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50">
+        ← Kembali
+      </a>
+    @endcan
   </div>
 </div>
 @endsection
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-function createIncidentForm(){
-  return {
-    // hydrate dari old()
-    occurredAt: @json(old('occurred_at','')),
-    location: @json(old('location','')),
-    category: @json(old('category','')),
-    severity: @json(old('severity','')),
-    description: @json(old('description','')),
-    status: @json(old('status','reported')),
-    submitting: false,
-
-    // opsi cepat
-    catOptions: ['Near Miss','Property Damage','Injury','Environmental','Unsafe Act','Unsafe Condition'],
-    sevOptions: ['Minor','Moderate','Major','Critical'],
-
-    // computed
-    get dateValid(){
-      if(!this.occurredAt) return true;
-      const d = new Date(this.occurredAt);
-      return !isNaN(d.getTime());
-    },
-    get readyToTry(){
-      return !!this.occurredAt && this.dateValid; // minimal syarat UI (server tetap validasi lengkap)
-    },
-
-    confirmSubmit(){
-      const form = document.getElementById('incident-form');
-
-      if (!this.readyToTry) {
-        if (!this.occurredAt) { alert('Tanggal kejadian wajib diisi.'); return; }
-        if (!this.dateValid)  { alert('Tanggal kejadian tidak valid.'); return; }
-      }
-
-      if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
-
-      Swal.fire({
-        title: 'Simpan Incident?',
-        text: 'Pastikan data sudah benar.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#059669',
-        cancelButtonColor: '#0284c7',
-        confirmButtonText: 'Ya, simpan',
-        cancelButtonText: 'Batal',
-        customClass: {
-          popup: 'rounded-2xl',
-          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
-        }
-      }).then((res)=>{
-        if (res.isConfirmed) { this.submitting = true; form.submit(); }
-      });
-    }
-  }
-}
-</script>
 @endpush

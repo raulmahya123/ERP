@@ -1,20 +1,27 @@
 {{-- resources/views/admin/hse/investigations/edit.blade.php --}}
 @php
-  /** @var \App\Models\Investigation $investigation */
+  /** @var \App\Models\IncidentInvestigation $investigation */
   use Illuminate\Support\Carbon;
+
   $tz = config('app.timezone','Asia/Jakarta');
 
-  $startedVal   = optional(
-                    $investigation->started_at instanceof \Illuminate\Support\Carbon
-                      ? $investigation->started_at->timezone($tz)
-                      : ($investigation->started_at ? Carbon::parse($investigation->started_at)->timezone($tz) : null)
-                  )->format('Y-m-d\TH:i');
+  $startedVal = '';
+  try {
+    $st = $investigation->started_at instanceof \Illuminate\Support\Carbon
+      ? $investigation->started_at
+      : ($investigation->started_at ? Carbon::parse($investigation->started_at) : null);
+    if ($st) $startedVal = $st->timezone($tz)->format('Y-m-d\TH:i');
+  } catch (\Throwable $e) {}
 
-  $completedVal = optional(
-                    $investigation->completed_at instanceof \Illuminate\Support\Carbon
-                      ? $investigation->completed_at->timezone($tz)
-                      : ($investigation->completed_at ? Carbon::parse($investigation->completed_at)->timezone($tz) : null)
-                  )->format('Y-m-d\TH:i');
+  $completedVal = '';
+  try {
+    $ct = $investigation->completed_at instanceof \Illuminate\Support\Carbon
+      ? $investigation->completed_at
+      : ($investigation->completed_at ? Carbon::parse($investigation->completed_at) : null);
+    if ($ct) $completedVal = $ct->timezone($tz)->format('Y-m-d\TH:i');
+  } catch (\Throwable $e) {}
+
+  $statusOld = old('status', $investigation->status ?? 'open');
 @endphp
 
 @extends('layouts.app')
@@ -22,9 +29,82 @@
 @section('title','Edit Investigation')
 
 @section('content')
-<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto" x-data="investigationEditForm()">
+<div
+  class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto"
+  x-data="{
+    // server → client hydration (safe)
+    startedAt:    @js(old('started_at', $startedVal)),
+    completedAt:  @js(old('completed_at', $completedVal)),
+    method:       @js(old('method', $investigation->method)),
+    findings:     @js(old('findings_summary', $investigation->findings_summary)),
+    rootCause:    @js(old('root_cause', $investigation->root_cause)),
+    actions:      @js(old('corrective_actions', $investigation->corrective_actions)),
+    status:       @js($statusOld),
+    submitting:   false,
 
-  {{-- HEADER (serumpun hijau–emas–biru) --}}
+    // computed
+    get startedOk(){
+      if (!this.startedAt) return true;
+      const d = new Date(this.startedAt);
+      return !Number.isNaN(d.getTime());
+    },
+    get completedOk(){
+      if (!this.completedAt) return true;
+      const d = new Date(this.completedAt);
+      return !Number.isNaN(d.getTime());
+    },
+    get orderOk(){
+      if (!this.startedAt || !this.completedAt) return true;
+      return new Date(this.completedAt) >= new Date(this.startedAt);
+    },
+    get canTry(){ return this.startedOk && this.completedOk && this.orderOk; },
+
+    // actions
+    confirmSave(){
+      const form = document.getElementById('form-update');
+      if (!this.canTry) {
+        if (!this.startedOk)   { alert('Tanggal Started At tidak valid.'); return; }
+        if (!this.completedOk) { alert('Tanggal Completed At tidak valid.'); return; }
+        if (!this.orderOk)     { alert('Completed At harus ≥ Started At.'); return; }
+      }
+      if (typeof Swal === 'undefined' || !Swal?.fire) { this.submitting = true; form.submit(); return; }
+      Swal.fire({
+        title: 'Simpan perubahan Investigation?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#0284c7',
+        confirmButtonText: 'Ya, simpan',
+        cancelButtonText: 'Batal',
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+        }
+      }).then(r => { if (r.isConfirmed) { this.submitting = true; form.submit(); }});
+    },
+    confirmDelete(){
+      const form = document.getElementById('form-delete');
+      if (typeof Swal === 'undefined' || !Swal?.fire) { if (confirm('Delete this investigation?')) form.submit(); return; }
+      Swal.fire({
+        title: 'Hapus Investigation?',
+        text: 'Tindakan ini tidak bisa dibatalkan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, hapus',
+        cancelButtonText: 'Batal',
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+        }
+      }).then(r => { if (r.isConfirmed) form.submit(); });
+    }
+  }"
+>
+  {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
@@ -33,7 +113,7 @@
     <div class="relative px-6 sm:px-10 py-6 text-white">
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur" aria-hidden="true">
             <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
@@ -90,7 +170,8 @@
       </div>
     @endif
 
-    {{-- ======= FORM UPDATE (PUT) ======= --}}
+    {{-- UPDATE --}}
+    @can('update', $investigation)
     <form id="form-update" method="POST" action="{{ route('admin.hse.investigations.update', $investigation) }}" class="space-y-5" @submit.prevent="confirmSave">
       @csrf
       @method('PUT')
@@ -101,10 +182,14 @@
         <select name="incident_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
           @foreach ($incidents as $i)
             @php
-              $iot = $i->occurred_at instanceof \Illuminate\Support\Carbon ? $i->occurred_at->timezone($tz) : Carbon::parse($i->occurred_at)->timezone($tz);
+              $lab = '—';
+              try {
+                $iot = $i->occurred_at instanceof \Illuminate\Support\Carbon ? $i->occurred_at : ($i->occurred_at ? Carbon::parse($i->occurred_at) : null);
+                $lab = $iot ? $iot->timezone($tz)->format('Y-m-d H:i') : '—';
+              } catch (\Throwable $e) {}
             @endphp
-            <option value="{{ $i->id }}" @selected(old('incident_id', $investigation->incident_id) == $i->id)>
-              {{ $i->code }} — {{ $iot->format('Y-m-d H:i') }}
+            <option value="{{ $i->id }}" @selected(old('incident_id', $investigation->incident_id) == $i->id)">
+              {{ $i->code }} — {{ $lab }}
             </option>
           @endforeach
         </select>
@@ -116,7 +201,7 @@
         <select name="lead_investigator_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
           <option value="">— None —</option>
           @foreach ($investigators as $u)
-            <option value="{{ $u->id }}" @selected(old('lead_investigator_id', $investigation->lead_investigator_id) == $u->id)>
+            <option value="{{ $u->id }}" @selected(old('lead_investigator_id', $investigation->lead_investigator_id) == $u->id)">
               {{ $u->name }} — {{ $u->email }}
             </option>
           @endforeach
@@ -129,7 +214,6 @@
           <label class="block text-sm font-medium mb-1">Started At</label>
           <input type="datetime-local" name="started_at"
                  x-model="startedAt"
-                 value="{{ old('started_at', $startedVal) }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
           <p class="text-[11px] mt-1" :class="startedOk ? 'text-slate-500' : 'text-rose-600'">
             <span x-show="!startedAt">Opsional.</span>
@@ -140,10 +224,8 @@
           <label class="block text-sm font-medium mb-1">Completed At</label>
           <input type="datetime-local" name="completed_at"
                  x-model="completedAt"
-                 value="{{ old('completed_at', $completedVal) }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
-          <p class="text-[11px] mt-1"
-             :class="(completedOk && orderOk) ? 'text-slate-500' : 'text-rose-600'">
+          <p class="text-[11px] mt-1" :class="(completedOk && orderOk) ? 'text-slate-500' : 'text-rose-600'">
             <span x-show="!completedAt">Opsional.</span>
             <span x-show="completedAt && !completedOk">Tanggal selesai tidak valid.</span>
             <span x-show="completedAt && completedOk && !orderOk">Completed harus ≥ Started.</span>
@@ -154,9 +236,7 @@
       {{-- Method --}}
       <div>
         <label class="block text-sm font-medium mb-1">Method (5-Why, Fishbone, TapRoot, …)</label>
-        <input type="text" name="method" maxlength="50"
-               x-model.trim="method"
-               value="{{ old('method', $investigation->method) }}"
+        <input type="text" name="method" maxlength="50" x-model.trim="method"
                class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
       </div>
 
@@ -164,26 +244,25 @@
       <div>
         <label class="block text-sm font-medium mb-1">Findings Summary</label>
         <textarea name="findings_summary" rows="3" x-model.trim="findings"
-                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">{{ old('findings_summary', $investigation->findings_summary) }}</textarea>
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"></textarea>
       </div>
 
       <div>
         <label class="block text-sm font-medium mb-1">Root Cause</label>
         <textarea name="root_cause" rows="3" x-model.trim="rootCause"
-                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">{{ old('root_cause', $investigation->root_cause) }}</textarea>
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"></textarea>
       </div>
 
       <div>
         <label class="block text-sm font-medium mb-1">Corrective Actions</label>
         <textarea name="corrective_actions" rows="3" x-model.trim="actions"
-                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">{{ old('corrective_actions', $investigation->corrective_actions) }}</textarea>
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"></textarea>
       </div>
 
       {{-- Status --}}
       <div>
         <label class="block text-sm font-medium mb-1">Status</label>
         <div class="flex flex-wrap gap-2 mt-1">
-          @php $statusOld = old('status', $investigation->status ?? 'open'); @endphp
           @foreach (['open'=>'Open','review'=>'Review','closed'=>'Closed'] as $k=>$v)
             <button type="button" @click="status='{{ $k }}'"
                     class="px-2.5 py-1 rounded-full text-xs ring-1"
@@ -215,8 +294,15 @@
         </button>
       </div>
     </form>
+    @else
+      <div class="rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200 p-4 mb-4 text-sm">
+        Anda tidak memiliki izin untuk mengubah investigation ini.
+      </div>
+      <a href="{{ route('admin.hse.investigations.index') }}"
+         class="px-4 py-2 rounded-xl ring-1 ring-slate-200 text-slate-700 bg-white hover:bg-slate-50">← Back</a>
+    @endcan
 
-    {{-- ======= FORM DELETE (DELETE) — TERPISAH ======= --}}
+    {{-- DELETE --}}
     @can('delete', $investigation)
       <form id="form-delete" method="POST" action="{{ route('admin.hse.investigations.destroy', $investigation) }}" class="mt-4">
         @csrf @method('DELETE')
@@ -227,7 +313,6 @@
       </form>
     @endcan
 
-    {{-- Meta kecil --}}
     <div class="mt-6 text-xs text-slate-500">
       <div><span class="font-medium">ID:</span> {{ $investigation->id }}</div>
       <div><span class="font-medium">Created:</span> {{ $investigation->created_at }}</div>
@@ -240,83 +325,11 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function investigationEditForm(){
-  return {
-    // hydrate
-    startedAt:    @json(old('started_at',    $startedVal)),
-    completedAt:  @json(old('completed_at',  $completedVal)),
-    method:       @json(old('method',        $investigation->method)),
-    findings:     @json(old('findings_summary', $investigation->findings_summary)),
-    rootCause:    @json(old('root_cause',    $investigation->root_cause)),
-    actions:      @json(old('corrective_actions', $investigation->corrective_actions)),
-    status:       @json(old('status',        $investigation->status ?? 'open')),
-    submitting:   false,
-
-    // computed
-    get startedOk(){
-      if (!this.startedAt) return true;
-      const d = new Date(this.startedAt);
-      return !isNaN(d.getTime());
-    },
-    get completedOk(){
-      if (!this.completedAt) return true;
-      const d = new Date(this.completedAt);
-      return !isNaN(d.getTime());
-    },
-    get orderOk(){
-      if (!this.startedAt || !this.completedAt) return true;
-      return new Date(this.completedAt) >= new Date(this.startedAt);
-    },
-    get canTry(){
-      // Minimal: dates valid & order ok
-      return this.startedOk && this.completedOk && this.orderOk;
-    },
-
-    // actions
-    confirmSave(){
-      const form = document.getElementById('form-update');
-      if (!this.canTry) {
-        if (!this.startedOk)   { alert('Tanggal Started At tidak valid.'); return; }
-        if (!this.completedOk) { alert('Tanggal Completed At tidak valid.'); return; }
-        if (!this.orderOk)     { alert('Completed At harus setelah/mendekati Started At.'); return; }
-      }
-
-      if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
-      Swal.fire({
-        title: 'Simpan perubahan Investigation?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#059669',
-        cancelButtonColor: '#0284c7',
-        confirmButtonText: 'Ya, simpan',
-        cancelButtonText: 'Batal',
-        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
-      }).then(r => { if (r.isConfirmed) { this.submitting = true; form.submit(); }});
-    },
-
-    confirmDelete(){
-      const form = document.getElementById('form-delete');
-      if (typeof Swal === 'undefined') { if (confirm('Delete this investigation?')) form.submit(); return; }
-      Swal.fire({
-        title: 'Hapus Investigation?',
-        text: 'Tindakan ini tidak bisa dibatalkan.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Ya, hapus',
-        cancelButtonText: 'Batal',
-        customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
-      }).then(r => { if (r.isConfirmed) form.submit(); });
-    }
-  }
-}
-
 // SweetAlert confirm untuk mini workflow forms
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('form.workflow-form').forEach(f => {
     f.addEventListener('submit', (e) => {
-      if (typeof Swal === 'undefined') return;
+      if (typeof Swal === 'undefined' || !Swal?.fire) return;
       e.preventDefault();
       Swal.fire({
         title: f.dataset.actionTitle || 'Proceed?',
