@@ -3,11 +3,16 @@
   /** @var \App\Models\Pica $pica */
   use Illuminate\Support\Carbon;
   $tz = config('app.timezone','Asia/Jakarta');
+
+  // Format closed_at -> datetime-local (YYYY-MM-DDTHH:MM)
   $closedVal = optional(
       $pica->closed_at instanceof \Illuminate\Support\Carbon
         ? $pica->closed_at->timezone($tz)
         : ($pica->closed_at ? Carbon::parse($pica->closed_at)->timezone($tz) : null)
     )->format('Y-m-d\TH:i');
+
+  // Format due_date -> date (YYYY-MM-DD)
+  $dueVal = old('due_date', optional($pica->due_date)->format('Y-m-d'));
 @endphp
 
 @extends('layouts.app')
@@ -15,7 +20,14 @@
 @section('title','Edit PICA')
 
 @section('content')
-<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto" x-data="picaEditForm()">
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto"
+     x-data="picaEditForm({
+        title: @json(old('title', $pica->title)),
+        status: @json(old('status', $pica->status ?? 'open')),
+        closedAt: @json(old('closed_at', $closedVal)),
+        dueDate: @json($dueVal),
+     })">
+
   {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
@@ -26,13 +38,13 @@
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-start gap-3">
           <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
-            <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
           </div>
           <div>
             <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Edit PICA</h1>
-            <p class="text-white/90 text-sm mt-1">Perbaiki judul, akar masalah, tindakan pencegahan, & status.</p>
+            <p class="text-white/90 text-sm mt-1">Perbaiki judul, akar masalah, tindakan pencegahan, &amp; status.</p>
           </div>
         </div>
 
@@ -43,7 +55,7 @@
           </span>
 
           @can('markEffective', $pica)
-            @if(!in_array($pica->status, ['effective','closed']))
+            @if(!in_array($pica->status, ['effective','closed'], true))
               <form method="POST" action="{{ route('admin.hse.picas.mark-effective', $pica) }}" class="workflow-form" data-action-title="Mark as effective?">
                 @csrf
                 <button type="submit" class="px-3 py-1 rounded-xl bg-emerald-700 text-white text-xs font-semibold ring-1 ring-emerald-800/20 hover:bg-emerald-800">
@@ -54,7 +66,7 @@
           @endcan
 
           @can('markIneffective', $pica)
-            @if(!in_array($pica->status, ['ineffective','closed']))
+            @if(!in_array($pica->status, ['ineffective','closed'], true))
               <form method="POST" action="{{ route('admin.hse.picas.mark-ineffective', $pica) }}" class="workflow-form" data-action-title="Mark as ineffective?">
                 @csrf
                 <button type="submit" class="px-3 py-1 rounded-xl bg-amber-600 text-white text-xs font-semibold ring-1 ring-amber-700/20 hover:bg-amber-700">
@@ -100,10 +112,12 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Related Incident</label>
-          <select name="related_incident_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <select name="related_incident_id" id="related_incident_id"
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
+                  @change="onRelChange($event)">
             <option value="">— None —</option>
             @foreach ($incidents as $i)
-              <option value="{{ $i->id }}" @selected(old('related_incident_id',$pica->related_incident_id)==$i->id)>
+              <option value="{{ $i->id }}" @selected(old('related_incident_id',$pica->related_incident_id)===$i->id)>
                 {{ $i->code }} — {{ \Illuminate\Support\Carbon::parse($i->occurred_at)->timezone($tz)->format('Y-m-d H:i') }}
               </option>
             @endforeach
@@ -111,10 +125,12 @@
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Related Hazard</label>
-          <select name="related_hazard_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <select name="related_hazard_id" id="related_hazard_id"
+                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
+                  @change="onRelChange($event)">
             <option value="">— None —</option>
             @foreach ($hazards as $h)
-              <option value="{{ $h->id }}" @selected(old('related_hazard_id',$pica->related_hazard_id)==$h->id)>
+              <option value="{{ $h->id }}" @selected(old('related_hazard_id',$pica->related_hazard_id)===$h->id)>
                 {{ $h->code }} — {{ \Illuminate\Support\Carbon::parse($h->observed_at)->timezone($tz)->format('Y-m-d H:i') }}
               </option>
             @endforeach
@@ -125,7 +141,7 @@
       <div>
         <label class="block text-sm font-medium mb-1">Title <span class="text-rose-600">*</span></label>
         <input type="text" name="title" x-model.trim="title"
-               value="{{ old('title',$pica->title) }}" maxlength="200"
+               value="{{ old('title',$pica->title) }}" maxlength="200" autocomplete="off"
                class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
         <p class="text-[11px] mt-1" :class="titleOk ? 'text-slate-500' : 'text-rose-600'">
           <span x-show="!title">Judul wajib diisi.</span>
@@ -153,7 +169,7 @@
           <select name="owner_id" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
             <option value="">— None —</option>
             @foreach ($owners as $u)
-              <option value="{{ $u->id }}" @selected(old('owner_id',$pica->owner_id)==$u->id)>
+              <option value="{{ $u->id }}" @selected(old('owner_id',$pica->owner_id)===$u->id)>
                 {{ $u->name }} — {{ $u->email }}
               </option>
             @endforeach
@@ -161,24 +177,23 @@
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Due Date</label>
-          <input type="date" name="due_date" value="{{ old('due_date',$pica->due_date) }}" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <input type="date" name="due_date" x-model="dueDate"
+                 value="{{ $dueVal }}"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <p class="text-[11px] mt-1" :class="dueOk ? 'text-slate-500' : 'text-rose-600'">
+            <span x-show="!dueOk">Tanggal tidak valid.</span>
+          </p>
         </div>
       </div>
 
-      {{-- Status quick-pills + select --}}
+      {{-- Status (enum allowed) --}}
       <div>
         <label class="block text-sm font-medium mb-1">Status</label>
         <div class="flex flex-wrap gap-2 mt-1">
           @php $statusOld = old('status',$pica->status ?? 'open'); @endphp
-          @foreach ([
-            'open' => 'Open',
-            'in_progress' => 'In Progress',
-            'pending_review' => 'Pending Review',
-            'effective' => 'Effective',
-            'ineffective' => 'Ineffective',
-            'closed' => 'Closed',
-          ] as $k=>$v)
+          @foreach (['open' => 'Open','effective' => 'Effective','ineffective' => 'Ineffective','closed' => 'Closed'] as $k=>$v)
             <button type="button" @click="status='{{ $k }}'"
+                    type="button"
                     class="px-2.5 py-1 rounded-full text-xs ring-1"
                     :class="status==='{{ $k }}' ? 'bg-sky-600 text-white ring-sky-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
               {{ $v }}
@@ -187,15 +202,8 @@
         </div>
         <select name="status" x-model="status"
                 class="mt-2 w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
-          @foreach ([
-            'open' => 'Open',
-            'in_progress' => 'In Progress',
-            'pending_review' => 'Pending Review',
-            'effective' => 'Effective',
-            'ineffective' => 'Ineffective',
-            'closed' => 'Closed',
-          ] as $k=>$v)
-            <option value="{{ $k }}" @selected($statusOld==$k)>{{ $v }}</option>
+          @foreach (['open' => 'Open','effective' => 'Effective','ineffective' => 'Ineffective','closed' => 'Closed'] as $k=>$v)
+            <option value="{{ $k }}" @selected($statusOld===$k)>{{ $v }}</option>
           @endforeach
         </select>
       </div>
@@ -232,7 +240,7 @@
         <button type="submit"
                 :disabled="submitting || !canTry"
                 class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
-          <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none">
+          <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
@@ -262,14 +270,15 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" referrerpolicy="no-referrer"></script>
 <script>
-function picaEditForm(){
+function picaEditForm(init){
   return {
-    // hydrate
-    title: @json(old('title', $pica->title)),
-    status: @json(old('status', $pica->status ?? 'open')),
-    closedAt: @json(old('closed_at', $closedVal)),
+    // state
+    title: init?.title ?? '',
+    status: init?.status ?? 'open',
+    closedAt: init?.closedAt ?? '',
+    dueDate: init?.dueDate ?? '',
     submitting: false,
 
     // computed
@@ -279,13 +288,30 @@ function picaEditForm(){
       const d = new Date(this.closedAt);
       return !isNaN(d.getTime());
     },
+    get dueOk(){
+      if (!this.dueDate) return true;
+      // YYYY-MM-DD check (basic)
+      return /^\d{4}-\d{2}-\d{2}$/.test(this.dueDate);
+    },
     get closedConsistent(){
       // if status closed then closedAt must be provided and valid
       if (this.status !== 'closed') return true;
       if (!this.closedAt) return false;
       return this.closedOk;
     },
-    get canTry(){ return this.titleOk && this.closedOk && this.closedConsistent; },
+    get canTry(){ return this.titleOk && this.closedOk && this.closedConsistent && this.dueOk; },
+
+    // ensure incident XOR hazard on client side (server tetap validasi juga)
+    onRelChange(e){
+      const id = e?.target?.id;
+      if (!id) return;
+      const other = id === 'related_incident_id' ? document.getElementById('related_hazard_id')
+                                                 : document.getElementById('related_incident_id');
+      if (e.target.value && other && other.value) {
+        // jika user memilih yang baru, kosongkan yang lain
+        other.value = '';
+      }
+    },
 
     // actions
     confirmSave(){
@@ -294,6 +320,7 @@ function picaEditForm(){
         if (!this.titleOk) { alert('Title wajib diisi.'); return; }
         if (!this.closedOk) { alert('Tanggal Closed At tidak valid.'); return; }
         if (!this.closedConsistent) { alert('Status Closed memerlukan Closed At.'); return; }
+        if (!this.dueOk) { alert('Format Due Date tidak valid.'); return; }
       }
       if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
       Swal.fire({
@@ -326,7 +353,7 @@ function picaEditForm(){
   }
 }
 
-// SweetAlert confirm untuk workflow forms
+// SweetAlert confirm untuk workflow forms (effective/ineffective/close)
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('form.workflow-form').forEach(f => {
     f.addEventListener('submit', (e) => {
