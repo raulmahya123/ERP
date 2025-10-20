@@ -7,6 +7,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 // middleware kustom kamu
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\EnsureSiteSelected;
+use App\Http\Middleware\SiteContextMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'hasrole'       => EnsureUserHasRole::class,
             'site.selected' => EnsureSiteSelected::class,
+            'site.context' => SiteContextMiddleware::class,
         ]);
     })
     ->withProviders([

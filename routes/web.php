@@ -50,6 +50,8 @@ use App\Http\Controllers\PayroalProfileController;                         // se
 
 // OTP-only verification
 use App\Http\Controllers\Auth\VerifyEmailCodeController;
+use App\Http\Controllers\Scm\{TripController, HourMeterController, FuelLogController, WbTicketController, BreakdownController};
+
 
 use App\Models\PayroalHistory;
 
@@ -481,6 +483,64 @@ Route::prefix('admin/payroal/history')->as('admin.payroal_history.')->middleware
     Route::post('/{history}/send', [PayroalHistoryController::class, 'sendOne'])->whereUuid('history')->name('sendOne');
     Route::post('/send-bulk',      [PayroalHistoryController::class, 'sendBulk'])->name('sendBulk');
 });
+
+
+Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
+    ->prefix('scm')->name('scm.')
+    ->group(function () {
+        Route::resource('trips', TripController::class);
+        Route::post('trips/{trip}/submit',   [TripController::class, 'submit'])->name('trips.submit');
+        Route::post('trips/{trip}/validate', [TripController::class, 'validateData'])->name('trips.validate');
+        Route::post('trips/{trip}/approve',  [TripController::class, 'approve'])->name('trips.approve');
+
+        Route::resource('hour-meters', HourMeterController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['hour-meters' => 'hour_meter'])
+            ->names([
+                'index'   => 'hour_meters.index',
+                'create'  => 'hour_meters.create',
+                'store'   => 'hour_meters.store',
+                'edit'    => 'hour_meters.edit',
+                'update'  => 'hour_meters.update',
+                'destroy' => 'hour_meters.destroy',
+            ]);
+        Route::resource('fuel-logs', FuelLogController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['fuel-logs' => 'fuel_log'])
+            ->names([
+                'index'   => 'fuel_logs.index',
+                'create'  => 'fuel_logs.create',
+                'store'   => 'fuel_logs.store',
+                'edit'    => 'fuel_logs.edit',
+                'update'  => 'fuel_logs.update',
+                'destroy' => 'fuel_logs.destroy',
+            ]);
+
+        Route::resource('wb-tickets', WbTicketController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['wb-tickets' => 'wb_ticket'])
+            ->names([
+                'index'   => 'wb_tickets.index',
+                'create'  => 'wb_tickets.create',
+                'store'   => 'wb_tickets.store',
+                'edit'    => 'wb_tickets.edit',
+                'update'  => 'wb_tickets.update',
+                'destroy' => 'wb_tickets.destroy',
+            ]);
+    });
+
+    Route::resource('breakdowns', BreakdownController::class)
+    ->only(['index','create','store','edit','update','destroy'])
+    ->parameters(['breakdowns' => 'breakdown'])
+    ->names([
+        'index'   => 'breakdowns.index',
+        'create'  => 'breakdowns.create',
+        'store'   => 'breakdowns.store',
+        'edit'    => 'breakdowns.edit',
+        'update'  => 'breakdowns.update',
+        'destroy' => 'breakdowns.destroy',
+    ]);
+
 
 /* --------------------------------------------------------------------------
 | Payslip public token (no login)

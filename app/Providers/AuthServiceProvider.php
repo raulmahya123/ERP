@@ -27,15 +27,17 @@ class AuthServiceProvider extends ServiceProvider
         Asset::class        => AssetPolicy::class,
 
         // HSE
-        Incident::class     => IncidentPolicy::class,
-        \App\Models\IncidentInvestigation::class   => \App\Policies\IncidentInvestigationPolicy::class,
-        \App\Models\HazardReport::class            => \App\Policies\HazardReportPolicy::class,
-        \App\Models\Pica::class                    => \App\Policies\PicaPolicy::class,
-        \App\Models\EnvironmentalSample::class     => \App\Policies\EnvironmentalSamplePolicy::class,
-        \App\Models\MediaAttachment::class         => \App\Policies\MediaAttachmentPolicy::class,
-        \App\Models\KpiIndicator::class            => \App\Policies\KpiIndicatorPolicy::class,
-        \App\Models\EnvironmentalSample::class => \App\Policies\EnvironmentalSamplePolicy::class,
+        Incident::class                           => IncidentPolicy::class,
+        \App\Models\IncidentInvestigation::class  => \App\Policies\IncidentInvestigationPolicy::class,
+        \App\Models\HazardReport::class           => \App\Policies\HazardReportPolicy::class,
+        \App\Models\Pica::class                   => \App\Policies\PicaPolicy::class,
+        \App\Models\EnvironmentalSample::class    => \App\Policies\EnvironmentalSamplePolicy::class,
+        \App\Models\MediaAttachment::class        => \App\Policies\MediaAttachmentPolicy::class,
+        \App\Models\KpiIndicator::class           => \App\Policies\KpiIndicatorPolicy::class,
 
+        // SCM
+        \App\Models\Scm\Trip::class               => \App\Policies\Scm\TripPolicy::class,
+        \App\Models\Scm\Breakdown::class          => \App\Policies\BreakdownPolicy::class,
     ];
 
     public function boot(): void
