@@ -2,12 +2,18 @@
 @php
   /** @var \App\Models\KpiIndicator $record */
   use Illuminate\Support\Carbon;
+
   $tz = config('app.timezone','Asia/Jakarta');
-  $dateVal = optional(
-              $record->date instanceof \Illuminate\Support\Carbon
-                ? $record->date->timezone($tz)
-                : ($record->date ? Carbon::parse($record->date)->timezone($tz) : null)
-            )->format('Y-m-d');
+  // date cast di model -> Carbon; tetap normalkan ke 'Y-m-d' untuk Alpine
+  $dateVal = optional($record->date)->timezone($tz)?->format('Y-m-d');
+
+  // Siapkan data "lite" untuk Alpine tanpa arrow function di @json
+  $sitesLite = $sites->map->only(['id','code','name'])->values();
+  $defsLite  = $defs->map->only(['id','code','name','group','unit'])->values();
+
+  // Ringkas record untuk dipass ke Alpine; tanggal diformat agar stabil
+  $recLite = $record->only(['id','site_id','definition_id','type','name','value','unit','notes','meta']);
+  $recLite['date'] = $dateVal;
 @endphp
 
 @extends('layouts.app')
@@ -15,39 +21,38 @@
 @section('title','Edit KPI Indicator')
 
 @section('content')
-<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto" x-data="kpiEditForm()">
+<style>[x-cloak]{display:none!important}</style>
 
-  {{-- HEADER (serumpun hijau–emas–biru) --}}
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto"
+     x-data='kpiEditForm(@json($recLite), @json($sitesLite), @json($defsLite))'
+     x-cloak>
+
+  {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
-    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
-
-    <div class="relative px-6 sm:px-10 py-6 text-white">
-      <div class="flex items-center justify-between">
-        <div class="flex items-start gap-3">
-          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
-            <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Edit KPI Indicator</h1>
-            <p class="text-white/90 text-sm mt-1">Perbarui nilai indikator, tipe, unit, dan metadata.</p>
-          </div>
+    <div class="relative px-6 sm:px-10 py-6 text-white flex items-center justify-between">
+      <div class="flex items-start gap-3">
+        <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+          <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
         </div>
-
-        <a href="{{ route('admin.hse.kpi-indicators.index') }}"
-           class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
-          ← Kembali
-        </a>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Edit KPI Indicator</h1>
+          <p class="text-white/90 text-sm mt-1">Perbarui nilai indikator & metadata.</p>
+        </div>
       </div>
+
+      <a href="{{ route('admin.hse.kpi-indicators.index') }}"
+         class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
+        ← Kembali
+      </a>
     </div>
   </div>
 
   {{-- BODY --}}
   <div class="p-6 bg-white">
-
     @if (session('success'))
       <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 text-sm">{{ session('success') }}</div>
     @endif
@@ -59,97 +64,122 @@
       </div>
     @endif
 
-    {{-- ===== FORM UPDATE (PUT) ===== --}}
-    <form id="form-update" method="POST" action="{{ route('admin.hse.kpi-indicators.update', $record) }}" class="space-y-5" @submit.prevent="confirmSave">
-      @csrf
-      @method('PUT')
+    {{-- FORM UPDATE --}}
+    <form id="form-update" method="POST"
+          action="{{ route('admin.hse.kpi-indicators.update', $record) }}"
+          class="space-y-5"
+          @submit.prevent="confirmSave"
+          autocomplete="off" novalidate>
+      @csrf @method('PUT')
 
-      {{-- Site (optional) --}}
+      {{-- Site --}}
       <div>
-        <label class="block text-sm font-medium mb-1">Site (optional)</label>
-        <select name="site_id" x-model="siteId"
+        <label class="block text-sm font-medium mb-1">Site</label>
+        <select name="site_id" x-model="form.site_id"
                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
           <option value="">— Use current site —</option>
-          @foreach ($sites as $s)
-            <option value="{{ $s->id }}" @selected(old('site_id', $record->site_id)==$s->id)>
-              {{ $s->code }} — {{ $s->name }}
-            </option>
-          @endforeach
+          <template x-for="s in sites" :key="s.id">
+            <option :value="s.id" x-text="`${s.code} — ${s.name}`"></option>
+          </template>
         </select>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {{-- Definition (baru) + Legacy toggle --}}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div class="flex items-center justify-between">
+            <label class="block text-sm font-medium mb-1">Definition</label>
+            <button type="button" class="text-xs text-sky-700 hover:underline"
+                    @click="toggleLegacy()"
+                    x-text="legacy ? 'Switch to Definition' : 'Use Legacy Fields'"></button>
+          </div>
+          <template x-if="!legacy">
+            <select name="definition_id" x-model="form.definition_id" @change="applyDefinition()"
+                    class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+              <option value="">— Select definition —</option>
+              <template x-for="d in defs" :key="d.id">
+                <option :value="d.id" x-text="`[${d.code}] ${d.name} — ${d.group}`"></option>
+              </template>
+            </select>
+          </template>
+          <template x-if="legacy">
+            <div class="text-xs text-amber-700 bg-amber-50 ring-1 ring-amber-200 rounded-lg px-3 py-2">
+              Legacy mode: isi <b>Type</b>, <b>Name</b>, dan <b>Unit</b> manual.
+            </div>
+          </template>
+        </div>
+
         {{-- Date --}}
         <div>
           <label class="block text-sm font-medium mb-1">Date <span class="text-rose-600">*</span></label>
-          <input type="date" name="date" x-model="date"
+          <input type="date" name="date" x-model="form.date"
                  value="{{ old('date', $dateVal) }}"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
-          <p class="text-[11px] mt-1" :class="dateOk ? 'text-slate-500' : 'text-rose-600'">
-            <span x-show="!date">Tanggal wajib diisi.</span>
-            <span x-show="date && !dateOk">Format tanggal tidak valid.</span>
+          <p class="text-[11px] mt-1" :class="valid.date ? 'text-slate-500' : 'text-rose-600'">
+            <span x-show="!form.date">Tanggal wajib diisi.</span>
+            <span x-show="form.date && !valid.date">Format tanggal tidak valid.</span>
           </p>
         </div>
+      </div>
 
-        {{-- Type --}}
+      {{-- Type / Value --}}
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Type <span class="text-rose-600">*</span></label>
-
           <div class="flex flex-wrap gap-2 mb-2">
             <template x-for="(label,key) in typeLabels" :key="key">
-              <button type="button" @click="type = key"
+              <button type="button" @click="form.type = key"
                       class="px-2.5 py-1 rounded-full text-xs ring-1"
-                      :class="type===key ? 'bg-sky-600 text-white ring-sky-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
+                      :class="form.type===key ? 'bg-sky-600 text-white ring-sky-700/20' : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'">
                 <span x-text="label"></span>
               </button>
             </template>
           </div>
-
-          <select name="type" x-model="type"
+          <select name="type" x-model="form.type"
                   class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
-            @foreach (['leading'=>'Leading','lagging'=>'Lagging','operational'=>'Operational'] as $k=>$v)
-              <option value="{{ $k }}" @selected(old('type', $record->type)===$k)>{{ $v }}</option>
-            @endforeach
+            <option value="leading">Leading</option>
+            <option value="lagging">Lagging</option>
+            <option value="operational">Operational</option>
           </select>
-          <p class="text-[11px] mt-1" :class="typeOk ? 'text-slate-500' : 'text-rose-600'">
-            <span x-show="!typeOk">Type tidak valid.</span>
+          <p class="text-[11px] mt-1" :class="valid.type ? 'text-slate-500' : 'text-rose-600'">
+            <span x-show="!valid.type">Type tidak valid.</span>
           </p>
         </div>
 
-        {{-- Value --}}
         <div>
           <label class="block text-sm font-medium mb-1">Value <span class="text-rose-600">*</span></label>
-          <input type="number" step="0.0001" name="value" x-model.number="value"
-                 value="{{ old('value', $record->value) }}"
+          <input type="number" name="value" x-model.number="form.value"
+                 inputmode="decimal" step="0.0001" min="0"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
-          <p class="text-[11px] mt-1" :class="valueOk ? 'text-slate-500' : 'text-rose-600'">
-            <span x-show="!valueOk">Value harus angka.</span>
+          <p class="text-[11px] mt-1" :class="valid.value ? 'text-slate-500' : 'text-rose-600'">
+            <span x-show="!valid.value">Value harus angka ≥ 0.</span>
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-1">Unit</label>
+          <input type="text" name="unit" x-model.trim="form.unit" maxlength="20"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <p class="text-[11px] mt-1 text-slate-500" x-show="!legacy && defUnit">
+            Disarankan: <b x-text="defUnit"></b> (dari Definition)
           </p>
         </div>
       </div>
 
-      {{-- Name --}}
-      <div>
-        <label class="block text-sm font-medium mb-1">Name <span class="text-rose-600">*</span></label>
-        <input type="text" name="name" x-model.trim="name" maxlength="120"
-               value="{{ old('name', $record->name) }}"
-               class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
-        <p class="text-[11px] mt-1" :class="nameOk ? 'text-slate-500' : 'text-rose-600'">
-          <span x-show="!nameOk">Nama indikator wajib diisi.</span>
-        </p>
-      </div>
-
+      {{-- Name / Notes --}}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium mb-1">Unit</label>
-          <input type="text" name="unit" x-model.trim="unit" maxlength="20"
-                 value="{{ old('unit', $record->unit) }}"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+          <label class="block text-sm font-medium mb-1">Name <span class="text-rose-600" x-show="legacy">*</span></label>
+          <input type="text" name="name" x-model.trim="form.name" maxlength="120"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
+                 :required="legacy">
+          <p class="text-[11px] mt-1" :class="(legacy ? valid.name : true) ? 'text-slate-500' : 'text-rose-600'">
+            <span x-show="legacy && !valid.name">Nama indikator wajib diisi di legacy mode.</span>
+          </p>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Notes</label>
-          <input type="text" name="notes" x-model.trim="notes"
-                 value="{{ old('notes', $record->notes) }}"
+          <input type="text" name="notes" x-model.trim="form.notes" maxlength="255"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
       </div>
@@ -157,12 +187,12 @@
       {{-- Meta JSON --}}
       <div>
         <label class="block text-sm font-medium mb-1">Meta (JSON)</label>
-        <textarea name="meta" rows="3" x-model="meta"
+        <textarea name="meta" rows="3" x-model="form.meta"
                   class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
-                  placeholder='{"note":"optional"}'>{{ old('meta', is_array($record->meta) ? json_encode($record->meta) : $record->meta) }}</textarea>
-        <p class="text-[11px] mt-1" :class="jsonOk ? 'text-slate-500' : 'text-rose-600'">
-          <span x-show="!meta">Opsional. Simpan info tambahan (JSON).</span>
-          <span x-show="meta && !jsonOk">JSON tidak valid.</span>
+                  placeholder='{"note":"optional"}'>{{ old('meta', is_array($record->meta) ? json_encode($record->meta) : ($record->meta ?? '')) }}</textarea>
+        <p class="text-[11px] mt-1" :class="valid.json ? 'text-slate-500' : 'text-rose-600'">
+          <span x-show="!form.meta">Opsional. Simpan info tambahan (JSON).</span>
+          <span x-show="form.meta && !valid.json">JSON tidak valid.</span>
         </p>
       </div>
 
@@ -171,7 +201,7 @@
            class="px-4 py-2 rounded-xl ring-1 ring-slate-200 text-slate-700 bg-white hover:bg-slate-50">← Back</a>
 
         <button type="submit"
-                :disabled="submitting || !canTry"
+                :disabled="submitting || !canSubmit"
                 class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
           <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -182,7 +212,7 @@
       </div>
     </form>
 
-    {{-- DELETE (terpisah) --}}
+    {{-- DELETE --}}
     @can('delete', $record)
       <form id="form-delete" method="POST" action="{{ route('admin.hse.kpi-indicators.destroy', $record) }}" class="mt-4">
         @csrf @method('DELETE')
@@ -206,47 +236,63 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function kpiEditForm(){
+function kpiEditForm(rec, sites, defs){
+  const isValidDate = (s)=> /^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
+  const tryJSON = (s)=>{ if(!s) return true; try{ JSON.parse(s); return true; }catch{ return false; } };
+
   return {
-    // hydrate from server/old()
-    siteId:  @json(old('site_id', $record->site_id)),
-    date:    @json(old('date', $dateVal)),
-    type:    @json(old('type', $record->type ?? 'leading')),
-    value:   @json(old('value', $record->value)),
-    name:    @json(old('name', $record->name)),
-    unit:    @json(old('unit', $record->unit)),
-    notes:   @json(old('notes', $record->notes)),
-    meta:    @json(old('meta', is_array($record->meta ?? null) ? json_encode($record->meta) : ($record->meta ?? ''))),
+    sites, defs,
+    legacy: !rec.definition_id, // pakai definition jika ada
+    defUnit: null,
     submitting:false,
+    form: {
+      site_id: rec.site_id ?? '',
+      definition_id: rec.definition_id ?? '',
+      date: String(rec.date || ''),
+      type: String(rec.type || 'leading').toLowerCase(),
+      value: (rec.value ?? '') === '' ? '' : Number(rec.value),
+      unit: rec.unit ?? '',
+      name: rec.name ?? '',
+      notes: rec.notes ?? '',
+      meta: typeof rec.meta === 'string' ? rec.meta : (rec.meta ? JSON.stringify(rec.meta) : ''),
+    },
 
     typeLabels: { leading:'Leading', lagging:'Lagging', operational:'Operational' },
 
-    // computed
-    get dateOk(){ return !!this.date && /^\d{4}-\d{2}-\d{2}$/.test(this.date); },
-    get typeOk(){ return ['leading','lagging','operational'].includes(String(this.type||'').toLowerCase()); },
-    get valueOk(){
-      if (this.value === '' || this.value === null || typeof this.value === 'undefined') return false;
-      const n = Number(this.value);
-      return Number.isFinite(n);
+    get valid(){
+      return {
+        date: isValidDate(this.form.date),
+        type: ['leading','lagging','operational'].includes(String(this.form.type||'').toLowerCase()),
+        value: this.form.value !== '' && Number.isFinite(Number(this.form.value)) && Number(this.form.value) >= 0,
+        name: this.legacy ? (String(this.form.name||'').trim().length > 0) : true,
+        json: tryJSON(this.form.meta),
+      };
     },
-    get nameOk(){ return (this.name||'').trim().length > 0; },
-    get jsonOk(){
-      if (!this.meta) return true;
-      try { JSON.parse(this.meta); return true; } catch(e){ return false; }
+    get canSubmit(){
+      const v = this.valid;
+      return v.date && v.type && v.value && v.json && (this.legacy ? v.name : true);
     },
-    get canTry(){ return this.dateOk && this.typeOk && this.valueOk && this.nameOk && this.jsonOk; },
 
-    // actions
+    toggleLegacy(){ this.legacy = !this.legacy; if (!this.legacy && this.form.definition_id) this.applyDefinition(); },
+
+    applyDefinition(){
+      const d = this.defs.find(x => x.id === this.form.definition_id);
+      if (!d) { this.defUnit = null; return; }
+      // shadow fields (boleh override manual)
+      this.form.type = ['leading','lagging'].includes(String(d.group).toLowerCase()) ? d.group : 'operational';
+      if (!this.form.name) this.form.name = d.name;
+      if (!this.form.unit) this.form.unit = d.unit ?? '';
+      this.defUnit = d.unit ?? null;
+      this.legacy = false;
+    },
+
     confirmSave(){
-      const form = document.getElementById('form-update');
-      if (!this.canTry) {
-        if (!this.dateOk)  { alert('Tanggal tidak valid / kosong.'); return; }
-        if (!this.typeOk)  { alert('Type tidak valid.'); return; }
-        if (!this.valueOk) { alert('Value harus angka.'); return; }
-        if (!this.nameOk)  { alert('Name wajib diisi.'); return; }
-        if (!this.jsonOk)  { alert('Meta harus JSON valid.'); return; }
+      const formEl = document.getElementById('form-update');
+      if (!this.canSubmit) {
+        alert('Periksa input: tanggal, type, value (≥ 0), dan (jika legacy) name harus valid.');
+        return;
       }
-      if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
+      if (typeof Swal === 'undefined') { this.submitting = true; formEl.submit(); return; }
       Swal.fire({
         title: 'Simpan perubahan KPI?',
         icon: 'question',
@@ -256,7 +302,7 @@ function kpiEditForm(){
         confirmButtonText: 'Ya, simpan',
         cancelButtonText: 'Batal',
         customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
-      }).then(r => { if (r.isConfirmed) { this.submitting = true; form.submit(); }});
+      }).then(r => { if (r.isConfirmed) { this.submitting = true; formEl.submit(); }});
     },
 
     confirmDelete(){
