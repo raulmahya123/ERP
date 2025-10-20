@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\{Auth,DB,Gate,Route};
 |=========================*/
 $user = Auth::user();
 if ($user) { $user->loadMissing('role'); }
+$isVerified = $user?->hasVerifiedEmail() ?? (!is_null($user?->email_verified_at)); // enforce verified
 
 /** Pakai accessor role_key duluan (aman utk string/relasi), lalu fallback cara lama */
 $rawRole = $user->role_key
@@ -99,15 +100,16 @@ $peopleRoutesActive =
   $payroalAdminActive ||
   $payHistActive; // NEW: ikut buka People bila di halaman payslip
 
+/* ==== FIX: sesuaikan dgn routes/web.php yang kamu pakai ==== */
 $adminGroupActive =
   request()->routeIs('admin.roles.*')        ||
   request()->routeIs('admin.users.*')        ||
   request()->routeIs('admin.divisions.*')    ||
   request()->routeIs('admin.commodities.*')  ||
   request()->routeIs('admin.sites.*')        ||
-  request()->routeIs('admin.site_config.*')  ||
-  request()->routeIs('admin.audit.*')        ||
-  request()->routeIs('admin.access.users.*') ||
+  request()->routeIs('admin.settings.*')     ||  // was: admin.site_config.*
+  request()->routeIs('admin.audit_logs.*')   ||  // was: admin.audit.*
+  request()->routeIs('admin.access.*')       ||  // was: admin.access.users.*
   request()->routeIs('admin.assets.*')       ||
   request()->routeIs('admin.asset-assignments.*') ||
   request()->routeIs('admin.assets.assignments.*');
@@ -179,18 +181,19 @@ $badge = match($roleKey) {
 };
 
 /* UI helpers */
-$quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, string $icon, string $label, ?string $badgeText = null) {
-  $base = "group relative p-3 rounded-xl bg-white ring-1 ring-slate-200 transition shadow-sm flex flex-col items-center";
+$quickCard = function (bool $canClick, string $hrefOrHash, string $bgRing, string $icon, string $label, ?string $badgeText = null, bool $lock = false) {
+  $base  = "group relative p-3 rounded-xl bg-white ring-1 ring-slate-200 transition shadow-sm flex flex-col items-center";
   $hover = $canClick ? " hover:$bgRing" : "";
-  $tagOpen = $canClick ? "<a href=\"{$hrefOrHash}\" class=\"$base$hover\">" : "<span class=\"$base\" aria-disabled=\"true\">";
+  $tagOpen  = $canClick ? "<a href=\"{$hrefOrHash}\" class=\"$base$hover\">" : "<span class=\"$base opacity-70 cursor-not-allowed\" aria-disabled=\"true\">";
   $tagClose = $canClick ? "</a>" : "</span>";
   $badge = $badgeText
     ? "<span class=\"absolute -top-1 -right-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ".($canClick?'bg-amber-500 text-white':'bg-slate-200 text-slate-500')."\">{$badgeText}</span>"
     : "";
-  return $tagOpen.$icon."<span class=\"mt-1 text-[11px] font-semibold text-slate-700\">$label</span>$badge{$tagClose}";
+  $lockIcon = $lock ? "<svg class=\"absolute -top-1 -left-1 w-4 h-4 text-slate-400\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M7 10V7a5 5 0 0110 0v3M5 10h14v10H5V10z\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>" : "";
+  return $tagOpen.$lockIcon.$icon."<span class=\"mt-1 text-[11px] font-semibold text-slate-700\">$label</span>$badge{$tagClose}";
 };
 
-/* Admin links (hindari destructuring di Blade) */
+/* Admin links (perbaiki nama route) */
 $adminLinks = [
   ['route' => 'admin.roles.index',       'label' => 'Roles'],
   ['route' => 'admin.users.index',       'label' => 'Users'],
@@ -230,15 +233,30 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
             @else
               <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 ring-1 ring-slate-200">No Site</span>
             @endif
+            {{-- badge verified/unverified --}}
+            @if($isVerified)
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 ring-1 ring-teal-200">Verified</span>
+            @else
+              <a href="{{ route('verification.notice') }}"
+                 class="text-[10px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100">
+                Verify email
+              </a>
+            @endif
           </div>
         </div>
       </div>
+      @if(!$isVerified)
+        <div class="mt-3 text-xs text-rose-700 bg-rose-50 ring-1 ring-rose-200 rounded-lg px-3 py-2">
+          Akun kamu belum terverifikasi. Masukkan OTP di halaman
+          <a href="{{ route('verification.notice') }}" class="underline font-semibold">Verify Code</a>
+          untuk membuka semua menu.
+        </div>
+      @endif
     </div>
   </div>
 
   {{-- Nav --}}
   <nav class="flex-1 overflow-y-auto py-3" x-data='{!! $navStateJson !!}'>
-
     {{-- Quick Shortcuts --}}
     @php
       $canSiteSelect = Route::has('sites.select');
@@ -247,50 +265,59 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
       $canAssetsV    = Route::has('admin.assets.index');
       $canPayroalMe  = Route::has('me.payroal.edit');
 
-      $approvalsClickable = $canApprovalsV && ($isGM || $isHR);
-      $assetsClickable    = $canAssetsV && ($isGM || $isManager);
+      $approvalsClickable = $isVerified && $canApprovalsV && ($isGM || $isHR);
+      $assetsClickable    = $isVerified && $canAssetsV && ($isGM || $isManager);
+      $siteClickable      = $isVerified && $canSiteSelect;
+      $tapClickable       = $isVerified && $canTap;
     @endphp
 
-    @if ($canSiteSelect || $canTap || $approvalsClickable || $assetsClickable || Route::has('profile.edit') || $canPayroalMe || Route::has('admin.hse.kpi-indicators.index'))
+    @if ($canSiteSelect || $canTap || $canApprovalsV || $canAssetsV || Route::has('profile.edit') || $canPayroalMe || Route::has('admin.hse.kpi-indicators.index'))
       <div class="mx-3 mb-2">
         <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Quick</div>
         <div class="grid grid-cols-3 gap-2">
 
           {{-- Switch Site --}}
           @if ($canSiteSelect)
-            {!! $quickCard(true, route('sites.select'), 'ring-teal-200 hover:bg-teal-50',
+            {!! $quickCard($siteClickable, $siteClickable ? route('sites.select') : '#', 'ring-teal-200 hover:bg-teal-50',
               '<svg class="w-5 h-5 text-teal-600 group-hover:text-teal-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h16M5 21h14a2 2 0 002-2V9H3v10a2 2 0 002 2zM8 7V5a3 3 0 013-3h2a3 3 0 013 3v2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
               'Site',
-              $currentSite->code ?? '—'
+              $currentSite->code ?? '—',
+              !$isVerified
             ) !!}
           @endif
 
           {{-- Absen GPS (tap) --}}
           @if ($canTap)
-            {!! $quickCard(true, route('attendance.tap'), 'ring-emerald-200 hover:bg-emerald-50',
+            {!! $quickCard($tapClickable, $tapClickable ? route('attendance.tap') : '#', 'ring-emerald-200 hover:bg-emerald-50',
               '<svg class="w-5 h-5 text-emerald-600 group-hover:text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 21s7-4.35 7-11a7 7 0 10-14 0c0 6.65 7 11 7 11z"></path><circle cx="12" cy="10" r="3"></circle></svg>',
-              'Absen'
+              'Absen',
+              null,
+              !$isVerified
             ) !!}
           @endif
 
           {{-- Approvals Queue (HR Daily) — HR/GM only --}}
-          @if ($approvalsClickable)
-            {!! $quickCard(true, route('admin.hr-entries.index', ['status'=>'pending']), 'ring-amber-200 hover:bg-amber-50',
+          @if ($canApprovalsV)
+            {!! $quickCard($approvalsClickable, $approvalsClickable ? route('admin.hr-entries.index', ['status'=>'pending']) : '#', 'ring-amber-200 hover:bg-amber-50',
               '<svg class="w-5 h-5 text-amber-600 group-hover:text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12l2 2 4-4M7 4h10a2 2 0 012 2v6.5a8.5 8.5 0 11-17 0V6a2 2 0 012-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
               'Approvals',
-              $pendingApprovals > 0 ? (string)$pendingApprovals : null
+              $pendingApprovals > 0 ? (string)$pendingApprovals : null,
+              !$isVerified
             ) !!}
           @endif
 
           {{-- Assets — GM/Manager only --}}
-          @if ($assetsClickable)
-            {!! $quickCard(true, (($currentSite->id ?? null) ? route('admin.assets.index', ['site'=>$currentSite->id]) : route('admin.assets.index')), 'ring-sky-200 hover:bg-sky-50',
+          @if ($canAssetsV)
+            @php $assetHref = (($currentSite->id ?? null) ? route('admin.assets.index', ['site'=>$currentSite->id]) : route('admin.assets.index')); @endphp
+            {!! $quickCard($assetsClickable, $assetsClickable ? $assetHref : '#', 'ring-sky-200 hover:bg-sky-50',
               '<svg class="w-5 h-5 text-sky-600 group-hover:text-sky-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-              'Assets'
+              'Assets',
+              null,
+              !$isVerified
             ) !!}
           @endif
 
-          {{-- Profile --}}
+          {{-- Profile (selalu boleh) --}}
           @if (Route::has('profile.edit'))
             {!! $quickCard(true, route('profile.edit'), 'ring-violet-200 hover:bg-violet-50',
               '<svg class="w-5 h-5 text-violet-600 group-hover:text-violet-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="3" stroke-width="2"></circle><path d="M6 20a6 6 0 1112 0" stroke-width="2" stroke-linecap="round"></path></svg>',
@@ -298,21 +325,33 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
             ) !!}
           @endif
 
-          {{-- NEW: Payroal Self-service --}}
+          {{-- Payroal Self-service (kunci jika unverified) --}}
           @if ($canPayroalMe)
-            {!! $quickCard(true, route('me.payroal.edit'), 'ring-rose-200 hover:bg-rose-50',
+            {!! $quickCard($isVerified, $isVerified ? route('me.payroal.edit') : '#', 'ring-rose-200 hover:bg-rose-50',
               '<svg class="w-5 h-5 text-rose-600 group-hover:text-rose-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 11c1.657 0 3 1.79 3 4v1H5v-1c0-2.21 1.343-4 3-4m8-5a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
-              'Payroal'
+              'Payroal',
+              null,
+              !$isVerified
             ) !!}
           @endif
 
-          {{-- NEW: Quick KPI (opsional) --}}
+          {{-- Quick KPI --}}
           @if (Route::has('admin.hse.kpi-indicators.index') && $canHseMenu)
-            {!! $quickCard(true, route('admin.hse.kpi-indicators.index'), 'ring-teal-200 hover:bg-teal-50',
+            {!! $quickCard($isVerified, $isVerified ? route('admin.hse.kpi-indicators.index') : '#', 'ring-teal-200 hover:bg-teal-50',
               '<svg class="w-5 h-5 text-teal-600 group-hover:text-teal-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                  <path d="M3 12h4l3 8 4-16 3 8h4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                </svg>',
-              'KPI'
+              'KPI',
+              null,
+              !$isVerified
+            ) !!}
+          @endif
+
+          {{-- Verify Code (muncul jika unverified) --}}
+          @if (!$isVerified && Route::has('verification.notice'))
+            {!! $quickCard(true, route('verification.notice'), 'ring-rose-200 hover:bg-rose-50',
+              '<svg class="w-5 h-5 text-rose-600 group-hover:text-rose-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 15v2m-6 4h12a2 2 0 002-2V7l-7-5-7 5v12a2 2 0 002 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+              'Verify Code'
             ) !!}
           @endif
 
@@ -322,16 +361,19 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
     {{-- /Quick --}}
 
     {{-- Dashboard --}}
-    <a href="{{ route('dashboard') }}"
-       class="group mt-1 mx-3 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard')) }}">
+    <a href="{{ $isVerified ? route('dashboard') : route('verification.notice') }}"
+       class="group mt-1 mx-3 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard') && $isVerified) }} {{ $isVerified ? '' : 'opacity-70' }}">
       <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10"/></svg>
       <span>Dashboard</span>
+      @unless($isVerified)
+        <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200">Verify first</span>
+      @endunless
     </a>
 
     {{-- GM Dashboard (opsional) --}}
     @if ($isGM && Route::has('gm.dashboard'))
-      <a href="{{ route('gm.dashboard') }}"
-         class="group mx-3 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('gm.dashboard')) }}">
+      <a href="{{ $isVerified ? route('gm.dashboard') : route('verification.notice') }}"
+         class="group mx-3 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('gm.dashboard') && $isVerified) }} {{ $isVerified ? '' : 'opacity-70' }}">
         <svg class="w-5 h-5 text-yellow-500 group-hover:text-yellow-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6M5 8h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>GM Dashboard</span>
       </a>
@@ -342,7 +384,7 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
       $hasMasterRoutes = Route::has('admin.master.overview') || Route::has('admin.master_entities.index');
     @endphp
     @if ($hasMasterRoutes)
-      <div class="mt-3">
+      <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
         <button type="button" @click="openMaster=!openMaster"
                 class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -391,12 +433,12 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
         Route::has('manpower.entries.index')      ||
         Route::has('admin.manpower.entries.index')||
         Route::has('admin.payroal.index')         ||
-        Route::has('admin.payroal_history.index') ||   // NEW
-        Route::has('admin.payroal_history.create')     // NEW
+        Route::has('admin.payroal_history.index') ||
+        Route::has('admin.payroal_history.create')
       );
     @endphp
     @if ($hasPeopleRoutes && $canPeopleMenu)
-      <div class="mt-3">
+      <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
         <button type="button" @click="openPeople=!openPeople"
                 class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -507,7 +549,7 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
                   </a>
                 @endif
 
-                {{-- NEW: Payslip Bulanan (HR) --}}
+                {{-- Payslip Bulanan (HR) --}}
                 @if (($isHR || $isGM) && (Route::has('admin.payroal_history.index') || Route::has('admin.payroal_history.create')))
                   <div class="mx-3 pl-12 pr-3 mt-1">
                     <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Payslip Bulanan</div>
@@ -527,7 +569,7 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
                     @endif
                   </div>
                 @endif
-                {{-- /NEW --}}
+                {{-- /Payslip Bulanan --}}
 
                 @if ($canManageHrConfig && (
                       Route::has('admin.hr-entries.meta-form.index')        ||
@@ -593,11 +635,11 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
         Route::has('admin.hse.hazards.index') ||
         Route::has('admin.hse.picas.index') ||
         Route::has('admin.hse.environmental-samples.index') ||
-        Route::has('admin.hse.kpi-indicators.index')     // NEW
+        Route::has('admin.hse.kpi-indicators.index')
       );
     @endphp
     @if ($hasHseRoutes && $canHseMenu)
-      <div class="mt-3">
+      <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
         <button type="button" @click="openHse=!openHse"
                 class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -645,14 +687,13 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
             </a>
           @endif
 
-          {{-- KPI Indicators (single link only) --}}
+          {{-- KPI Indicators --}}
           @if (Route::has('admin.hse.kpi-indicators.index'))
             <a href="{{ route('admin.hse.kpi-indicators.index') }}"
                class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hseKpiActive) }}">
               KPI Indicators
             </a>
           @endif
-
         </div>
       </div>
     @endif
@@ -666,14 +707,15 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
         Route::has('admin.divisions.index') ||
         Route::has('admin.commodities.index') ||
         Route::has('admin.sites.index') ||
-        Route::has('admin.site_config.index') ||
-        Route::has('admin.audit.index') ||
-        Route::has('admin.access.users.index') ||
+        Route::has('admin.settings.index') ||     // FIX
+        Route::has('admin.audit_logs.index') ||   // FIX
+        Route::has('admin.access.users.index') || // optional; kalau ga ada, sembunyikan otomatis
+        Route::has('admin.access.users.sites') || // optional
         Route::has('admin.assets.index')
       );
     @endphp
     @if ($hasAdminRoutes && $canAdminMenu)
-      <div class="mt-3">
+      <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
         <button type="button" @click="openAdmin=!openAdmin"
                 class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <span class="flex items-center gap-2">
@@ -706,9 +748,9 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
             </a>
           @endif
 
-          @if (Route::has('admin.site_config.index'))
-            <a href="{{ route('admin.site_config.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.site_config.*')) }}">
+          @if (Route::has('admin.settings.index'))
+            <a href="{{ route('admin.settings.index') }}"
+               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.settings.*')) }}">
               Konfigurasi Site
             </a>
           @endif
@@ -724,13 +766,23 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
             </a>
           @endif
 
-          @if (Route::has('admin.audit.index'))
-            <a href="{{ route('admin.audit.index') }}"
-               class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.audit.*')) }}">
-              Audit Logs
-            </a>
+          {{-- Audit Logs + Export CSV (purge = POST di halaman index) --}}
+          @if (Route::has('admin.audit_logs.index'))
+            <div class="mx-3 mt-1">
+              <a href="{{ route('admin.audit_logs.index') }}"
+                 class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.audit_logs.*')) }}">
+                Audit Logs
+              </a>
+              @if (Route::has('admin.audit_logs.export'))
+                <a href="{{ route('admin.audit_logs.export') }}"
+                   class="block ml-6 pl-6 pr-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                  • Export CSV
+                </a>
+              @endif
+            </div>
           @endif
 
+          {{-- Link akses user opsional (hanya tampil kalau define index di controllermu) --}}
           @if (Route::has('admin.access.users.index') && $canGrantAccess && $isGM)
             <a href="{{ route('admin.access.users.index') }}"
                class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">
@@ -738,12 +790,24 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
             </a>
           @endif
         </div>
+
+        {{-- OPTIONAL: tombol re-sync site context (POST) --}}
+        @if ($isVerified && Route::has('admin.sites.context.switch') && $currentSite?->id)
+          <form method="POST" action="{{ route('admin.sites.context.switch') }}" class="mx-3 mt-2">
+            @csrf
+            <input type="hidden" name="site_id" value="{{ $currentSite->id }}">
+            <button type="submit"
+              class="w-full px-3 py-2 rounded-lg text-[12px] font-semibold text-teal-700 bg-teal-50 ring-1 ring-teal-200 hover:bg-teal-100">
+              Re-sync Site Context ({{ $currentSite->code }})
+            </button>
+          </form>
+        @endif
       </div>
     @endif
     {{-- /ADMIN --}}
 
     {{-- Role Dashboards --}}
-    <div class="mt-4">
+    <div class="mt-4 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
       <div class="px-5 text-[10px] uppercase tracking-wider text-slate-400 mb-1">Role Dashboards</div>
       @php $roleRoute = $roleLinks[$roleKey]['route'] ?? null; @endphp
 
@@ -785,7 +849,7 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
         </div>
       @endif
 
-    <div class="flex-1 min-w-0">
+      <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
           <div class="text-sm font-semibold text-slate-800 truncate">{{ $user->name ?? 'Guest User' }}</div>
           @if($roleKey)
@@ -801,13 +865,24 @@ $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
       </div>
     </div>
 
-    <form method="POST" action="{{ route('logout') }}" class="px-4 pb-3">
-      @csrf
-      <button type="submit"
-              class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition">
-        <svg class="w-5 h-5 flex-shrink-0 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 11-4 0v-1m0-10V5a2 2 0 114 0v1"/></svg>
-        <span>Logout</span>
-      </button>
-    </form>
+    <div class="px-4 pb-3">
+      {{-- Tombol Verify extra (jaga2) saat unverified --}}
+      @if(!$isVerified && Route::has('verification.notice'))
+        <a href="{{ route('verification.notice') }}"
+           class="mb-2 inline-flex items-center gap-2 w-full justify-center px-3 py-2 rounded-lg text-sm font-semibold text-rose-700 bg-rose-50 ring-1 ring-rose-200 hover:bg-rose-100">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2M12 9v2m-7 9h14a2 2 0 002-2V7l-7-5-7 5v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Verify with OTP
+        </a>
+      @endif
+
+      <form method="POST" action="{{ route('logout') }}">
+        @csrf
+        <button type="submit"
+                class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition">
+          <svg class="w-5 h-5 flex-shrink-0 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 11-4 0v-1m0-10V5a2 2 0 114 0v1"/></svg>
+          <span>Logout</span>
+        </button>
+      </form>
+    </div>
   </div>
 </aside>
