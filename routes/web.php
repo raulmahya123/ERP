@@ -78,7 +78,7 @@ Route::middleware(['auth'])->group(function () {
 /* --------------------------------------------------------------------------
 | Authenticated: dashboard, quick actions, profile, attendance tap
 |-------------------------------------------------------------------------- */
-Route::middleware(['auth','verified'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::post('/dashboard/assets', [DashboardController::class, 'quickStore'])
@@ -88,7 +88,7 @@ Route::middleware(['auth','verified'])->group(function () {
     // Profile
     Route::get('/profile',   [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile',[ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Attendance (self-service)
     Route::get('/attendance/tap',        [AttendanceTapController::class, 'tapPage'])->name('attendance.tap');
@@ -101,7 +101,7 @@ Route::middleware(['auth','verified'])->group(function () {
 /* --------------------------------------------------------------------------
 | Site selection (persist to session)
 |-------------------------------------------------------------------------- */
-Route::middleware(['auth','verified'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/sites/select', function () {
         $sites = \App\Models\Site::query()->orderBy('name')->get();
         return view('admin.sites.select', compact('sites'));
@@ -121,20 +121,20 @@ Route::middleware(['auth','verified'])->group(function () {
 /* --------------------------------------------------------------------------
 | Role dashboards (thin, explicit authorization per role)
 |-------------------------------------------------------------------------- */
-Route::middleware(['auth','verified'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('hasrole:gm')->get('/gm',          [RoleDashboardController::class, 'gm'])->name('gm.dashboard');
-    Route::middleware('hasrole:manager')->get('/manager',[RoleDashboardController::class, 'manager'])->name('manager.dashboard');
-    Route::middleware('hasrole:foreman')->get('/foreman',[RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
-    Route::middleware('hasrole:operator')->get('/operator',[RoleDashboardController::class, 'operator'])->name('operator.dashboard');
+    Route::middleware('hasrole:manager')->get('/manager', [RoleDashboardController::class, 'manager'])->name('manager.dashboard');
+    Route::middleware('hasrole:foreman')->get('/foreman', [RoleDashboardController::class, 'foreman'])->name('foreman.dashboard');
+    Route::middleware('hasrole:operator')->get('/operator', [RoleDashboardController::class, 'operator'])->name('operator.dashboard');
     Route::middleware('hasrole:hse_officer')->get('/hse', [RoleDashboardController::class, 'hse'])->name('hse.dashboard');
     Route::middleware('hasrole:hr')->get('/hr',          [RoleDashboardController::class, 'hr'])->name('hr.dashboard');
-    Route::middleware('hasrole:finance')->get('/finance',[RoleDashboardController::class, 'finance'])->name('finance.dashboard');
+    Route::middleware('hasrole:finance')->get('/finance', [RoleDashboardController::class, 'finance'])->name('finance.dashboard');
 });
 
 /* --------------------------------------------------------------------------
 | Admin: core identity (users/roles/divisions)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|manager'])->group(function () {
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:gm|manager'])->group(function () {
     Route::resource('roles', RoleController::class)->except(['show']);
     Route::resource('users', UserController::class);
     Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])
@@ -146,7 +146,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|
 /* --------------------------------------------------------------------------
 | Admin: user access management (role & site assignment per user)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/access')->as('admin.access.')->middleware(['auth','verified','hasrole:gm|manager'])->group(function () {
+Route::prefix('admin/access')->as('admin.access.')->middleware(['auth', 'verified', 'hasrole:gm|manager'])->group(function () {
     // Assign/revoke roles
     Route::post('users/{user}/roles/grant',  [UserAccessController::class, 'grantRoles'])->whereUuid('user')->name('users.roles.grant');
     Route::post('users/{user}/roles/revoke', [UserAccessController::class, 'revokeRoles'])->whereUuid('user')->name('users.roles.revoke');
@@ -163,7 +163,7 @@ Route::prefix('admin/access')->as('admin.access.')->middleware(['auth','verified
 /* --------------------------------------------------------------------------
 | Admin: site management & context helpers
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/sites')->as('admin.sites.')->middleware(['auth','verified','hasrole:gm'])->group(function () {
+Route::prefix('admin/sites')->as('admin.sites.')->middleware(['auth', 'verified', 'hasrole:gm'])->group(function () {
     Route::resource('/', SiteController::class)
         ->parameters(['' => 'site'])
         ->except(['show'])
@@ -173,7 +173,7 @@ Route::prefix('admin/sites')->as('admin.sites.')->middleware(['auth','verified',
             'store'  => 'store',
             'edit'   => 'edit',
             'update' => 'update',
-            'destroy'=> 'destroy',
+            'destroy' => 'destroy',
         ]);
 
     // Switch active site via controller (alternatif dari session route di atas)
@@ -183,9 +183,9 @@ Route::prefix('admin/sites')->as('admin.sites.')->middleware(['auth','verified',
 /* --------------------------------------------------------------------------
 | Admin: site/global config (managed by GM)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/settings')->as('admin.settings.')->middleware(['auth','verified','hasrole:gm'])->group(function () {
+Route::prefix('admin/settings')->as('admin.settings.')->middleware(['auth', 'verified', 'hasrole:gm'])->group(function () {
     Route::get('/',            [SiteConfigController::class, 'index'])->name('index');
-    Route::match(['post','put','patch'],'/', [SiteConfigController::class, 'upsert'])->name('upsert');
+    Route::match(['post', 'put', 'patch'], '/', [SiteConfigController::class, 'upsert'])->name('upsert');
     Route::get('/export',      [SiteConfigController::class, 'export'])->name('export');
     Route::post('/import',     [SiteConfigController::class, 'import'])->name('import');
 });
@@ -193,12 +193,12 @@ Route::prefix('admin/settings')->as('admin.settings.')->middleware(['auth','veri
 /* --------------------------------------------------------------------------
 | Admin: master entities (structure controlled by GM)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/master-entities')->as('admin.master_entities.')->middleware(['auth','verified','hasrole:gm'])->group(function () {
+Route::prefix('admin/master-entities')->as('admin.master_entities.')->middleware(['auth', 'verified', 'hasrole:gm'])->group(function () {
     Route::get('/',                      [MasterEntityController::class, 'index'])->name('index');
     Route::get('/create',                [MasterEntityController::class, 'create'])->name('create');
     Route::post('/',                     [MasterEntityController::class, 'store'])->name('store');
     Route::get('/{master_entity}/edit',  [MasterEntityController::class, 'edit'])->name('edit');
-    Route::match(['post','put','patch'],'/{master_entity}', [MasterEntityController::class, 'update'])->name('update');
+    Route::match(['post', 'put', 'patch'], '/{master_entity}', [MasterEntityController::class, 'update'])->name('update');
     Route::delete('/{master_entity}',    [MasterEntityController::class, 'destroy'])->name('destroy');
 });
 
@@ -208,7 +208,7 @@ Route::prefix('admin/master-entities')->as('admin.master_entities.')->middleware
 Route::prefix('admin/master')->as('admin.master.')->group(function () {
 
     /* ===== Minimal auth only (overview + legacy redirect) ===== */
-    Route::middleware(['auth','verified'])->group(function () {
+    Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', fn() => redirect()->route('admin.master.overview'))->name('home');
         Route::get('overview', [MasterDataController::class, 'overview'])->name('overview');
 
@@ -224,7 +224,7 @@ Route::prefix('admin/master')->as('admin.master.')->group(function () {
     });
 
     /* ===== Protected by site context + per-entity policy ===== */
-    Route::middleware(['auth','verified','site.selected','can:master.access,entity'])->group(function () {
+    Route::middleware(['auth', 'verified', 'site.selected', 'can:master.access,entity'])->group(function () {
 
         $uuid        = '[0-9a-fA-F-]{36}';
         $entityRegex = '^(?!overview$)[a-z0-9_]+$';
@@ -250,14 +250,14 @@ Route::prefix('admin/master')->as('admin.master.')->group(function () {
             ->group(function () {
                 Route::get('/',                    [MasterDataController::class, 'show'])->name('show');
                 Route::get('edit',                 [MasterDataController::class, 'edit'])->name('edit');
-                Route::match(['post','put','patch'],'/', [MasterDataController::class, 'update'])->name('update');
+                Route::match(['post', 'put', 'patch'], '/', [MasterDataController::class, 'update'])->name('update');
                 Route::delete('/',                 [MasterDataController::class, 'destroy'])->name('destroy');
 
                 Route::post('duplicate',           [MasterDataController::class, 'duplicate'])->name('duplicate');
 
                 // per-record permissions
                 Route::get('permissions',                [MasterDataController::class, 'permissions'])->name('permissions');
-                Route::match(['post','put','patch'],'permissions', [MasterDataController::class, 'permissionsUpdate'])->name('permissions.update');
+                Route::match(['post', 'put', 'patch'], 'permissions', [MasterDataController::class, 'permissionsUpdate'])->name('permissions.update');
             });
     });
 });
@@ -265,7 +265,7 @@ Route::prefix('admin/master')->as('admin.master.')->group(function () {
 /* --------------------------------------------------------------------------
 | Admin: AUDIT LOGS (read-only, export, purge by GM/superadmin)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/audit-logs')->as('admin.audit_logs.')->middleware(['auth','verified','hasrole:gm|superadmin'])->group(function () {
+Route::prefix('admin/audit-logs')->as('admin.audit_logs.')->middleware(['auth', 'verified', 'hasrole:gm|superadmin'])->group(function () {
     Route::get('/',                   [AuditLogController::class, 'index'])->name('index');       // list + filter (q, actor, date)
     Route::get('/{log}',              [AuditLogController::class, 'show'])->name('show');         // detail satu log
     Route::get('/export/csv',         [AuditLogController::class, 'exportCsv'])->name('export');  // export
@@ -275,19 +275,19 @@ Route::prefix('admin/audit-logs')->as('admin.audit_logs.')->middleware(['auth','
 /* --------------------------------------------------------------------------
 | Admin: commodities (policy-protected inside controllers)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/commodities')->as('admin.commodities.')->middleware(['auth','verified'])->group(function () {
+Route::prefix('admin/commodities')->as('admin.commodities.')->middleware(['auth', 'verified'])->group(function () {
     Route::get('/',                   [CommodityController::class, 'index'])->name('index');
     Route::get('/create',             [CommodityController::class, 'create'])->name('create');
     Route::post('/',                  [CommodityController::class, 'store'])->name('store');
     Route::get('/{commodity}/edit',   [CommodityController::class, 'edit'])->name('edit');
-    Route::match(['post','put','patch'],'/{commodity}', [CommodityController::class, 'update'])->name('update');
+    Route::match(['post', 'put', 'patch'], '/{commodity}', [CommodityController::class, 'update'])->name('update');
     Route::delete('/{commodity}',     [CommodityController::class, 'destroy'])->name('destroy');
 });
 
 /* --------------------------------------------------------------------------
 | Admin: assets (policy + site context)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin')->as('admin.')->middleware(['auth','verified','site.selected','can:viewAny,App\\Models\\Asset'])->group(function () {
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'site.selected', 'can:viewAny,App\\Models\\Asset'])->group(function () {
     Route::resource('assets', AssetController::class)
         ->parameters(['assets' => 'asset'])
         ->whereUuid(['asset']);
@@ -306,7 +306,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','site.select
 /* --------------------------------------------------------------------------
 | Admin HR Suite (GM/HR) — attendance, timesheet, shift, GA, contracts, crew
 |-------------------------------------------------------------------------- */
-Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|hr','site.selected'])->group(function () {
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:gm|hr', 'site.selected'])->group(function () {
     Route::resource('attendance', AttendanceController::class)->parameters(['attendance' => 'attendance'])->except(['show']);
     Route::resource('timesheets', TimesheetController::class)->parameters(['timesheets' => 'timesheet'])->except(['show']);
     Route::resource('shift-rosters', ShiftRosterController::class)->parameters(['shift-rosters' => 'shiftRoster'])->except(['show']);
@@ -327,7 +327,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|
     Route::prefix('hr-entries/types')->name('hr-entries.types.')->middleware('can:manage,App\\Models\\HrDailyEntry')->group(function () {
         Route::get('/',  [HrDailyEntryController::class, 'typesIndex'])->name('index');
         Route::post('/', [HrDailyEntryController::class, 'typesStore'])->name('store');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])->name('update')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'typesUpdate'])->name('update')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'typesDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
         Route::post('/reorder', [HrDailyEntryController::class, 'typesReorder'])->name('reorder');
     });
@@ -337,7 +337,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|
         Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
         Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaFormConfigManage'])->name('manage')->where('type', '[A-Za-z0-9_\-]+');
         Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])->name('show')->where('type', '^(?!manage$)[A-Za-z0-9_\-]+');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'metaFormConfigUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'metaFormConfigDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
     });
 
@@ -346,7 +346,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|
         Route::get('/', [HrDailyEntryController::class, 'metaSchemasIndex'])->name('index');
         Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaSchemasManage'])->name('manage')->where('type', '[A-Za-z0-9_\-]+');
         Route::get('/{type}', [HrDailyEntryController::class, 'metaSchemasShow'])->name('show')->where('type', '^(?!manage$)[A-Za-z0-9_\-]+');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'metaSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'metaSchemasDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
     });
 
@@ -354,7 +354,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|
     Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')->middleware('can:manage,App\\Models\\HrDailyEntry')->group(function () {
         Route::get('/', [HrDailyEntryController::class, 'approvalSchemasIndex'])->name('index');
         Route::get('/{type}', [HrDailyEntryController::class, 'approvalSchemasShow'])->name('show')->where('type', '[A-Za-z0-9_\-]+');
-        Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
+        Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
         Route::delete('/{type}', [HrDailyEntryController::class, 'approvalSchemasDestroy'])->name('destroy')->where('type', '[A-Za-z0-9_\-]+');
     });
 
@@ -388,17 +388,17 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|
 /* --------------------------------------------------------------------------
 | Print templates (separated to avoid admin prefix collision)
 |-------------------------------------------------------------------------- */
-Route::prefix('hr-entries/print-templates')->as('hr-entries.print-templates.')->middleware(['auth','verified','can:manage,App\\Models\\HrDailyEntry'])->group(function () {
+Route::prefix('hr-entries/print-templates')->as('hr-entries.print-templates.')->middleware(['auth', 'verified', 'can:manage,App\\Models\\HrDailyEntry'])->group(function () {
     Route::get('/',        [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
     Route::get('/{type}',  [HrDailyEntryController::class, 'printTemplatesShow'])->where('type', '[A-Za-z0-9_\-]+')->name('show');
-    Route::match(['put','patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])->where('type', '[A-Za-z0-9_\-]+')->name('upsert');
+    Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])->where('type', '[A-Za-z0-9_\-]+')->name('upsert');
     Route::delete('/{type}', [HrDailyEntryController::class, 'printTemplatesDestroy'])->where('type', '[A-Za-z0-9_\-]+')->name('destroy');
 });
 
 /* --------------------------------------------------------------------------
 | Payroll master (GM/HR) & self-service
 |-------------------------------------------------------------------------- */
-Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|hr'])->group(function () {
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:gm|hr'])->group(function () {
     Route::resource('payroal', PayroalController::class)->parameters(['payroal' => 'payroal'])->except(['show'])->whereUuid(['payroal']);
     Route::get('payroal/export/csv', [PayroalController::class, 'exportCsv'])->name('payroal.export.csv');
     Route::get('payroal/print',      [PayroalController::class, 'print'])->name('payroal.print');
@@ -408,9 +408,9 @@ Route::prefix('admin')->as('admin.')->middleware(['auth','verified','hasrole:gm|
 });
 
 // Self-service payroll profile (authenticated)
-Route::middleware(['auth','verified'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/me/payroal',               [PayroalProfileController::class, 'edit'])->name('me.payroal.edit');
-    Route::match(['put','patch'], '/me/payroal', [PayroalProfileController::class, 'update'])->name('me.payroal.update');
+    Route::match(['put', 'patch'], '/me/payroal', [PayroalProfileController::class, 'update'])->name('me.payroal.update');
     Route::post('/me/payroal/upload',       [PayroalProfileController::class, 'upload'])->name('me.payroal.upload');
     Route::get('/me/payroal/download.xls',  [PayroalProfileController::class, 'downloadXlsx'])->name('me.payroal.download.xls');
 });
@@ -418,18 +418,18 @@ Route::middleware(['auth','verified'])->group(function () {
 /* --------------------------------------------------------------------------
 | Manpower entries (self-service + admin views)
 |-------------------------------------------------------------------------- */
-Route::middleware(['auth','verified'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('manpower/entries', ManpowerEntryController::class)->parameters(['entries' => 'entry'])->names('manpower.entries');
 });
 
-Route::prefix('admin')->as('admin.')->middleware(['auth','verified'])->group(function () {
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified'])->group(function () {
     Route::resource('manpower/entries', ManpowerEntryController::class)->parameters(['entries' => 'entry'])->names('manpower.entries');
 });
 
 /* --------------------------------------------------------------------------
 | HSE module (GM/Manager/HR/HSE Officer) — requires site context
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/hse')->as('admin.hse.')->middleware(['auth','verified','hasrole:gm|manager|hr|hse_officer','site.selected'])->group(function () {
+Route::prefix('admin/hse')->as('admin.hse.')->middleware(['auth', 'verified', 'hasrole:gm|manager|hr|hse_officer', 'site.selected'])->group(function () {
     Route::get('ping', fn() => 'OK');
 
     // Incidents
@@ -475,7 +475,7 @@ Route::prefix('admin/hse')->as('admin.hse.')->middleware(['auth','verified','has
 /* --------------------------------------------------------------------------
 | PAYROAL HISTORY (GM/HR/superadmin) — payslip snapshots
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/payroal/history')->as('admin.payroal_history.')->middleware(['auth','verified','hasrole:hr|gm|superadmin'])->group(function () {
+Route::prefix('admin/payroal/history')->as('admin.payroal_history.')->middleware(['auth', 'verified', 'hasrole:hr|gm|superadmin'])->group(function () {
     Route::get('/',                [PayroalHistoryController::class, 'index'])->name('index');
     Route::get('/create',          [PayroalHistoryController::class, 'create'])->name('create');
     Route::post('/',               [PayroalHistoryController::class, 'store'])->name('store');
@@ -527,10 +527,16 @@ Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
                 'update'  => 'wb_tickets.update',
                 'destroy' => 'wb_tickets.destroy',
             ]);
+        Route::resource('reason-codes', \App\Http\Controllers\Scm\ReasonCodeController::class)->except('show');
+        Route::resource('daily-plans', \App\Http\Controllers\Scm\DailyPlanController::class);
+        Route::resource('dispatches', \App\Http\Controllers\Scm\DispatchController::class);
+        Route::resource('handovers', \App\Http\Controllers\Scm\HandoverController::class);
+        Route::get('reports/target-vs-actual', [\App\Http\Controllers\Scm\ReportController::class, 'targetVsActual'])
+            ->name('reports.target-actual');
     });
 
-    Route::resource('breakdowns', BreakdownController::class)
-    ->only(['index','create','store','edit','update','destroy'])
+Route::resource('breakdowns', BreakdownController::class)
+    ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
     ->parameters(['breakdowns' => 'breakdown'])
     ->names([
         'index'   => 'breakdowns.index',
@@ -549,8 +555,8 @@ Route::get('/me/payslip/{token}', function (string $token) {
     $h = PayroalHistory::where('view_token', $token)->firstOrFail();
     return view('my.payslip', ['h' => $h]); // Public read-only view
 })->where('token', '[A-Za-z0-9_\-]{24,200}')
-  ->middleware(['throttle:60,1', 'cache.headers:private;max_age=60;etag'])
-  ->name('my.payslip.view');
+    ->middleware(['throttle:60,1', 'cache.headers:private;max_age=60;etag'])
+    ->name('my.payslip.view');
 
 /* --------------------------------------------------------------------------
 | Dev-only SMTP test endpoint
@@ -561,7 +567,7 @@ if (config('app.debug')) {
             $m->to('developer@example.com')->subject('Test SMTP');
         });
         return 'Sent (check inbox / spam)';
-    })->middleware(['auth','verified','throttle:10,1'])->name('dev.mailtest');
+    })->middleware(['auth', 'verified', 'throttle:10,1'])->name('dev.mailtest');
 }
 
 require __DIR__ . '/auth.php';
