@@ -563,7 +563,28 @@ if (config('app.debug')) {
         return 'Sent (check inbox / spam)';
     })->middleware(['auth','verified','throttle:10,1'])->name('dev.mailtest');
 }
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\NewPasswordController;
 
+// Forgot password (request link)
+Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])
+    ->middleware('guest')
+    ->name('password.request');
+
+Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+    ->middleware('guest')
+    ->name('password.email');
+
+// Reset form (from email link)
+Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])
+    ->middleware('guest')
+    ->name('password.reset');
+
+// Submit new password (POST) —> PAKAI NAMA BARU
+Route::post('/reset-password', [NewPasswordController::class, 'store'])
+    ->middleware('guest')
+    ->name('password.store');
+ 
 require __DIR__ . '/auth.php';
 
 /* --------------------------------------------------------------------------
