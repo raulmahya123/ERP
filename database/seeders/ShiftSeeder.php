@@ -20,31 +20,51 @@ class ShiftSeeder extends Seeder
             ['code'=>'NON','name'=>'Non Shift / Kantor','start_at'=>'08:00:00','end_at'=>'17:00:00','work_minutes'=>480,'color'=>'#6b7280','remarks'=>'Office'],
         ];
 
-        // helper: buang key yang kolomnya tidak ada
-        $filterCols = function(array $payload): array {
-            $allowed = ['site_id','id','code','name','start_at','end_at','created_at','updated_at'];
-            foreach (['work_minutes','color','remarks'] as $opt) {
-                if (Schema::hasColumn('shifts', $opt)) $allowed[] = $opt;
-            }
-            return array_intersect_key($payload, array_flip($allowed));
-        };
+        // Kolom opsional tergantung schema
+        $optionalCols = collect(['work_minutes','color','remarks'])
+            ->filter(fn($c) => Schema::hasColumn('shifts', $c))
+            ->values()
+            ->all();
 
         foreach ($siteIds as $sid) {
             foreach ($rows as $r) {
-                $base = array_merge($r, [
-                    'id'         => (string) Str::uuid(),
-                    'site_id'    => $sid,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                // cari by (site_id, code)
+                $existing = DB::table('shifts')
+                    ->where('site_id', $sid)
+                    ->where('code', $r['code'])
+                    ->first();
 
-                DB::table('shifts')->updateOrInsert(
-                    ['site_id' => $sid, 'code' => $r['code']],
-                    $filterCols($base)
-                );
+                // kolom umum untuk update
+                $updateCols = array_merge([
+                    'name'       => $r['name'],
+                    'start_at'   => $r['start_at'],
+                    'end_at'     => $r['end_at'],
+                    'updated_at' => now(),
+                ], array_intersect_key($r, array_flip($optionalCols)));
+
+                if ($existing) {
+                    // UPDATE: jangan ubah 'id' & 'created_at'
+                    DB::table('shifts')
+                        ->where('id', $existing->id)
+                        ->update($updateCols);
+                } else {
+                    // INSERT: boleh set 'id'
+                    $insertCols = array_merge([
+                        'id'         => (string) Str::uuid(),
+                        'site_id'    => $sid,
+                        'code'       => $r['code'],
+                        'name'       => $r['name'],
+                        'start_at'   => $r['start_at'],
+                        'end_at'     => $r['end_at'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ], array_intersect_key($r, array_flip($optionalCols)));
+
+                    DB::table('shifts')->insert($insertCols);
+                }
             }
         }
 
-        $this->command?->info('✅ ShiftSeeder: seeded sesuai struktur tabel (schema-aware).');
+        $this->command?->info('✅ ShiftSeeder: done tanpa mengubah primary key.');
     }
 }

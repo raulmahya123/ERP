@@ -37,7 +37,7 @@ class KpiIndicatorController extends Controller
         // NOTE: join utk sorting efisien + select seminimal mungkin
         $query = KpiIndicator::query()
             ->leftJoin('kpi_definitions as kd', 'kd.id', '=', 'kpi_indicators.definition_id')
-            ->with(['definition:id,code,name,`group`,unit', 'site:id,code,name'])
+            ->with(['definition:id,code,name,group,unit', 'site:id,code,name'])
             ->select([
                 'kpi_indicators.*',
                 'kd.code as _def_code',
@@ -105,7 +105,7 @@ class KpiIndicatorController extends Controller
 
     public function edit(KpiIndicator $kpi): View
     {
-        $record = $kpi->load(['definition:id,code,name,`group`,unit','site:id,code,name']);
+        $record = $kpi->load(['definition:id,code,name,group,unit','site:id,code,name']);
         $sites  = Site::orderBy('name')->get(['id','code','name']);
         $defs   = KpiDefinition::orderBy('group')->orderBy('order_no')->get(['id','code','name','group','unit']);
         return view('admin.hse.kpi_indicators.edit', compact('record','sites','defs'));

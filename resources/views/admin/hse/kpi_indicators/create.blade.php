@@ -4,34 +4,52 @@
 @section('title','New KPI Indicator')
 
 @section('content')
-<style>[x-cloak]{display:none!important}</style>
-
 @php
-  // Siapkan data "lite" untuk dipassing ke Alpine tanpa arrow function dalam @json
-  /** @var \Illuminate\Support\Collection $sites */
-  /** @var \Illuminate\Support\Collection $defs  */
-  $sitesLite = $sites->map->only(['id','code','name'])->values();
-  $defsLite  = $defs->map->only(['id','code','name','group','unit'])->values();
+  // Siapkan data minimal untuk dikirim ke front-end
+  $siteOpts = ($sites ?? collect())->map(fn($s)=>[
+    'id'   => (string)$s->id,
+    'code' => (string)$s->code,
+    'name' => (string)$s->name,
+  ])->values();
+
+  // NOTE: Ambil group dari group; fallback ke group (untuk data lama)
+  $defOpts = ($defs ?? collect())->map(fn($d)=>[
+    'id'    => (string)$d->id,
+    'code'  => (string)$d->code,
+    'name'  => (string)$d->name,
+    'group' => (string)($d->group ?? $d->group ?? ''),  // leading/lagging/operational
+    'unit'  => $d->unit ? (string)$d->unit : null,
+  ])->values();
 @endphp
 
+@push('styles')
+<style>[x-cloak]{display:none!important}</style>
+@endpush
+
+{{-- JSON safe containers --}}
+<script type="application/json" id="kpi-sites-json">@json($siteOpts)</script>
+<script type="application/json" id="kpi-defs-json">@json($defOpts)</script>
+
 <div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto"
-     x-data='kpiCreateForm(@json($sitesLite), @json($defsLite))'
-     x-cloak>
+     x-data="kpiCreateForm()"
+     x-init="_init()">
 
   {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+
     <div class="relative px-6 sm:px-10 py-6 text-white flex items-center justify-between">
       <div class="flex items-start gap-3">
         <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
           <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 0 0118 0z"/>
           </svg>
         </div>
         <div>
           <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">New KPI Indicator</h1>
           <p class="text-white/90 text-sm mt-1">Catat indikator kinerja.</p>
+          <p class="text-[11px] mt-1 text-white/70">Defs loaded: <span x-text="defs.length"></span></p>
         </div>
       </div>
       <a href="{{ route('admin.hse.kpi-indicators.index') }}"
@@ -51,12 +69,7 @@
       </div>
     @endif
 
-    <form id="kpi-create-form"
-          method="POST"
-          action="{{ route('admin.hse.kpi-indicators.store') }}"
-          class="space-y-5"
-          @submit.prevent="confirmSubmit"
-          autocomplete="off" novalidate>
+    <form id="kpi-create-form" method="POST" action="{{ route('admin.hse.kpi-indicators.store') }}" class="space-y-5" @submit.prevent="confirmSubmit">
       @csrf
 
       {{-- Site --}}
@@ -80,15 +93,24 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium mb-1">Definition</label>
+
           <template x-if="!legacy">
-            <select name="definition_id" x-model="form.definition_id" @change="applyDefinition()"
-                    class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
+            <select name="definition_id" x-model="form.definition_id" @change="applyDefinition()
+            " class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
               <option value="">— Select definition —</option>
+
+              {{-- server fallback --}}
+              @foreach (($defs ?? []) as $d)
+                <option value="{{ $d->id }}">[{{ $d->code }}] {{ $d->name }} — {{ $d->group ?? $d->group }}</option>
+              @endforeach
+
+              {{-- alpine source --}}
               <template x-for="d in defs" :key="d.id">
                 <option :value="d.id" x-text="`[${d.code}] ${d.name} — ${d.group}`"></option>
               </template>
             </select>
           </template>
+
           <template x-if="legacy">
             <div class="text-xs text-amber-700 bg-amber-50 ring-1 ring-amber-200 rounded-lg px-3 py-2">
               Legacy mode: isi <b>Type</b>, <b>Name</b>, dan <b>Unit</b> manual.
@@ -98,9 +120,7 @@
 
         <div>
           <label class="block text-sm font-medium mb-1">Date <span class="text-rose-600">*</span></label>
-          <input type="date" name="date" x-model="form.date"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
-                 required>
+          <input type="date" name="date" x-model="form.date" class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
           <p class="text-[11px] mt-1" :class="valid.date ? 'text-slate-500' : 'text-rose-600'">
             <span x-show="!form.date">Tanggal wajib diisi.</span>
             <span x-show="form.date && !valid.date">Format tanggal tidak valid.</span>
@@ -134,20 +154,18 @@
 
         <div>
           <label class="block text-sm font-medium mb-1">Value <span class="text-rose-600">*</span></label>
-          <input type="number" name="value" x-model.number="form.value"
-                 inputmode="decimal" step="0.0001" min="0"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
-                 required>
+          <input type="number" step="0.0001" name="value" x-model.number="form.value"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2" required>
           <p class="text-[11px] mt-1" :class="valid.value ? 'text-slate-500' : 'text-rose-600'">
-            <span x-show="!valid.value">Value harus angka ≥ 0.</span>
+            <span x-show="!valid.value">Value harus angka.</span>
           </p>
         </div>
 
         <div>
           <label class="block text-sm font-medium mb-1">Unit</label>
           <input type="text" name="unit" x-model.trim="form.unit" maxlength="20"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
-                 placeholder="count, %, ratio" spellcheck="false">
+                 placeholder="count, %, rate"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
           <p class="text-[11px] mt-1 text-slate-500" x-show="!legacy && defUnit">
             Disarankan: <b x-text="defUnit"></b> (dari Definition)
           </p>
@@ -157,21 +175,19 @@
       {{-- Name / Notes --}}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium mb-1">
-            Name <span class="text-rose-600" x-show="legacy">*</span>
-          </label>
+          <label class="block text-sm font-medium mb-1">Name <span class="text-rose-600" x-show="legacy">*</span></label>
           <input type="text" name="name" x-model.trim="form.name" maxlength="120"
+                 placeholder="Near Miss, LTI, TRIFR…"
                  class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
-                 :required="legacy" placeholder="Near Miss, LTI, TRIFR…" spellcheck="false">
+                 :required="legacy">
           <p class="text-[11px] mt-1" :class="(legacy ? valid.name : true) ? 'text-slate-500' : 'text-rose-600'">
             <span x-show="legacy && !valid.name">Nama indikator wajib diisi di legacy mode.</span>
           </p>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Notes</label>
-          <input type="text" name="notes" x-model.trim="form.notes" maxlength="255"
-                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
-                 spellcheck="false">
+          <input type="text" name="notes" x-model.trim="form.notes"
+                 class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2">
         </div>
       </div>
 
@@ -180,7 +196,7 @@
         <label class="block text-sm font-medium mb-1">Meta (JSON)</label>
         <textarea name="meta" rows="3" x-model="form.meta"
                   class="w-full rounded-xl border-slate-300 ring-1 ring-slate-200 px-3 py-2"
-                  placeholder='{"source":"manual"}' spellcheck="false"></textarea>
+                  placeholder='{"source":"manual"}'></textarea>
         <p class="text-[11px] mt-1" :class="valid.json ? 'text-slate-500' : 'text-rose-600'">
           <span x-show="!form.meta">Opsional. Simpan info tambahan (JSON).</span>
           <span x-show="form.meta && !valid.json">JSON tidak valid.</span>
@@ -194,11 +210,12 @@
         <button type="submit"
                 :disabled="submitting || !canSubmit"
                 class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
-          <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none">
+          <svg x-show="submitting" x-cloak class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
-          <span x-text="submitting ? 'Saving…' : 'Save'"></span>
+          <span x-show="submitting" x-cloak>Saving…</span>
+          <span x-show="!submitting" x-cloak>Save</span>
         </button>
       </div>
     </form>
@@ -209,25 +226,31 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function kpiCreateForm(sites, defs){
+function kpiCreateForm(){
   const isValidDate = (s)=> /^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
-  const tryJSON = (s)=>{ if(!s) return true; try{ JSON.parse(s); return true; }catch{ return false; } };
+  const tryJSON     = (s)=>{ if(!s) return true; try{ JSON.parse(s); return true; }catch{ return false; } };
 
   return {
-    sites, defs,
-    legacy: {{ old('definition_id') ? 'false' : 'true' }}, // default legacy jika user belum pilih definition
+    // collections
+    sites: [],
+    defs: [],
+
+    // ui state
+    legacy: false, // default: Definition mode
     defUnit: null,
-    submitting:false,
+    submitting: false,
+
+    // form state
     form: {
-      site_id: @json(old('site_id','')),
-      definition_id: @json(old('definition_id','')),
-      date: @json(old('date','')),
-      type: (String(@json(old('type','leading'))) || 'leading').toLowerCase(),
-      value: @json(old('value', 0)),
-      unit: @json(old('unit','')),
-      name: @json(old('name','')),
-      notes: @json(old('notes','')),
-      meta: @json(old('meta','')),
+      site_id: '',
+      definition_id: '',
+      date: '',
+      type: 'leading',
+      value: 0,
+      unit: '',
+      name: '',
+      notes: '',
+      meta: '',
     },
 
     typeLabels: { leading:'Leading', lagging:'Lagging', operational:'Operational' },
@@ -236,7 +259,7 @@ function kpiCreateForm(sites, defs){
       return {
         date: isValidDate(this.form.date),
         type: ['leading','lagging','operational'].includes(String(this.form.type||'').toLowerCase()),
-        value: this.form.value !== '' && Number.isFinite(Number(this.form.value)) && Number(this.form.value) >= 0,
+        value: this.form.value !== '' && Number.isFinite(Number(this.form.value)),
         name: this.legacy ? (String(this.form.name||'').trim().length > 0) : true,
         json: tryJSON(this.form.meta),
       };
@@ -246,26 +269,60 @@ function kpiCreateForm(sites, defs){
       return v.date && v.type && v.value && v.json && (this.legacy ? v.name : true);
     },
 
-    toggleLegacy(){ this.legacy = !this.legacy; if (!this.legacy && this.form.definition_id) this.applyDefinition(); },
+    _loadJSON(id){
+      const el = document.getElementById(id);
+      if(!el) return [];
+      try { return JSON.parse(el.textContent || '[]'); } catch { return [];
+      }
+    },
+
+    _applyOlds(){
+      this.form.site_id       = @json(old('site_id',''));
+      this.form.definition_id = @json(old('definition_id',''));
+      this.form.date          = @json(old('date',''));
+      this.form.type          = String(@json(old('type','leading')) || 'leading').toLowerCase();
+      this.form.value         = @json(old('value', 0));
+      this.form.unit          = @json(old('unit',''));
+      this.form.name          = @json(old('name',''));
+      this.form.notes         = @json(old('notes',''));
+      this.form.meta          = @json(old('meta',''));
+    },
+
+    _init(){
+      this.sites = this._loadJSON('kpi-sites-json');
+      this.defs  = this._loadJSON('kpi-defs-json');
+      this._applyOlds();
+      if (this.form.definition_id) this.applyDefinition();
+    },
+
+    toggleLegacy(){
+      this.legacy = !this.legacy;
+      if (!this.legacy && this.form.definition_id) this.applyDefinition();
+    },
 
     applyDefinition(){
-      const d = this.defs.find(x => x.id === this.form.definition_id);
+      const id = String(this.form.definition_id || '');
+      const d  = this.defs.find(x => String(x.id) === id);
       if (!d) { this.defUnit = null; return; }
-      // set otomatis (boleh dioverride manual)
-      this.form.type = ['leading','lagging'].includes(String(d.group).toLowerCase()) ? d.group : 'operational';
+
+      const grp = String(d.group||'').toLowerCase();
+      this.form.type = ['leading','lagging','operational'].includes(grp) ? grp : 'operational';
+
       if (!this.form.name) this.form.name = d.name;
       if (!this.form.unit) this.form.unit = d.unit ?? '';
+
       this.defUnit = d.unit ?? null;
-      this.legacy = false;
+      this.legacy  = false;
     },
 
     confirmSubmit(){
       const formEl = document.getElementById('kpi-create-form');
       if (!this.canSubmit) {
-        alert('Periksa input: tanggal, type, value (≥ 0), dan (jika legacy) name harus valid.');
+        alert('Periksa input: tanggal, type, value, dan (jika legacy) name harus valid.');
         return;
       }
       if (typeof Swal === 'undefined') { this.submitting = true; formEl.submit(); return; }
+
       Swal.fire({
         title: 'Simpan KPI baru?',
         text: 'Pastikan data sudah benar.',

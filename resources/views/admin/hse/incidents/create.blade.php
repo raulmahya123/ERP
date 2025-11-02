@@ -1,18 +1,20 @@
 {{-- resources/views/admin/hse/incidents/create.blade.php --}}
 @php
   use Illuminate\Support\Str;
-  use Illuminate\Support\Carbon;
 
-  // Default datetime-local (timezone aplikasi)
+  // default datetime-local
   $tz = config('app.timezone','Asia/Jakarta');
   try {
     $occurDefault = old('occurred_at') ?: now($tz)->format('Y-m-d\TH:i');
-    // Validasi cepat format; fallback ke now() jika invalid
     new DateTime($occurDefault);
   } catch (\Throwable $e) {
     $occurDefault = now($tz)->format('Y-m-d\TH:i');
   }
   $statusOld = old('status','reported');
+
+  // cek site dari session (tanpa logic berat)
+  $siteId = session('site_id');
+  $siteValid = is_string($siteId) && $siteId !== '';
 @endphp
 
 @extends('layouts.app')
@@ -29,25 +31,42 @@
        description:@js(old('description','')),
        status:     @js($statusOld ?: 'reported'),
        submitting: false,
+       siteValid:  @js($siteValid),
 
-       // opsi cepat
        catOptions: ['Near Miss','Property Damage','Injury','Environmental','Unsafe Act','Unsafe Condition'],
        sevOptions: ['Minor','Moderate','Major','Critical'],
 
-       // computed
        get dateValid(){
          if(!this.occurredAt) return false;
          const d = new Date(this.occurredAt);
          return !Number.isNaN(d.getTime());
        },
-       get readyToTry(){ return this.dateValid; },
 
        confirmSubmit(){
-         const form = document.getElementById('incident-form');
-         if (!this.readyToTry) {
-           if (!this.occurredAt) { alert('Tanggal kejadian wajib diisi.'); return; }
-           if (!this.dateValid)  { alert('Tanggal kejadian tidak valid.'); return; }
+         // kalau nggak ada site -> kasih alert, jangan submit (input tetap ada)
+         if (!this.siteValid) {
+           if (typeof Swal === 'undefined' || !Swal?.fire) {
+             alert('Belum ada site yang dipilih. Silakan pilih site terlebih dahulu.');
+           } else {
+             Swal.fire({
+               icon: 'warning',
+               title: 'Belum pilih site',
+               text: 'Belum ada site yang dipilih. Silakan pilih site terlebih dahulu.',
+               confirmButtonText: 'OK',
+               confirmButtonColor: '#0284c7',
+               customClass: { popup: 'rounded-2xl' }
+             });
+           }
+           return;
          }
+
+         // validasi minimal tanggal
+         if (!this.occurredAt || !this.dateValid) {
+           alert('Tanggal kejadian wajib diisi dan harus valid.');
+           return;
+         }
+
+         const form = document.getElementById('incident-form');
          if (typeof Swal === 'undefined' || !Swal?.fire) {
            this.submitting = true; form.submit(); return;
          }
@@ -57,14 +76,10 @@
            icon: 'question',
            showCancelButton: true,
            confirmButtonColor: '#059669',
-           cancelButtonColor: '#0284c7',
+           cancelButtonColor: '#6b7280',
            confirmButtonText: 'Ya, simpan',
            cancelButtonText: 'Batal',
-           customClass: {
-             popup: 'rounded-2xl',
-             confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-             cancelButton: 'rounded-lg px-4 py-2 font-semibold'
-           }
+           customClass: { popup: 'rounded-2xl' }
          }).then((res)=>{ if (res.isConfirmed) { this.submitting = true; form.submit(); }});
        }
      }">
@@ -98,10 +113,24 @@
     </div>
   </div>
 
+  {{-- FLASH dari backend --}}
+  @if (session('flash_error'))
+    <div class="px-6 py-3 bg-amber-50 text-amber-800 ring-1 ring-amber-200">
+      {{ session('flash_error') }}
+    </div>
+  @endif
+
+  {{-- INFO TIP: munculkan banner tipis (non-blocking) kalau belum pilih site --}}
+  @if (!$siteValid)
+    <div class="px-6 py-3 bg-amber-50 text-amber-800 ring-1 ring-amber-200">
+      Belum ada site yang dipilih. Anda tetap bisa mengisi form, namun saat menyimpan akan diminta memilih site terlebih dahulu.
+    </div>
+  @endif
+
   {{-- BODY --}}
   <div class="p-6 bg-white">
 
-    {{-- Error summary --}}
+    {{-- Error summary dari backend (kalau ada) --}}
     @if ($errors->any())
       <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
         <div class="font-semibold mb-1">Periksa kembali:</div>
@@ -114,6 +143,11 @@
     @can('create', \App\Models\Incident::class)
     <form id="incident-form" method="POST" action="{{ route('admin.hse.incidents.store') }}" class="space-y-6" @submit.prevent="confirmSubmit">
       @csrf
+
+      {{-- kalau session site_id ada, ikutkan. kalau tidak ada: biarkan kosong (tetap bisa isi form) --}}
+      @if($siteValid && $siteId)
+        <input type="hidden" name="site_id" value="{{ $siteId }}">
+      @endif
 
       <div class="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-5 space-y-4">
 
@@ -149,7 +183,7 @@
           </label>
         </div>
 
-        {{-- Row 2: Category + Severity (with quick-pills) --}}
+        {{-- Row 2: Category + Severity --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block">
             <span class="text-xs font-semibold text-slate-600">Category</span>
@@ -241,7 +275,7 @@
           Batal
         </a>
         <button type="submit"
-          :disabled="submitting || !readyToTry"
+          :disabled="submitting"
           class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold shadow ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
           <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -266,4 +300,20 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+@if (session('flash_error'))
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.Swal?.fire) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Belum pilih site',
+        text: @js(session('flash_error')),
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#0284c7',
+        customClass: { popup: 'rounded-2xl' }
+      });
+    }
+  });
+</script>
+@endif
 @endpush

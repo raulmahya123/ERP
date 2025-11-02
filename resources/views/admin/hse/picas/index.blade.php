@@ -50,11 +50,32 @@
 
   {{-- FILTER BAR --}}
   @php
+    use Illuminate\Support\Str;
+    use Illuminate\Support\Carbon as C;
+    use App\Enums\PicaStatus;
+
     $q        = $q ?? request('q');
     $status   = $status ?? request('status');
     $owner_id = $owner_id ?? request('owner_id');
-    $statusOptions = ['open','effective','ineffective','closed'];
+
+    // Ambil opsi dari Enum kalau ada, fallback ke array manual
+    $statusOptions = enum_exists(PicaStatus::class)
+      ? array_map(fn($c) => $c->value ?? $c->name, PicaStatus::cases())
+      : ['open','effective','ineffective','closed'];
+
+    // Helper kecil buat normalize status jadi string lower
+    $statusToLower = function ($val) {
+        if ($val instanceof UnitEnum) {
+            // BackedEnum -> value, pure Enum -> name
+            /** @var UnitEnum $val */
+            $raw = property_exists($val, 'value') ? $val->value : $val->name;
+        } else {
+            $raw = (string) $val;
+        }
+        return Str::of($raw)->lower()->toString();
+    };
   @endphp
+
   <div class="px-6 sm:px-10 py-5 bg-white border-t border-slate-100">
     <form method="GET" class="grid gap-3 lg:grid-cols-[1fr_220px_220px_auto]" action="{{ route('admin.hse.picas.index') }}">
       <div class="relative">
@@ -75,8 +96,11 @@
       <select name="status"
               class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm focus:ring-teal-600 focus:border-teal-600">
         <option value="">— Semua Status —</option>
-        @foreach ($statusOptions as $st)
-          <option value="{{ $st }}" @selected($status===$st)>{{ \Illuminate\Support\Str::headline($st) }}</option>
+        @foreach ($statusOptions as $stOpt)
+          @php $stVal = Str::of($stOpt)->lower(); @endphp
+          <option value="{{ $stVal }}" @selected(Str::of($status)->lower()->toString()===$stVal->toString())>
+            {{ Str::headline($stVal) }}
+          </option>
         @endforeach
       </select>
 
@@ -137,8 +161,16 @@
           <tbody class="divide-y divide-slate-100">
             @forelse(($items ?? []) as $pica)
               @php
-                $st = strtolower($pica->status ?? 'open');
-                $isOverdue = empty($pica->closed_at) && !empty($pica->due_date) && \Illuminate\Support\Carbon::parse($pica->due_date)->isBefore(now()->startOfDay());
+                // Normalisasi enum -> string lower
+                $rawStatus = $pica->status instanceof UnitEnum
+                  ? (property_exists($pica->status,'value') ? $pica->status->value : $pica->status->name)
+                  : (string) $pica->status;
+
+                $st = Str::of($rawStatus)->lower()->toString();
+
+                $isOverdue = empty($pica->closed_at)
+                  && !empty($pica->due_date)
+                  && C::parse($pica->due_date)->isBefore(now()->startOfDay());
               @endphp
               <tr class="hover:bg-emerald-50/40">
                 <td class="px-4 py-3 font-mono text-emerald-700">{{ $pica->code ?? '—' }}</td>
@@ -150,7 +182,7 @@
                 <td class="px-4 py-3 text-slate-700">
                   @if($pica->due_date)
                     <span @class(['font-semibold'=>$isOverdue,'text-rose-600'=>$isOverdue])>
-                      {{ \Illuminate\Support\Carbon::parse($pica->due_date)->format('Y-m-d') }}
+                      {{ C::parse($pica->due_date)->format('Y-m-d') }}
                     </span>
                   @else
                     —
@@ -160,11 +192,11 @@
                   <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
                     @class([
                       'bg-amber-50 text-amber-800 ring-1 ring-amber-200'        => $st==='open',
-                      'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'  => $st==='effective' || $st==='closed',
+                      'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'  => in_array($st,['effective','closed'], true),
                       'bg-red-50 text-red-700 ring-1 ring-red-200'              => $isOverdue,
                       'bg-slate-50 text-slate-700 ring-1 ring-slate-200'        => $st==='ineffective',
                     ])">
-                    {{ $isOverdue ? 'Overdue' : \Illuminate\Support\Str::headline($st) }}
+                    {{ $isOverdue ? 'Overdue' : Str::headline($st) }}
                   </span>
                 </td>
                 <td class="px-4 py-3">
@@ -223,24 +255,14 @@
 @endsection
 
 @push('scripts')
-{{-- Disarankan self-host/asset bundler untuk keamanan & ketersediaan. --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" referrerpolicy="no-referrer"></script>
 <script>
 (function(){
-  function submitDelete(formId){
-    var f = document.getElementById(formId);
-    if (f) f.submit();
-  }
+  function submitDelete(formId){ var f = document.getElementById(formId); if (f) f.submit(); }
   function handleClick(e){
-    var btn = e.target.closest('.btn-del');
-    if (!btn) return;
-    var formId = btn.getAttribute('data-form');
-    var code   = btn.getAttribute('data-code') || '';
-
-    if (typeof Swal === 'undefined') {
-      if (confirm('Hapus PICA: ' + code + ' ?')) submitDelete(formId);
-      return;
-    }
+    var btn = e.target.closest('.btn-del'); if (!btn) return;
+    var formId = btn.getAttribute('data-form'); var code = btn.getAttribute('data-code') || '';
+    if (typeof Swal === 'undefined') { if (confirm('Hapus PICA: ' + code + ' ?')) submitDelete(formId); return; }
     Swal.fire({
       title: 'Hapus PICA?',
       text: 'Apakah kamu yakin ingin menghapus: ' + code + ' ?',
@@ -250,11 +272,7 @@
       cancelButtonColor: '#0284c7',
       confirmButtonText: 'Ya, hapus',
       cancelButtonText: 'Batal',
-      customClass: {
-        popup: 'rounded-2xl',
-        confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-        cancelButton: 'rounded-lg px-4 py-2 font-semibold'
-      }
+      customClass: { popup:'rounded-2xl', confirmButton:'rounded-lg px-4 py-2 font-semibold', cancelButton:'rounded-lg px-4 py-2 font-semibold' }
     }).then(function(r){ if(r.isConfirmed){ submitDelete(formId); }});
   }
   document.addEventListener('click', handleClick, false);

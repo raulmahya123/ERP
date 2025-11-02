@@ -7,14 +7,109 @@
 @php
   use Illuminate\Support\Carbon;
   $tz = config('app.timezone','Asia/Jakarta');
+
+  // Init object untuk Alpine (camelCase konsisten)
+  $init = [
+    'title'   => old('title',''),
+    'status'  => old('status','open'),
+    'dueDate' => old('due_date',''),
+  ];
 @endphp
 
+@push('styles')
+<style>[x-cloak]{display:none!important}</style>
+@endpush
+
+{{-- ✅ Definisikan factory di global sebelum Alpine mem-parsing x-data --}}
+<script>
+  window.picaCreateForm = function(init){
+    return {
+      // state
+      title:    init?.title ?? '',
+      status:   init?.status ?? 'open',
+      dueDate:  init?.dueDate ?? '',
+      submitting: false,
+
+      // computed
+      get titleOk(){ return (this.title||'').trim().length > 0; },
+      get statusOk(){ return ['open','effective','ineffective','closed'].includes(this.status); },
+      get dueOk(){ if (!this.dueDate) return true; return /^\d{4}-\d{2}-\d{2}$/.test(this.dueDate); },
+      get relOk(){
+        // Incident XOR Hazard
+        const inc = document.getElementById('related_incident_id')?.value || '';
+        const haz = document.getElementById('related_hazard_id')?.value || '';
+        return !(inc && haz);
+      },
+      get canTry(){ return this.titleOk && this.statusOk && this.dueOk && this.relOk; },
+
+      // handlers
+      onRelChange(e){
+        const id = e?.target?.id;
+        if (!id) return;
+        const other = id === 'related_incident_id'
+          ? document.getElementById('related_hazard_id')
+          : document.getElementById('related_incident_id');
+        if (e.target.value && other && other.value) other.value = '';
+      },
+
+      // actions
+      async confirmSubmit(){
+        const form = document.getElementById('pica-create-form');
+
+        // Guard validation
+        if (!this.canTry) {
+          if (!this.titleOk) { alert('Title wajib diisi.'); return; }
+          if (!this.statusOk) { alert('Status tidak valid.'); return; }
+          if (!this.dueOk)    { alert('Format Due Date tidak valid.'); return; }
+          if (!this.relOk)    { alert('Pilih Incident atau Hazard saja, tidak boleh keduanya.'); return; }
+        }
+
+        // Fallback jika swal tidak tersedia
+        if (typeof Swal === 'undefined') {
+          if (!form.checkValidity()) { form.reportValidity(); return; }
+          this.submitting = true;
+          form.requestSubmit();
+          return;
+        }
+
+        const res = await Swal.fire({
+          title: 'Simpan PICA baru?',
+          text: 'Pastikan Owner & Due Date (jika ada) sudah benar.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#059669',
+          cancelButtonColor: '#0284c7',
+          confirmButtonText: 'Ya, simpan',
+          cancelButtonText: 'Batal',
+          customClass: {
+            popup: 'rounded-2xl',
+            confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+            cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+          },
+          allowEnterKey: true,
+          allowOutsideClick: () => !Swal.isLoading()
+        });
+
+        if (res.isConfirmed) {
+          if (!form.checkValidity()) { form.reportValidity(); return; }
+          this.submitting = true;
+          try {
+            form.requestSubmit();          // hormati validasi native
+            setTimeout(() => form.submit(), 0); // hard submit setelah next tick
+          } catch (e) {
+            setTimeout(() => form.submit(), 0);
+          }
+        }
+      }
+    }
+  }
+</script>
+
+{{-- ✅ JSON aman untuk init (tidak di dalam atribut) --}}
+<script type="application/json" id="pica-init">@json($init)</script>
+
 <div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden max-w-3xl mx-auto"
-     x-data="picaCreateForm({
-       title:  @json(old('title','')),
-       status: @json(old('status','open')),
-       dueDate:@json(old('due_date','')),
-     })">
+     x-data="picaCreateForm(JSON.parse(document.getElementById('pica-init').textContent))">
 
   {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
@@ -152,7 +247,7 @@
         </div>
       </div>
 
-      {{-- Status (enum allowed) --}}
+      {{-- Status --}}
       <div>
         <label class="block text-sm font-medium mb-1">Status</label>
 
@@ -185,12 +280,13 @@
 
         <button type="submit"
                 :disabled="submitting || !canTry"
-                class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
-          <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                class="min-w-[88px] px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg x-show="submitting" x-cloak class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
           </svg>
-          <span x-text="submitting ? 'Saving…' : 'Save'"></span>
+          <span x-show="submitting" x-cloak>Saving…</span>
+          <span x-show="!submitting" x-cloak>Save</span>
         </button>
       </div>
     </form>
@@ -200,74 +296,4 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" referrerpolicy="no-referrer"></script>
-<script>
-function picaCreateForm(init){
-  return {
-    // state
-    title:  init?.title ?? '',
-    status: init?.status ?? 'open',
-    dueDate: init?.dueDate ?? '',
-    submitting: false,
-
-    // computed
-    get titleOk(){ return (this.title||'').trim().length > 0; },
-    get statusOk(){ return ['open','effective','ineffective','closed'].includes(this.status); },
-    get dueOk(){
-      if (!this.dueDate) return true;
-      return /^\d{4}-\d{2}-\d{2}$/.test(this.dueDate);
-    },
-    get relOk(){
-      // Incident XOR Hazard (boleh dua-duanya kosong, tapi tidak boleh keduanya terisi)
-      const inc = document.getElementById('related_incident_id')?.value || '';
-      const haz = document.getElementById('related_hazard_id')?.value || '';
-      return !(inc && haz);
-    },
-    get canTry(){ return this.titleOk && this.statusOk && this.dueOk && this.relOk; },
-
-    // ensure mutually exclusive on client (server tetap validasi di FormRequest)
-    onRelChange(e){
-      const id = e?.target?.id;
-      if (!id) return;
-      const other = id === 'related_incident_id'
-        ? document.getElementById('related_hazard_id')
-        : document.getElementById('related_incident_id');
-      if (e.target.value && other && other.value) {
-        other.value = '';
-      }
-    },
-
-    // actions
-    confirmSubmit(){
-      const form = document.getElementById('pica-create-form');
-
-      if (!this.canTry) {
-        if (!this.titleOk) { alert('Title wajib diisi.'); return; }
-        if (!this.statusOk) { alert('Status tidak valid.'); return; }
-        if (!this.dueOk)    { alert('Format Due Date tidak valid.'); return; }
-        if (!this.relOk)    { alert('Pilih Incident atau Hazard saja, tidak boleh keduanya.'); return; }
-      }
-
-      if (typeof Swal === 'undefined') { this.submitting = true; form.submit(); return; }
-
-      Swal.fire({
-        title: 'Simpan PICA baru?',
-        text: 'Pastikan Owner & Due Date (jika ada) sudah benar.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#059669',
-        cancelButtonColor: '#0284c7',
-        confirmButtonText: 'Ya, simpan',
-        cancelButtonText: 'Batal',
-        customClass: {
-          popup: 'rounded-2xl',
-          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
-        }
-      }).then((res) => {
-        if (res.isConfirmed) { this.submitting = true; form.submit(); }
-      });
-    }
-  }
-}
-</script>
 @endpush

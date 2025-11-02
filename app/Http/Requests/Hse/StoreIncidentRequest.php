@@ -12,41 +12,40 @@ final class StoreIncidentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // Policy create
         return $this->user()?->can('create', Incident::class) ?? false;
     }
 
     public function rules(): array
     {
         return [
-            'site_id'     => ['nullable', 'uuid', 'exists:sites,id'],
+            // ❗️Tidak pakai exists/required supaya controller bisa kasih flash error sendiri
+            'site_id'     => ['nullable', 'uuid'],
+
             'occurred_at' => ['required', 'date'],
 
-            // Selaraskan batasan panjang dengan UI/Controller
+            // Selaraskan batasan panjang dengan UI
             'location'    => ['nullable', 'string', 'max:120'],
             'category'    => ['nullable', 'string', 'max:80'],
             'severity'    => ['nullable', 'string', 'max:40'],
             'description' => ['nullable', 'string', 'max:2000'],
 
-            // Status boleh kosong (controller default -> 'reported')
+            // Status opsional (controller default -> 'reported')
             'status'      => ['nullable', Rule::in(['reported','under_investigation','action_in_progress','closed'])],
 
             // Code opsional; unik jika diisi
             'code'        => ['nullable', 'string', 'max:50', Rule::unique('incidents', 'code')],
 
-            // Koleksi opsional – validasi itemnya juga
+            // Koleksi opsional
             'tags'        => ['nullable', 'array', 'max:50'],
             'tags.*'      => ['nullable', 'string', 'max:40'],
 
-            // Meta bebas kunci, batasi tipe dasar
             'meta'        => ['nullable', 'array'],
-            'meta.*'      => ['nullable'], // bisa dipersempit: string|numeric|boolean
+            'meta.*'      => ['nullable'],
         ];
     }
 
     public function attributes(): array
     {
-        // Jika pakai resources/lang/id/validation.php, ini opsional.
         return [
             'occurred_at' => 'waktu kejadian',
             'location'    => 'lokasi',
@@ -63,18 +62,21 @@ final class StoreIncidentRequest extends FormRequest
 
     public function messages(): array
     {
-        // Gunakan default dari file lang; tambahkan custom jika perlu
         return [
             'occurred_at.required' => 'Tanggal & jam kejadian wajib diisi.',
+            'occurred_at.date'     => 'Tanggal & jam kejadian tidak valid.',
+            'site_id.uuid'         => 'Site tidak valid.', // tetap rapi kalau user selundupkan nilai aneh
         ];
     }
 
-    /**
-     * Normalisasi input: trim string & ubah string kosong menjadi null,
-     * agar lulus "nullable" tanpa false-positive (mis. "" pada unique).
-     */
     protected function prepareForValidation(): void
     {
+        // Inject site dari session jika tidak dikirim, tapi tetap nullable
+        if (!$this->has('site_id') && session()->has('site_id')) {
+            $this->merge(['site_id' => session('site_id')]);
+        }
+
+        // Trim string & kosong -> null supaya nullable bekerja
         $castNullIfEmpty = fn ($v) => is_string($v) ? (trim($v) === '' ? null : trim($v)) : $v;
 
         $data = $this->all();
@@ -85,7 +87,6 @@ final class StoreIncidentRequest extends FormRequest
             }
         }
 
-        // Pastikan array valid
         if ($this->has('tags') && !is_array($this->input('tags'))) {
             $data['tags'] = null;
         }

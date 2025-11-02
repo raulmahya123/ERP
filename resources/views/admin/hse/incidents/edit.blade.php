@@ -100,6 +100,13 @@
     </div>
   </div>
 
+  {{-- FLASH dari backend (termasuk 'flash_error' seperti "Kamu lupa pilih site.") --}}
+  @if (session('flash_error'))
+    <div class="px-6 py-3 bg-amber-50 text-amber-800 ring-1 ring-amber-200">
+      {{ session('flash_error') }}
+    </div>
+  @endif
+
   {{-- BODY --}}
   <div class="p-6 bg-white">
 
@@ -287,7 +294,7 @@
                   class="px-4 py-2 rounded-xl bg-teal-600 text-white font-semibold shadow ring-1 ring-teal-700/20 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed">
             <svg x-show="submitting" class="animate-spin h-4 w-4 inline-block mr-2 align-middle" viewBox="0 0 24 24" fill="none">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              <path class="opacity-75" fill="currentColor" d="M4 12a 8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
             </svg>
             <span x-text="submitting ? 'Updating…' : 'Update'"></span>
           </button>
@@ -310,4 +317,20 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+@if (session('flash_error'))
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.Swal?.fire) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Info',
+        text: @js(session('flash_error')),
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#0284c7',
+        customClass: { popup: 'rounded-2xl' }
+      });
+    }
+  });
+</script>
+@endif
 @endpush

@@ -54,7 +54,8 @@ use App\Http\Controllers\Scm\{TripController, HourMeterController, FuelLogContro
 
 
 use App\Models\PayroalHistory;
-
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\NewPasswordController;
 /* --------------------------------------------------------------------------
 | Global patterns & root redirect
 |-------------------------------------------------------------------------- */
@@ -569,8 +570,7 @@ if (config('app.debug')) {
         return 'Sent (check inbox / spam)';
     })->middleware(['auth', 'verified', 'throttle:10,1'])->name('dev.mailtest');
 }
-use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\NewPasswordController;
+
 
 // Forgot password (request link)
 Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])
