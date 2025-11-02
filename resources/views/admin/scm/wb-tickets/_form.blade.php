@@ -1,5 +1,5 @@
 @if ($errors->any())
-  <div class="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-3">
+  <div class="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-3 mb-3">
     <ul class="list-disc list-inside">
       @foreach ($errors->all() as $err) <li>{{ $err }}</li> @endforeach
     </ul>
@@ -10,8 +10,7 @@
   @csrf
   @if (strtoupper($method) !== 'POST') @method($method) @endif
 
-  <input type="hidden" name="site_id" value="{{ old('site_id', $ticket->site_id ?? $wb_ticket->site_id ?? ($siteId ?? '')) }}"/>
-
+  {{-- Site --}}
   <div>
     <label class="block text-sm text-slate-600">Site</label>
     <select name="site_id" class="border rounded px-2 py-1 w-full">
@@ -23,6 +22,7 @@
     </select>
   </div>
 
+  {{-- Ticket No --}}
   <div>
     <label class="block text-sm text-slate-600">No Tiket</label>
     <input type="text" name="ticket_no"
@@ -30,6 +30,7 @@
            class="border rounded px-2 py-1 w-full" maxlength="100">
   </div>
 
+  {{-- Direction --}}
   <div>
     <label class="block text-sm text-slate-600">Direction</label>
     <select name="direction" class="border rounded px-2 py-1 w-full">
@@ -39,6 +40,7 @@
     </select>
   </div>
 
+  {{-- Ticket time --}}
   <div>
     <label class="block text-sm text-slate-600">Waktu Tiket</label>
     <input type="datetime-local" name="ticket_time"
@@ -46,42 +48,61 @@
            class="border rounded px-2 py-1 w-full">
   </div>
 
+  {{-- Unit (opsional) --}}
   <div>
     <label class="block text-sm text-slate-600">Unit (opsional)</label>
     <select name="unit_id" class="border rounded px-2 py-1 w-full">
       <option value="">— Tidak diisi —</option>
-      @foreach ($units as $u)
+      @forelse ($units as $u)
         <option value="{{ $u->id }}" @selected(old('unit_id', $ticket->unit_id ?? $wb_ticket->unit_id ?? null) == $u->id)>
           {{ $u->code }} — {{ $u->name }}
         </option>
-      @endforeach
+      @empty
+        <option value="" disabled>Belum ada Asset untuk site ini</option>
+      @endforelse
     </select>
+    @if($units->isEmpty())
+      <p class="mt-1 text-xs text-slate-500">Tambahkan data asset terlebih dahulu.</p>
+    @endif
   </div>
 
+  {{-- Pit (opsional) --}}
   <div>
     <label class="block text-sm text-slate-600">Pit (opsional)</label>
     <select name="pit_id" class="border rounded px-2 py-1 w-full">
       <option value="">— Tidak diisi —</option>
-      @foreach ($pits as $p)
+      @forelse ($pits as $p)
         <option value="{{ $p->id }}" @selected(old('pit_id', $ticket->pit_id ?? $wb_ticket->pit_id ?? null) == $p->id)>
-          {{ $p->name }}
+          {{ $p->code ? ($p->code.' — ') : '' }}{{ $p->name }}
         </option>
-      @endforeach
+      @empty
+        <option value="" disabled>Belum ada Pit pada site ini</option>
+      @endforelse
     </select>
+    @if($pits->isEmpty())
+      <p class="mt-1 text-xs text-slate-500">Buat lokasi bertipe <b>pit</b> di modul Lokasi.</p>
+    @endif
   </div>
 
+  {{-- Stockpile (opsional) --}}
   <div>
     <label class="block text-sm text-slate-600">Stockpile (opsional)</label>
     <select name="stockpile_id" class="border rounded px-2 py-1 w-full">
       <option value="">— Tidak diisi —</option>
-      @foreach ($stockpiles as $sp)
+      @forelse ($stockpiles as $sp)
         <option value="{{ $sp->id }}" @selected(old('stockpile_id', $ticket->stockpile_id ?? $wb_ticket->stockpile_id ?? null) == $sp->id)>
-          {{ $sp->name }}
+          {{ $sp->code ? ($sp->code.' — ') : '' }}{{ $sp->name }}
         </option>
-      @endforeach
+      @empty
+        <option value="" disabled>Belum ada Stockpile pada site ini</option>
+      @endforelse
     </select>
+    @if($stockpiles->isEmpty())
+      <p class="mt-1 text-xs text-slate-500">Buat lokasi bertipe <b>stockpile</b> di modul Lokasi. Field ini opsional.</p>
+    @endif
   </div>
 
+  {{-- Commodity (opsional) --}}
   <div>
     <label class="block text-sm text-slate-600">Commodity (opsional)</label>
     <select name="commodity_id" class="border rounded px-2 py-1 w-full">
@@ -94,6 +115,7 @@
     </select>
   </div>
 
+  {{-- Berat --}}
   <div>
     <label class="block text-sm text-slate-600">Gross (kg/ton)</label>
     <input type="number" step="0.01" min="0" name="gross"
@@ -115,6 +137,7 @@
            class="border rounded px-2 py-1 w-full">
   </div>
 
+  {{-- Pair & Notes --}}
   <div>
     <label class="block text-sm text-slate-600">Pair Ticket ID (opsional)</label>
     <input type="text" name="pair_id"

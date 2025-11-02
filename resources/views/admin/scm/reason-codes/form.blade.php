@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('title', $item->exists ? 'Edit Reason Code':'Tambah Reason Code')
+
 @section('content')
 <h1 class="text-xl font-semibold mb-4">
   {{ $item->exists ? 'Edit' : 'Tambah' }} Reason Code
@@ -11,7 +12,9 @@
   </div>
 @endif
 
-<form method="POST" action="{{ $item->exists ? route('scm.reason-codes.update',$item->id) : route('scm.reason-codes.store') }}" class="space-y-3 max-w-xl">
+<form method="POST"
+      action="{{ $item->exists ? route('scm.reason-codes.update',$item->id) : route('scm.reason-codes.store') }}"
+      class="space-y-3 max-w-xl">
   @csrf
   @if($item->exists) @method('PUT') @endif
 
@@ -19,10 +22,12 @@
     <label class="block text-sm mb-1">Code</label>
     <input name="code" value="{{ old('code',$item->code) }}" class="w-full border rounded px-2 py-1" required>
   </div>
+
   <div>
     <label class="block text-sm mb-1">Nama</label>
     <input name="name" value="{{ old('name',$item->name) }}" class="w-full border rounded px-2 py-1" required>
   </div>
+
   <div>
     <label class="block text-sm mb-1">Kategori</label>
     <select name="category" class="w-full border rounded px-2 py-1" required>
@@ -31,10 +36,26 @@
       @endforeach
     </select>
   </div>
-  <div class="flex gap-4">
-    <label><input type="checkbox" name="is_downtime" value="1" @checked(old('is_downtime',$item->is_downtime))> Downtime</label>
-    <label><input type="checkbox" name="is_billable" value="1" @checked(old('is_billable',$item->is_billable))> Billable</label>
-    <label><input type="checkbox" name="active" value="1" @checked(old('active',$item->active ?? true))> Aktif</label>
+
+  <div class="flex flex-wrap gap-6 items-center">
+    {{-- Hidden 0 agar saat uncheck tetap terkirim --}}
+    <input type="hidden" name="is_downtime" value="0">
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="is_downtime" value="1" @checked(old('is_downtime',$item->is_downtime))>
+      Downtime
+    </label>
+
+    <input type="hidden" name="is_billable" value="0">
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="is_billable" value="1" @checked(old('is_billable',$item->is_billable))>
+      Billable
+    </label>
+
+    <input type="hidden" name="active" value="0">
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="active" value="1" @checked(old('active', $item->exists ? $item->active : true))>
+      Aktif
+    </label>
   </div>
 
   <div class="pt-2">
