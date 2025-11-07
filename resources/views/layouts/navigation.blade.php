@@ -59,7 +59,9 @@
     $canManageHrConfig = Gate::check('manage', \App\Models\HrDailyEntry::class);
 
     /* Menu visibility */
-    $canPeopleMenu = $isGM || $isHR; // HCM & Manpower
+    $canViewHrEntries = Gate::check('viewAny', \App\Models\HrDailyEntry::class); // pakai policy
+    $canPeopleMenu = $isGM || $isHR || $isManager || $isHSEOfficer || $canViewHrEntries;
+
     $canAdminMenu = $isGM || $isManager; // Admin
     $canHseMenu = $isGM || $isManager || $isHR || $isHSEOfficer; // HSE Suite
     $canScmMenu = $isGM || $isManager || in_array($roleKey, ['scm', 'foreman', 'operator']);
@@ -308,7 +310,7 @@
             $canAssetsV = Route::has('admin.assets.index');
             $canPayroalMe = Route::has('me.payroal.edit');
 
-            $approvalsClickable = $isVerified && $canApprovalsV && ($isGM || $isHR);
+            $approvalsClickable = $isVerified && $canApprovalsV && $canViewHrEntries;
             $assetsClickable = $isVerified && $canAssetsV && ($isGM || $isManager);
             $siteClickable = $isVerified && $canSiteSelect;
             $tapClickable = $isVerified && $canTap;
@@ -356,7 +358,7 @@
                     @if ($canApprovalsV)
                         {!! $quickCard(
                             $approvalsClickable,
-                            $approvalsClickable ? route('admin.hr-entries.index', ['status' => 'pending']) : '#',
+                            $approvalsClickable ? route('admin.hr-entries.index', ['status' => 'pending', 'my_approvals' => 1]) : '#',
                             'ring-amber-200 hover:bg-amber-50',
                             '<svg class="w-5 h-5 text-amber-600 group-hover:text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12l2 2 4-4M7 4h10a2 2 0 012 2v6.5a8.5 8.5 0 11-17 0V6a2 2 0 012-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
                             'Approvals',
@@ -536,21 +538,21 @@
                 </button>
 
                 <div x-show="openPeople" x-transition.origin.top.left class="mt-2 space-y-1">
-                    @if (Route::has('admin.attendance.index'))
+                    @if (Route::has('admin.attendance.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.attendance.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.attendance.*')) }}">
                             Absensi Harian
                         </a>
                     @endif
 
-                    @if (Route::has('admin.timesheets.index'))
+                    @if (Route::has('admin.timesheets.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.timesheets.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.timesheets.*') && !request()->routeIs('admin.overtime.*')) }}">
                             Timesheet &amp; Lembur
                         </a>
                     @endif
 
-                    @if (Route::has('admin.overtime.index'))
+                    @if (Route::has('admin.overtime.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.overtime.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.overtime.*')) }}">
                             Overtime Queue
@@ -561,28 +563,28 @@
                         </a>
                     @endif
 
-                    @if (Route::has('admin.locations.index'))
+                    @if (Route::has('admin.locations.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.locations.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.locations.*')) }}">
                             Lokasi &amp; Geofence
                         </a>
                     @endif
 
-                    @if (Route::has('admin.shift-rosters.index'))
+                    @if (Route::has('admin.shift-rosters.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.shift-rosters.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shift-rosters.*')) }}">
                             Shift Roster
                         </a>
                     @endif
 
-                    @if (Route::has('admin.shifts.index'))
+                    @if (Route::has('admin.shifts.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.shifts.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shifts.*')) }}">
                             Shifts Master
                         </a>
                     @endif
 
-                    @if (Route::has('admin.manpower.dashboard'))
+                    @if (Route::has('admin.manpower.dashboard') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.manpower.dashboard') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower.dashboard')) }}">
                             Manpower Dashboard
@@ -627,7 +629,7 @@
                             </button>
 
                             <div x-show="openHR" x-transition.origin.top.left class="mt-1 space-y-1">
-                                @if (Route::has('admin.hr-entries.index'))
+                                @if (Route::has('admin.hr-entries.index') && $canViewHrEntries)
                                     <a href="{{ route('admin.hr-entries.index') }}"
                                         class="group block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hrDailyActive) }}">
                                         <span class="inline-flex items-center gap-2">
