@@ -363,10 +363,35 @@
               @endif
             </td>
 
-            {{-- approver --}}
-            <td class="px-4 py-3 align-top text-slate-700">
-              {{ $e->approver->name ?? '—' }}
-            </td>
+            {{-- approver + approval progress --}}
+<td class="px-4 py-3 align-top">
+  @php
+    $ap  = (array) data_get($e->meta, '_approval', []);
+    $idx = (int) ($ap['current_index'] ?? 0);
+    $st  = array_values((array) ($ap['stages'] ?? []));
+  @endphp
+
+  @if(!empty($st))
+    <div class="flex flex-wrap gap-1.5 mb-1.5">
+      @foreach($st as $i=>$sg)
+        @php $done = !empty($sg['completed']); @endphp
+        <span class="px-2 py-0.5 rounded-full text-[11px] ring-1
+          {{ $done ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                   : ($i===$idx ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                                : 'bg-slate-50 text-slate-600 ring-slate-200') }}">
+          {{ $sg['label'] ?? $sg['key'] ?? ('Stage '.($i+1)) }}@if($done) ✓@endif
+        </span>
+      @endforeach
+    </div>
+  @else
+    <span class="text-slate-400 text-xs">—</span>
+  @endif
+
+  <div class="text-[11px] text-slate-500">
+    {{ $e->approver->name ?? '—' }}
+  </div>
+</td>
+
 
             {{-- actions --}}
             <td class="px-4 py-3 align-top">

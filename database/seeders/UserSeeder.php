@@ -17,6 +17,7 @@ class UserSeeder extends Seeder
         $accounts = [
             ['name'=>'Admin GM',           'email'=>'imyharis@gmail.com',     'password'=>'password123','role_key'=>'gm',          'division_key'=>'plant'],
             ['name'=>'Admin GM Raul',      'email'=>'raulmahya11@gmail.com',  'password'=>'password123','role_key'=>'gm',          'division_key'=>'plant'],
+            ['name'=>'Admin GM Fahad',     'email'=>'fahadra96@gmail.com',    'password'=>'password123','role_key'=>'gm',          'division_key'=>'plant'],
             ['name'=>'Manager Ops',        'email'=>'manager@local.test',     'password'=>'password123','role_key'=>'manager',     'division_key'=>'plant'],
             ['name'=>'Foreman Site',       'email'=>'foreman@local.test',     'password'=>'password123','role_key'=>'foreman',     'division_key'=>'plant'],
             ['name'=>'Operator Unit',      'email'=>'operator@local.test',    'password'=>'password123','role_key'=>'operator',    'division_key'=>'plant'],

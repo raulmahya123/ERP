@@ -12,6 +12,7 @@ class GateServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(\App\Models\Location::class, \App\Policies\LocationPolicy::class);
+        Gate::policy(\App\Models\HrDailyEntry::class, \App\Policies\HrDailyEntryPolicy::class);
 
         Gate::define('manage-master-data', fn($user) => $this->isGm($user));
         Gate::define('grant-access',       fn($user) => $this->isGm($user));

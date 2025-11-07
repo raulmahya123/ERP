@@ -22,7 +22,7 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // Existing
+        \App\Models\HrDailyEntry::class => \App\Policies\HrDailyEntryPolicy::class,
         HrDailyEntry::class => HrDailyEntryPolicy::class,
         Asset::class        => AssetPolicy::class,
 
