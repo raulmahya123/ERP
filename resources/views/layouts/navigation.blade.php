@@ -790,6 +790,7 @@
             $scmHmActive = request()->routeIs('scm.hour_meters.*');
             $scmFuelActive = request()->routeIs('scm.fuel_logs.*');
             $scmWbActive = request()->routeIs('scm.wb_tickets.*');
+            $scmPitsActive = request()->routeIs('scm.pits.*');
             $scmBdActive = request()->routeIs('scm.breakdowns.*') || request()->routeIs('breakdowns.*');
 
             $scmRoutesActive =
@@ -802,7 +803,8 @@
                 $scmPlanActive ||
                 $scmDispatchActive ||
                 $scmHandoverActive ||
-                $scmReportActive;
+                $scmReportActive ||
+                 $scmPitsActive;
 
         @endphp
         @php
@@ -818,7 +820,8 @@
                 Route::has('scm.daily-plans.index') ||
                 Route::has('scm.dispatches.index') ||
                 Route::has('scm.handovers.index') ||
-                Route::has('scm.reports.target-actual');
+                Route::has('scm.reports.target-actual') ||
+                Route::has('scm.pits.index');
 
         @endphp
        @if ($hasScmRoutes && $canScmMenu)
@@ -901,6 +904,13 @@
           Breakdowns
         </a>
       @endif
+      {{-- pits --}}
+   @if (Route::has('scm.pits.index'))
+  <a href="{{ route('scm.pits.index') }}"
+     class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($scmPitsActive) }}">
+    Pits
+  </a>
+@endif
     </div>
   </div>
 @endif
