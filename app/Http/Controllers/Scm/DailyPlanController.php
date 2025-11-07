@@ -16,8 +16,9 @@ class DailyPlanController extends Controller
 
         $q = DailyPlan::with('items')
             ->where('site_id', $siteId)
-            ->when($r->filled('date'), fn($w) => $w->where('plan_date', $r->date))
-            ->when($r->filled('shift_id'), fn($w) => $w->where('shift_id', $r->shift_id))
+            // gunakan input('date') dan whereDate agar aman
+            ->when($r->filled('date'), fn ($w) => $w->whereDate('plan_date', $r->input('date')))
+            ->when($r->filled('shift_id'), fn ($w) => $w->where('shift_id', $r->input('shift_id')))
             ->orderByDesc('plan_date')
             ->orderBy('shift_id');
 
@@ -51,7 +52,7 @@ class DailyPlanController extends Controller
 
         // unique composite
         $exists = DailyPlan::where('site_id', $siteId)
-            ->where('plan_date', $v['plan_date'])
+            ->whereDate('plan_date', $v['plan_date'])
             ->where('shift_id', $v['shift_id'])
             ->exists();
 
@@ -81,7 +82,7 @@ class DailyPlanController extends Controller
             }
         });
 
-        return redirect()->route('scm.daily-plans.index')->with('ok', 'Daily plan dibuat.');
+        return to_route('scm.daily-plans.index')->with('ok', 'Daily plan dibuat.');
     }
 
     public function edit(string $id)
@@ -109,11 +110,13 @@ class DailyPlanController extends Controller
             $plan = DailyPlan::where('site_id', $siteId)->findOrFail($id);
 
             $dup = DailyPlan::where('site_id', $siteId)
-                ->where('plan_date', $v['plan_date'])
+                ->whereDate('plan_date', $v['plan_date'])
                 ->where('shift_id', $v['shift_id'])
                 ->where('id', '!=', $plan->id)
                 ->exists();
-            if ($dup) abort(422, 'Plan untuk tanggal+shift ini sudah ada.');
+            if ($dup) {
+                abort(422, 'Plan untuk tanggal+shift ini sudah ada.');
+            }
 
             $plan->update([
                 'plan_date' => $v['plan_date'],
@@ -121,7 +124,8 @@ class DailyPlanController extends Controller
                 'remarks'   => $v['remarks'] ?? null,
             ]);
 
-            DailyPlanItem::where('daily_plan_id', $plan->id)->delete();
+            // reset items
+            $plan->items()->delete();
             foreach ($v['items'] as $it) {
                 DailyPlanItem::create([
                     'daily_plan_id'  => $plan->id,
@@ -133,14 +137,21 @@ class DailyPlanController extends Controller
             }
         });
 
-        return redirect()->route('scm.daily-plans.index')->with('ok', 'Daily plan diupdate.');
+        return to_route('scm.daily-plans.index')->with('ok', 'Daily plan diupdate.');
     }
 
     public function destroy(string $id)
     {
         $plan = DailyPlan::where('site_id', session('site_id'))->findOrFail($id);
-        DB::transaction(fn() => $plan->delete());
-        return back()->with('ok', 'Daily plan dihapus.');
+
+        DB::transaction(function () use ($plan) {
+            // aman utk FK
+            $plan->items()->delete();
+            $plan->delete();
+        });
+
+        // selalu balik ke index (fix delete dari show)
+        return to_route('scm.daily-plans.index')->with('ok', 'Daily plan dihapus.');
     }
 
     public function show(string $id)

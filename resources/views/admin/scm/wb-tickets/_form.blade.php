@@ -1,163 +1,189 @@
-@if ($errors->any())
-  <div class="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-3 mb-3">
-    <ul class="list-disc list-inside">
-      @foreach ($errors->all() as $err) <li>{{ $err }}</li> @endforeach
-    </ul>
-  </div>
-@endif
+@extends('layouts.app')
+@php
+  // dukung variabel lama: $wb_ticket atau $ticket
+  $m       = $wb_ticket ?? $ticket ?? null;
+  $isEdit  = $m && $m->exists;
+  $rIndex  = 'scm.wb_tickets.index';
+  $rStore  = 'scm.wb_tickets.store';
+  $rUpdate = 'scm.wb_tickets.update';
+  $action  = $isEdit ? route($rUpdate, $m) : route($rStore);
 
-<form method="POST" action="{{ $action }}" class="grid md:grid-cols-2 gap-4 border rounded-lg p-4 bg-white shadow-sm">
-  @csrf
-  @if (strtoupper($method) !== 'POST') @method($method) @endif
+  $siteBack = old('site_id', $m->site_id ?? ($siteId ?? ''));
+@endphp
+@section('title','SCM — ' . ($isEdit ? 'Edit WB Ticket' : 'Tambah WB Ticket'))
 
-  {{-- Site --}}
-  <div>
-    <label class="block text-sm text-slate-600">Site</label>
-    <select name="site_id" class="border rounded px-2 py-1 w-full">
-      @foreach ($sites as $s)
-        <option value="{{ $s->id }}" @selected(old('site_id', $ticket->site_id ?? $wb_ticket->site_id ?? $siteId ?? null) == $s->id)>
-          {{ $s->code }} — {{ $s->name }}
-        </option>
-      @endforeach
-    </select>
-  </div>
+@section('content')
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
 
-  {{-- Ticket No --}}
-  <div>
-    <label class="block text-sm text-slate-600">No Tiket</label>
-    <input type="text" name="ticket_no"
-           value="{{ old('ticket_no', $ticket->ticket_no ?? $wb_ticket->ticket_no ?? '') }}"
-           class="border rounded px-2 py-1 w-full" maxlength="100">
-  </div>
+  {{-- HEADER (seragam) --}}
+  <div class="relative overflow-hidden rounded-t-3xl">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
 
-  {{-- Direction --}}
-  <div>
-    <label class="block text-sm text-slate-600">Direction</label>
-    <select name="direction" class="border rounded px-2 py-1 w-full">
-      @foreach ($directions as $key => $label)
-        <option value="{{ $key }}" @selected(old('direction', $ticket->direction ?? $wb_ticket->direction ?? 'in') == $key)>{{ $label }}</option>
-      @endforeach
-    </select>
+    <div class="relative px-6 sm:px-10 py-6 text-white flex items-center justify-between">
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+        SCM — {{ $isEdit ? 'Edit' : 'Tambah' }} WB Ticket
+      </h1>
+      <a href="{{ route($rIndex, ['site' => $siteBack]) }}"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/20 transition">
+        Kembali
+      </a>
+    </div>
   </div>
 
-  {{-- Ticket time --}}
-  <div>
-    <label class="block text-sm text-slate-600">Waktu Tiket</label>
-    <input type="datetime-local" name="ticket_time"
-           value="{{ old('ticket_time', optional(($ticket->ticket_time ?? $wb_ticket->ticket_time ?? now()))->format('Y-m-d\TH:i')) }}"
-           class="border rounded px-2 py-1 w-full">
-  </div>
-
-  {{-- Unit (opsional) --}}
-  <div>
-    <label class="block text-sm text-slate-600">Unit (opsional)</label>
-    <select name="unit_id" class="border rounded px-2 py-1 w-full">
-      <option value="">— Tidak diisi —</option>
-      @forelse ($units as $u)
-        <option value="{{ $u->id }}" @selected(old('unit_id', $ticket->unit_id ?? $wb_ticket->unit_id ?? null) == $u->id)>
-          {{ $u->code }} — {{ $u->name }}
-        </option>
-      @empty
-        <option value="" disabled>Belum ada Asset untuk site ini</option>
-      @endforelse
-    </select>
-    @if($units->isEmpty())
-      <p class="mt-1 text-xs text-slate-500">Tambahkan data asset terlebih dahulu.</p>
+  <div class="p-6 bg-white">
+    {{-- ERRORS --}}
+    @if ($errors->any())
+      <div class="mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm">
+        <ul class="list-disc pl-5 space-y-0.5">@foreach ($errors->all() as $err) <li>{{ $err }}</li> @endforeach</ul>
+      </div>
     @endif
-  </div>
 
-  {{-- Pit (opsional) --}}
-  <div>
-    <label class="block text-sm text-slate-600">Pit (opsional)</label>
-    <select name="pit_id" class="border rounded px-2 py-1 w-full">
-      <option value="">— Tidak diisi —</option>
-      @forelse ($pits as $p)
-        <option value="{{ $p->id }}" @selected(old('pit_id', $ticket->pit_id ?? $wb_ticket->pit_id ?? null) == $p->id)>
-          {{ $p->code ? ($p->code.' — ') : '' }}{{ $p->name }}
-        </option>
-      @empty
-        <option value="" disabled>Belum ada Pit pada site ini</option>
-      @endforelse
-    </select>
-    @if($pits->isEmpty())
-      <p class="mt-1 text-xs text-slate-500">Buat lokasi bertipe <b>pit</b> di modul Lokasi.</p>
-    @endif
-  </div>
+    <form method="POST" action="{{ $action }}" class="grid md:grid-cols-2 gap-4">
+      @csrf
+      @if($isEdit) @method('PUT') @endif
 
-  {{-- Stockpile (opsional) --}}
-  <div>
-    <label class="block text-sm text-slate-600">Stockpile (opsional)</label>
-    <select name="stockpile_id" class="border rounded px-2 py-1 w-full">
-      <option value="">— Tidak diisi —</option>
-      @forelse ($stockpiles as $sp)
-        <option value="{{ $sp->id }}" @selected(old('stockpile_id', $ticket->stockpile_id ?? $wb_ticket->stockpile_id ?? null) == $sp->id)>
-          {{ $sp->code ? ($sp->code.' — ') : '' }}{{ $sp->name }}
-        </option>
-      @empty
-        <option value="" disabled>Belum ada Stockpile pada site ini</option>
-      @endforelse
-    </select>
-    @if($stockpiles->isEmpty())
-      <p class="mt-1 text-xs text-slate-500">Buat lokasi bertipe <b>stockpile</b> di modul Lokasi. Field ini opsional.</p>
-    @endif
-  </div>
+      {{-- Site --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Site</label>
+        <select name="site_id" class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+          @foreach ($sites as $s)
+            <option value="{{ $s->id }}" @selected(old('site_id', $m->site_id ?? ($siteId ?? null)) == $s->id)>{{ $s->code }} — {{ $s->name }}</option>
+          @endforeach
+        </select>
+      </div>
 
-  {{-- Commodity (opsional) --}}
-  <div>
-    <label class="block text-sm text-slate-600">Commodity (opsional)</label>
-    <select name="commodity_id" class="border rounded px-2 py-1 w-full">
-      <option value="">— Tidak diisi —</option>
-      @foreach ($commodities as $c)
-        <option value="{{ $c->id }}" @selected(old('commodity_id', $ticket->commodity_id ?? $wb_ticket->commodity_id ?? null) == $c->id)>
-          {{ $c->name }}
-        </option>
-      @endforeach
-    </select>
-  </div>
+      {{-- Ticket No --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">No Tiket</label>
+        <input type="text" name="ticket_no"
+               value="{{ old('ticket_no', $m->ticket_no ?? '') }}"
+               class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600" maxlength="100">
+      </div>
 
-  {{-- Berat --}}
-  <div>
-    <label class="block text-sm text-slate-600">Gross (kg/ton)</label>
-    <input type="number" step="0.01" min="0" name="gross"
-           value="{{ old('gross', $ticket->gross ?? $wb_ticket->gross ?? 0) }}"
-           class="border rounded px-2 py-1 w-full">
-  </div>
+      {{-- Direction --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Direction</label>
+        <select name="direction" class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+          @foreach ($directions as $key => $label)
+            <option value="{{ $key }}" @selected(old('direction', $m->direction ?? 'in') == $key)>{{ $label }}</option>
+          @endforeach
+        </select>
+      </div>
 
-  <div>
-    <label class="block text-sm text-slate-600">Tare (kg/ton)</label>
-    <input type="number" step="0.01" min="0" name="tare"
-           value="{{ old('tare', $ticket->tare ?? $wb_ticket->tare ?? 0) }}"
-           class="border rounded px-2 py-1 w-full">
-  </div>
+      {{-- Ticket time --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Waktu Tiket</label>
+        <input type="datetime-local" name="ticket_time"
+               value="{{ old('ticket_time', optional(($m->ticket_time ?? now()))->format('Y-m-d\TH:i')) }}"
+               class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+      </div>
 
-  <div>
-    <label class="block text-sm text-slate-600">Net (otomatis bila kosong)</label>
-    <input type="number" step="0.01" min="0" name="net"
-           value="{{ old('net', $ticket->net ?? $wb_ticket->net ?? '') }}"
-           class="border rounded px-2 py-1 w-full">
-  </div>
+      {{-- Unit (opsional) --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Unit (opsional)</label>
+        <select name="unit_id" class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+          <option value="">— Tidak diisi —</option>
+          @forelse ($units as $u)
+            <option value="{{ $u->id }}" @selected(old('unit_id', $m->unit_id ?? null) == $u->id)>{{ $u->code }} — {{ $u->name }}</option>
+          @empty
+            {{-- tetap tampilkan disabled kalau kosong --}}
+          @endforelse
+        </select>
+        @if($units->isEmpty())
+          <p class="mt-1 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            Belum ada Asset untuk site ini. Tambahkan data asset terlebih dahulu.
+          </p>
+        @endif
+      </div>
 
-  {{-- Pair & Notes --}}
-  <div>
-    <label class="block text-sm text-slate-600">Pair Ticket ID (opsional)</label>
-    <input type="text" name="pair_id"
-           value="{{ old('pair_id', $ticket->pair_id ?? $wb_ticket->pair_id ?? '') }}"
-           class="border rounded px-2 py-1 w-full">
-  </div>
+      {{-- Pit (opsional) --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Pit (opsional)</label>
+        <select name="pit_id" class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+          <option value="">— Tidak diisi —</option>
+          @forelse ($pits as $p)
+            <option value="{{ $p->id }}" @selected(old('pit_id', $m->pit_id ?? null) == $p->id)>{{ $p->code ? ($p->code.' — ') : '' }}{{ $p->name }}</option>
+          @empty
+          @endforelse
+        </select>
+        @if($pits->isEmpty())
+          <p class="mt-1 text-xs text-slate-500">Buat lokasi bertipe <b>pit</b> di modul Lokasi.</p>
+        @endif
+      </div>
 
-  <div class="md:col-span-2">
-    <label class="block text-sm text-slate-600">Catatan (opsional)</label>
-    <textarea name="notes" class="border rounded px-2 py-1 w-full" rows="3">{{ old('notes', $ticket->notes ?? $wb_ticket->notes ?? '') }}</textarea>
-  </div>
+      {{-- Stockpile (opsional) --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Stockpile (opsional)</label>
+        <select name="stockpile_id" class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+          <option value="">— Tidak diisi —</option>
+          @forelse ($stockpiles as $sp)
+            <option value="{{ $sp->id }}" @selected(old('stockpile_id', $m->stockpile_id ?? null) == $sp->id)>{{ $sp->code ? ($sp->code.' — ') : '' }}{{ $sp->name }}</option>
+          @empty
+          @endforelse
+        </select>
+        @if($stockpiles->isEmpty())
+          <p class="mt-1 text-xs text-slate-500">Buat lokasi bertipe <b>stockpile</b> di modul Lokasi. Field ini opsional.</p>
+        @endif
+      </div>
 
-  <div class="md:col-span-2 flex items-center justify-between gap-3">
-    <a href="{{ route('scm.wb_tickets.index', [
-            'site' => old('site_id', $ticket->site_id ?? $wb_ticket->site_id ?? ($siteId ?? ''))
-        ]) }}"
-       class="px-3 py-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-50">Batal</a>
+      {{-- Commodity (opsional) --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Commodity (opsional)</label>
+        <select name="commodity_id" class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+          <option value="">— Tidak diisi —</option>
+          @foreach ($commodities as $c)
+            <option value="{{ $c->id }}" @selected(old('commodity_id', $m->commodity_id ?? null) == $c->id)>{{ $c->name }}</option>
+          @endforeach
+        </select>
+      </div>
 
-    <button class="px-4 py-2 rounded bg-indigo-600 text-white">
-      {{ ($mode ?? '') === 'edit' ? 'Update' : 'Simpan' }}
-    </button>
+      {{-- Gross/Tare/Net --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Gross (kg/ton)</label>
+        <input type="number" step="0.01" min="0" name="gross"
+               value="{{ old('gross', $m->gross ?? 0) }}"
+               class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Tare (kg/ton)</label>
+        <input type="number" step="0.01" min="0" name="tare"
+               value="{{ old('tare', $m->tare ?? 0) }}"
+               class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Net (otomatis bila kosong)</label>
+        <input type="number" step="0.01" min="0" name="net"
+               value="{{ old('net', $m->net ?? '') }}"
+               class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+      </div>
+
+      {{-- Pair & Notes --}}
+      <div>
+        <label class="block text-sm font-medium text-slate-700">Pair Ticket ID (opsional)</label>
+        <input type="text" name="pair_id"
+               value="{{ old('pair_id', $m->pair_id ?? '') }}"
+               class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium text-slate-700">Catatan (opsional)</label>
+        <textarea name="notes" rows="3"
+                  class="mt-1 w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 px-3 text-sm focus:ring-emerald-600 focus:border-emerald-600">{{ old('notes', $m->notes ?? '') }}</textarea>
+      </div>
+
+      <div class="md:col-span-2 flex items-center justify-between pt-2">
+        <a href="{{ route($rIndex, ['site' => $siteBack]) }}"
+           class="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50">Batal</a>
+
+        <button class="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-semibold">
+          {{ $isEdit ? 'Update' : 'Simpan' }}
+        </button>
+      </div>
+    </form>
   </div>
-</form>
+</div>
+@endsection

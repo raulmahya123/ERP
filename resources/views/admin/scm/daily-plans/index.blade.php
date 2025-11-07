@@ -5,37 +5,28 @@
 @php
     use Illuminate\Support\Str;
 
-    // Route names (pakai scm.* sesuai resource)
     $rIndex   = 'scm.daily-plans.index';
     $rCreate  = 'scm.daily-plans.create';
     $rShow    = 'scm.daily-plans.show';
     $rEdit    = 'scm.daily-plans.edit';
     $rDestroy = 'scm.daily-plans.destroy';
 
-    // Filter values
     $date     = request('date');
     $shiftId  = request('shift_id');
 
-    // Shift map lokal (fallback kalau controller belum passing $shiftMap)
     $shiftMapLocal = [];
     if (!empty($shifts)) {
-        try {
-            $shiftMapLocal = collect($shifts)->keyBy('id')->map(fn($s)=>$s->name ?? $s->id)->toArray();
-        } catch (\Throwable $e) {}
+        try { $shiftMapLocal = collect($shifts)->keyBy('id')->map(fn($s)=>$s->name ?? $s->id)->toArray(); } catch (\Throwable $e) {}
     }
     $shiftMap = $shiftMap ?? $shiftMapLocal;
 
-    // Helper format date YYYY-MM-DD → input[type=date]
     $fmtDate = function ($v) {
         if (!$v) return '';
-        try {
-            $dt = $v instanceof \Illuminate\Support\Carbon ? $v : \Illuminate\Support\Carbon::parse($v);
-            return $dt->format('Y-m-d');
-        } catch (\Throwable $e) { return ''; }
+        try { $dt = $v instanceof \Illuminate\Support\Carbon ? $v : \Illuminate\Support\Carbon::parse($v); return $dt->format('Y-m-d'); }
+        catch (\Throwable $e) { return ''; }
     };
     $dateVal = $fmtDate($date);
 
-    // Sorting (opsional, whitelist)
     $allowedSort = ['plan_date','shift_id','items_cnt'];
     $sort  = in_array(request('sort'), $allowedSort, true) ? request('sort') : null;
     $order = request('order') === 'desc' ? 'desc' : 'asc';
@@ -43,7 +34,7 @@
     function sort_link($routeName, $key, $label, $allowedSort) {
         $reqSort  = request('sort');
         $reqOrder = request('order') === 'desc' ? 'desc' : 'asc';
-        if (!in_array($key, $allowedSort, true)) { return e($label); }
+        if (!in_array($key, $allowedSort, true)) return e($label);
         $nextOrder = ($reqSort === $key && $reqOrder === 'asc') ? 'desc' : 'asc';
         $params    = array_merge(request()->query(), ['sort'=>$key,'order'=>$nextOrder]);
         $url       = route($routeName) . '?' . http_build_query($params);
@@ -59,7 +50,7 @@
 @section('content')
 <div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
 
-  {{-- HEADER (seragam HSE) --}}
+  {{-- HEADER --}}
   <div class="relative overflow-hidden rounded-t-3xl">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
@@ -161,15 +152,10 @@
           <tbody class="divide-y divide-slate-100">
             @forelse ($items as $row)
               @php
-                // plan_date aman (Carbon/string/null)
                 $pd = $row->plan_date ?? null;
-                if ($pd && !($pd instanceof \Illuminate\Support\Carbon)) {
-                  try { $pd = \Illuminate\Support\Carbon::parse($pd); } catch (\Throwable $e) { $pd = null; }
-                }
+                if ($pd && !($pd instanceof \Illuminate\Support\Carbon)) { try { $pd = \Illuminate\Support\Carbon::parse($pd); } catch (\Throwable $e) { $pd = null; } }
                 $shiftLabel = $shiftMap[$row->shift_id] ?? $row->shift_id;
-                $itemsCnt = method_exists($row,'relationLoaded') && $row->relationLoaded('items')
-                            ? ($row->items?->count() ?? 0)
-                            : ($row->items?->count() ?? 0);
+                $itemsCnt   = $row->items?->count() ?? 0;
               @endphp
               <tr class="hover:bg-emerald-50/40 {{ ($hi === ($row->id ?? null)) ? 'animate-pulse ring-2 ring-amber-400/70' : '' }}">
                 <td class="px-4 py-3 text-slate-800">{{ $pd ? $pd->format('Y-m-d') : '—' }}</td>
@@ -219,7 +205,6 @@
         </table>
       </div>
 
-      {{-- Pagination --}}
       <div class="px-4 py-4 border-t bg-slate-50">
         @if (method_exists($items,'withQueryString'))
           {{ $items->withQueryString()->onEachSide(1)->links() }}
@@ -236,18 +221,12 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function confirmDeletePlan(el){
-  const id    = el?.dataset?.id;
-  const label = el?.dataset?.label || '';
+  const id = el?.dataset?.id, label = el?.dataset?.label || '';
   if (!id) return;
-
   if (typeof Swal === 'undefined' || !Swal?.fire) {
-    if (confirm('Hapus plan: ' + label + ' ?')) {
-      const f = document.getElementById('del-plan-' + id);
-      if (f) f.submit();
-    }
+    if (confirm('Hapus plan: ' + label + ' ?')) document.getElementById('del-plan-'+id)?.submit();
     return;
   }
-
   Swal.fire({
     title: 'Hapus Daily Plan?',
     text: 'Apakah kamu yakin ingin menghapus: ' + label + ' ?',
@@ -257,15 +236,8 @@ function confirmDeletePlan(el){
     cancelButtonColor: '#0284c7',
     confirmButtonText: 'Ya, hapus',
     cancelButtonText: 'Batal',
-    customClass: {
-      popup: 'rounded-2xl',
-      confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-      cancelButton: 'rounded-lg px-4 py-2 font-semibold'
-    }
-  }).then((r)=>{ if(r.isConfirmed){
-      const f = document.getElementById('del-plan-'+id);
-      if (f) f.submit();
-    }});
+    customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-lg px-4 py-2 font-semibold', cancelButton: 'rounded-lg px-4 py-2 font-semibold' }
+  }).then((r)=>{ if(r.isConfirmed){ document.getElementById('del-plan-'+id)?.submit(); }});
 }
 </script>
 @endpush
