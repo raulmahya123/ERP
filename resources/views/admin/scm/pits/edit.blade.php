@@ -1,8 +1,8 @@
 @extends('layouts.app')
-@section('title','SCM — Edit Hour Meter')
+@section('title','SCM — Edit Pit')
 
 @php
-  $rIndex = 'scm.hour_meters.index';
+  $rIndex = 'scm.pits.index';
 @endphp
 
 @section('content')
@@ -15,8 +15,8 @@
     <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
 
     <div class="relative px-6 sm:px-10 py-6 text-white flex items-center justify-between">
-      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">SCM — Edit Hour Meter</h1>
-      <a href="{{ route($rIndex, ['site' => $siteId]) }}"
+      <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">SCM — Edit Pit</h1>
+      <a href="{{ route($rIndex) }}"
          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/20 transition">
         Kembali
       </a>
@@ -24,9 +24,9 @@
   </div>
 
   <div class="p-6 bg-white">
-    @include('admin.scm.hour-meters._form', [
+    @include('admin.scm.pits._form', [
       'mode'   => 'edit',
-      'action' => route('scm.hour_meters.update', $hourMeter),
+      'action' => route('scm.pits.update', $pit),
       'method' => 'PUT',
     ])
   </div>

@@ -1,74 +1,179 @@
 @extends('layouts.app')
-@section('title','Trips')
+@section('title','SCM — Trips')
+
+@php
+  $rIndex   = 'scm.trips.index';
+  $rCreate  = 'scm.trips.create';
+  $rShow    = 'scm.trips.show';
+  $rEdit    = 'scm.trips.edit';
+  $rDestroy = 'scm.trips.destroy';
+
+  $status = request('status');
+  $statuses = ['draft','submitted','validated','approved'];
+@endphp
 
 @section('content')
-  @php use Illuminate\Support\Str; @endphp
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
 
-  <div class="flex items-center justify-between mb-4">
-    <h1 class="text-xl font-semibold">Trips</h1>
-    <a href="{{ route('scm.trips.create') }}"
-       class="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-width="2" stroke-linecap="round"/></svg>
-      Tambah
-    </a>
+  {{-- HEADER (seragam) --}}
+  <div class="relative overflow-hidden rounded-t-3xl">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
+
+    <div class="relative px-6 sm:px-10 py-6 text-white">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur" aria-hidden="true">
+            {{-- icon truck --}}
+            <svg class="h-5 w-5 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 14h13l3-4h2v7h-2a3 3 0 1 1-6 0H9a3 3 0 1 1-6 0H1v-3h2zM6 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm10 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">SCM — Trips</h1>
+            <p class="text-white/90 text-sm mt-1">Ritase & tonase per trip.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          @isset($trips)
+            <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold ring-1 ring-white/30 backdrop-blur-sm">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
+              Total: {{ method_exists($trips,'total') ? $trips->total() : (is_countable($trips) ? count($trips) : '-') }}
+            </span>
+          @endisset
+          <a href="{{ route($rCreate) }}"
+             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Tambah
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 
+  {{-- FILTER BAR --}}
+  <div class="px-6 sm:px-10 py-5 bg-white border-t border-slate-100">
+    <form method="GET" action="{{ route($rIndex) }}" class="grid gap-3 lg:grid-cols-[220px_auto]">
+      <select name="status" class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm px-3 focus:ring-emerald-600 focus:border-emerald-600">
+        <option value="">Status: Semua</option>
+        @foreach($statuses as $st)
+          <option value="{{ $st }}" @selected($status===$st)>{{ ucfirst($st) }}</option>
+        @endforeach
+      </select>
+      <div class="flex items-center gap-2">
+        <button class="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow-md ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
+          Terapkan
+        </button>
+        @if(request()->has('status'))
+          <a href="{{ route($rIndex) }}" class="text-sm text-slate-500 hover:text-slate-700">Reset semua</a>
+        @endif
+      </div>
+    </form>
+  </div>
+
+  {{-- FLASH --}}
   @if (session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded mb-3">{{ session('success') }}</div>
+    <div class="mx-6 my-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
+      {{ session('success') }}
+    </div>
   @endif
 
-  <div class="bg-white shadow-sm ring-1 ring-slate-200 rounded-xl overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-slate-600">
-        <tr>
-          <th class="text-left px-3 py-2">Tanggal</th>
-          <th class="text-left px-3 py-2">Shift</th>
-          <th class="text-left px-3 py-2">Unit</th>
-          <th class="text-right px-3 py-2">Tonnage</th>
-          <th class="text-left px-3 py-2">Status</th>
-          <th class="text-right px-3 py-2">Aksi</th>
-        </tr>
-      </thead>
-      <tbody>
-        @forelse($trips as $t)
-          <tr class="border-t">
-            <td class="px-3 py-2">{{ $t->date->format('Y-m-d') }}</td>
-            <td class="px-3 py-2">{{ $shiftNames[$t->shift_id] ?? Str::limit($t->shift_id,8) }}</td>
-            <td class="px-3 py-2">{{ $assetNames[$t->unit_id] ?? Str::limit($t->unit_id,8) }}</td>
-            <td class="px-3 py-2 text-right">{{ number_format($t->tonnage,2) }}</td>
-            <td class="px-3 py-2">
-              @php
-                $chip = [
-                  'draft'     => 'bg-slate-100 text-slate-700 ring-slate-200',
-                  'submitted' => 'bg-amber-100 text-amber-800 ring-amber-200',
-                  'validated' => 'bg-sky-100 text-sky-800 ring-sky-200',
-                  'approved'  => 'bg-emerald-100 text-emerald-800 ring-emerald-200',
-                ][$t->status] ?? 'bg-slate-100 text-slate-700 ring-slate-200';
-              @endphp
-              <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 {{ $chip }}">
-                {{ ucfirst($t->status) }}
-              </span>
-            </td>
-            <td class="px-3 py-2 text-right space-x-2">
-              <a href="{{ route('scm.trips.edit',$t) }}" class="text-indigo-600 hover:underline">Edit</a>
-
-              @can('delete', $t)
-                <form action="{{ route('scm.trips.destroy', $t) }}"
-                      method="POST" class="inline"
-                      onsubmit="return confirm('Hapus trip tanggal {{ $t->date->format('Y-m-d') }} untuk unit ini?');">
-                  @csrf
-                  @method('DELETE')
-                  <button type="submit" class="text-rose-600 hover:underline">Hapus</button>
-                </form>
-              @endcan
-            </td>
-          </tr>
-        @empty
-          <tr><td colspan="6" class="px-3 py-6 text-center text-slate-500">Belum ada data</td></tr>
-        @endforelse
-      </tbody>
-    </table>
+  {{-- TABLE --}}
+  @php use Illuminate\Support\Str; @endphp
+  <div class="p-6">
+    <div class="overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-b border-slate-200">
+            <tr>
+              <th class="text-left px-3 py-2 font-semibold">Tanggal</th>
+              <th class="text-left px-3 py-2 font-semibold">Shift</th>
+              <th class="text-left px-3 py-2 font-semibold">Unit</th>
+              <th class="text-left px-3 py-2 font-semibold">Pit</th>
+              <th class="text-right px-3 py-2 font-semibold">Tonnage</th>
+              <th class="text-left px-3 py-2 font-semibold">Status</th>
+              <th class="text-center px-3 py-2 font-semibold w-48">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @forelse($trips as $t)
+              <tr class="hover:bg-emerald-50/40">
+                <td class="px-3 py-2">{{ optional($t->date)->format('Y-m-d') }}</td>
+                <td class="px-3 py-2">{{ $shiftNames[$t->shift_id] ?? Str::limit($t->shift_id, 8) }}</td>
+                <td class="px-3 py-2">{{ $assetNames[$t->unit_id] ?? Str::limit($t->unit_id, 8) }}</td>
+                <td class="px-3 py-2">{{ $t->pit_id ? ($pitLabels[$t->pit_id] ?? Str::limit($t->pit_id,8)) : '-' }}</td>
+                <td class="px-3 py-2 text-right">{{ number_format($t->tonnage ?? 0, 2) }}</td>
+                <td class="px-3 py-2">
+                  @php
+                    $chip = [
+                      'draft'=>'bg-slate-100 text-slate-700 ring-slate-200',
+                      'submitted'=>'bg-amber-100 text-amber-800 ring-amber-200',
+                      'validated'=>'bg-sky-100 text-sky-800 ring-sky-200',
+                      'approved'=>'bg-emerald-100 text-emerald-800 ring-emerald-200',
+                    ][$t->status] ?? 'bg-slate-100 text-slate-700 ring-slate-200';
+                  @endphp
+                  <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 {{ $chip }}">
+                    {{ ucfirst($t->status) }}
+                  </span>
+                </td>
+                <td class="px-3 py-2">
+                  <div class="flex items-center justify-center gap-2">
+                    <a class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white ring-1 ring-slate-200 text-slate-700 hover:bg-slate-50"
+                       href="{{ route($rShow,$t) }}">Detail</a>
+                    <a class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white ring-1 ring-emerald-700/20 hover:bg-emerald-700"
+                       href="{{ route($rEdit,$t) }}">Edit</a>
+                    @can('delete', $t)
+                      <form action="{{ route($rDestroy,$t) }}" method="POST" class="inline js-del"
+                            data-label="{{ optional($t->date)->format('Y-m-d') }} / {{ $assetNames[$t->unit_id] ?? Str::limit($t->unit_id,8) }}">
+                        @csrf @method('DELETE')
+                        <button class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100">Hapus</button>
+                      </form>
+                    @endcan
+                  </div>
+                </td>
+              </tr>
+            @empty
+              <tr><td colspan="7" class="px-6 py-12 text-center text-slate-600">Belum ada data.</td></tr>
+            @endforelse
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-4 border-t bg-slate-50">
+        {{ $trips->withQueryString()->onEachSide(1)->links() }}
+      </div>
+    </div>
   </div>
-
-  <div class="mt-4">{{ $trips->links() }}</div>
+</div>
 @endsection
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+  document.addEventListener('submit', function (e) {
+    const f = e.target.closest('.js-del');
+    if (!f) return;
+    e.preventDefault();
+
+    const label = f.dataset.label || 'trip ini';
+    if (typeof Swal === 'undefined' || !Swal?.fire) {
+      if (confirm('Hapus: ' + label + ' ?')) f.submit();
+      return;
+    }
+    Swal.fire({
+      title: 'Hapus Trip?',
+      text: 'Apakah kamu yakin ingin menghapus: ' + label + ' ?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#0284c7',
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+      customClass: { popup:'rounded-2xl', confirmButton:'rounded-lg px-4 py-2 font-semibold', cancelButton:'rounded-lg px-4 py-2 font-semibold' }
+    }).then((r)=>{ if(r.isConfirmed) f.submit(); });
+  });
+</script>
+@endpush

@@ -18,53 +18,58 @@ class Location extends Model
     /** Field yang bisa diisi via form */
     protected $fillable = [
         'site_id',
+        'code',
         'name',
+        'type',               // pit | stockpile | dll
         'longitude',
         'latitude',
         'geofence_radius_m',
-        // NOTE: 'created_by' & 'updated_by' di-set otomatis, tidak perlu di-fillable
+        // created_by & updated_by diisi otomatis
     ];
 
     /** Cast angka */
     protected $casts = [
-        'latitude'           => 'float',
-        'longitude'          => 'float',
-        'geofence_radius_m'  => 'integer',
+        'latitude'          => 'float',
+        'longitude'         => 'float',
+        'geofence_radius_m' => 'integer',
     ];
 
-    /** Eager load default untuk kebutuhan tabel (site & creator) */
+    /** Eager load default (opsional) */
     protected $with = ['site', 'creator'];
 
     /* =======================
      | Relations
      |=======================*/
-    public function site()
-    {
-        return $this->belongsTo(Site::class, 'site_id');
-    }
+    public function site()    { return $this->belongsTo(Site::class, 'site_id'); }
+    public function creator() { return $this->belongsTo(User::class, 'created_by'); }
+    public function updater() { return $this->belongsTo(User::class, 'updated_by'); }
+    public function permissions() { return $this->hasMany(LocationPermission::class); }
 
-    public function creator()
+    /* =======================
+     | Accessor bantu
+     |=======================*/
+    public function getLabelAttribute(): string
     {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function updater()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function permissions()
-    {
-        return $this->hasMany(LocationPermission::class);
+        $code = trim((string) $this->code);
+        return $code ? "{$code} — {$this->name}" : $this->name;
     }
 
     /* =======================
      | Scopes bantu
      |=======================*/
-    public function scopeSite($q, ?string $siteId)
+    // GANTI NAMA SCOPE: forSite() (menghindari bentrok dgn relasi site())
+    public function scopeForSite($q, ?string $siteId)
     {
         return $siteId ? $q->where('site_id', $siteId) : $q;
     }
+
+    public function scopeType($q, ?string $type)
+    {
+        return $type ? $q->where('type', $type) : $q;
+    }
+
+    public function scopePits($q)       { return $q->where('type', 'pit'); }
+    public function scopeStockpiles($q) { return $q->where('type', 'stockpile'); }
 
     public function scopeSearch($q, ?string $kw)
     {

@@ -13,7 +13,7 @@ class WbTicketController extends Controller
 {
     public function index(Request $request)
     {
-        $siteId = $request->query('site') ?: session('site_id');
+        $siteId = $request->query('site') ?: (string) session('site_id');
 
         $q = WbTicket::query()
             ->with(['unit','pit','stockpile','commodity'])
@@ -31,15 +31,13 @@ class WbTicketController extends Controller
 
         $items = $q->paginate(15)->withQueryString();
 
-        // dropdowns (tanpa filter kolom `type`)
-        $sites      = Site::orderBy('code')->get(['id','code','name']);
-        $units      = Asset::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                           ->orderBy('code')->get(['id','code','name']);
-        $pits       = Location::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                              ->orderBy('name')->get(['id','name']);
-        $stockpiles = Location::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                              ->orderBy('name')->get(['id','name']);
-        $commodities= Commodity::orderBy('name')->get(['id','name']);
+        // dropdowns (sudah pakai scope forSite())
+        $sites       = Site::orderBy('code')->get(['id','code','name']);
+        $units       = Asset::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
+                            ->orderBy('code')->get(['id','code','name']);
+        $pits        = Location::forSite($siteId)->pits()->orderBy('name')->get(['id','code','name']);
+        $stockpiles  = Location::forSite($siteId)->stockpiles()->orderBy('name')->get(['id','code','name']);
+        $commodities = Commodity::orderBy('name')->get(['id','name']);
 
         $directions = ['in' => 'IN', 'out' => 'OUT'];
 
@@ -50,16 +48,14 @@ class WbTicketController extends Controller
 
     public function create(Request $request)
     {
-        $siteId = $request->query('site') ?: session('site_id');
+        $siteId = $request->query('site') ?: (string) session('site_id');
 
-        $sites      = Site::orderBy('code')->get(['id','code','name']);
-        $units      = Asset::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                           ->orderBy('code')->get(['id','code','name']);
-        $pits       = Location::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                              ->orderBy('name')->get(['id','name']);
-        $stockpiles = Location::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                              ->orderBy('name')->get(['id','name']);
-        $commodities= Commodity::orderBy('name')->get(['id','name']);
+        $sites       = Site::orderBy('code')->get(['id','code','name']);
+        $units       = Asset::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
+                            ->orderBy('code')->get(['id','code','name']);
+        $pits        = Location::forSite($siteId)->pits()->orderBy('name')->get(['id','code','name']);
+        $stockpiles  = Location::forSite($siteId)->stockpiles()->orderBy('name')->get(['id','code','name']);
+        $commodities = Commodity::orderBy('name')->get(['id','name']);
 
         $directions = ['in' => 'IN', 'out' => 'OUT'];
 
@@ -82,7 +78,7 @@ class WbTicketController extends Controller
 
         WbTicket::create([
             'site_id'      => $data['site_id'],
-            'ticket_no'    => $data['ticket_no'],
+            'ticket_no'    => $data['ticket_no'] ?? null,
             'direction'    => $data['direction'],
             'ticket_time'  => $data['ticket_time'],
             'unit_id'      => $data['unit_id'] ?? null,
@@ -103,16 +99,14 @@ class WbTicketController extends Controller
 
     public function edit(Request $request, WbTicket $wb_ticket)
     {
-        $siteId = $wb_ticket->site_id ?: ($request->query('site') ?: session('site_id'));
+        $siteId = $wb_ticket->site_id ?: ($request->query('site') ?: (string) session('site_id'));
 
-        $sites      = Site::orderBy('code')->get(['id','code','name']);
-        $units      = Asset::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                           ->orderBy('code')->get(['id','code','name']);
-        $pits       = Location::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                              ->orderBy('name')->get(['id','name']);
-        $stockpiles = Location::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
-                              ->orderBy('name')->get(['id','name']);
-        $commodities= Commodity::orderBy('name')->get(['id','name']);
+        $sites       = Site::orderBy('code')->get(['id','code','name']);
+        $units       = Asset::when($siteId, fn($qq) => $qq->where('site_id', $siteId))
+                            ->orderBy('code')->get(['id','code','name']);
+        $pits        = Location::forSite($siteId)->pits()->orderBy('name')->get(['id','code','name']);
+        $stockpiles  = Location::forSite($siteId)->stockpiles()->orderBy('name')->get(['id','code','name']);
+        $commodities = Commodity::orderBy('name')->get(['id','name']);
 
         $directions = ['in' => 'IN', 'out' => 'OUT'];
 
@@ -129,7 +123,7 @@ class WbTicketController extends Controller
 
         $wb_ticket->update([
             'site_id'      => $data['site_id'],
-            'ticket_no'    => $data['ticket_no'],
+            'ticket_no'    => $data['ticket_no'] ?? null,
             'direction'    => $data['direction'],
             'ticket_time'  => $data['ticket_time'],
             'unit_id'      => $data['unit_id'] ?? null,

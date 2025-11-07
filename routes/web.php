@@ -50,7 +50,7 @@ use App\Http\Controllers\PayroalProfileController;                         // se
 
 // OTP-only verification
 use App\Http\Controllers\Auth\VerifyEmailCodeController;
-use App\Http\Controllers\Scm\{TripController, HourMeterController, FuelLogController, WbTicketController, BreakdownController};
+use App\Http\Controllers\Scm\{TripController, HourMeterController, FuelLogController, WbTicketController, BreakdownController, PitController};
 
 
 use App\Models\PayroalHistory;
@@ -486,16 +486,20 @@ Route::prefix('admin/payroal/history')->as('admin.payroal_history.')->middleware
 });
 
 
-Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
+Route::middleware(['auth', 'site.selected', 'hasrole:gm|manager|scm'])
     ->prefix('scm')->name('scm.')
     ->group(function () {
+        Route::resource('pits', PitController::class)
+            ->parameters(['pits' => 'pit'])
+            ->except(['show'])
+            ->whereUuid(['pit']);
+
         Route::resource('trips', TripController::class);
         Route::post('trips/{trip}/submit',   [TripController::class, 'submit'])->name('trips.submit');
         Route::post('trips/{trip}/validate', [TripController::class, 'validateData'])->name('trips.validate');
         Route::post('trips/{trip}/approve',  [TripController::class, 'approve'])->name('trips.approve');
 
-        Route::resource('hour-meters', HourMeterController::class)
-            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+        Route::resource('hour-meters', HourMeterController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->parameters(['hour-meters' => 'hour_meter'])
             ->names([
                 'index'   => 'hour_meters.index',
@@ -505,8 +509,8 @@ Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
                 'update'  => 'hour_meters.update',
                 'destroy' => 'hour_meters.destroy',
             ]);
-        Route::resource('fuel-logs', FuelLogController::class)
-            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+
+        Route::resource('fuel-logs', FuelLogController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->parameters(['fuel-logs' => 'fuel_log'])
             ->names([
                 'index'   => 'fuel_logs.index',
@@ -517,8 +521,7 @@ Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
                 'destroy' => 'fuel_logs.destroy',
             ]);
 
-        Route::resource('wb-tickets', WbTicketController::class)
-            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+        Route::resource('wb-tickets', WbTicketController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->parameters(['wb-tickets' => 'wb_ticket'])
             ->names([
                 'index'   => 'wb_tickets.index',
@@ -528,12 +531,15 @@ Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
                 'update'  => 'wb_tickets.update',
                 'destroy' => 'wb_tickets.destroy',
             ]);
+
         Route::resource('reason-codes', \App\Http\Controllers\Scm\ReasonCodeController::class)->except('show');
         Route::resource('daily-plans', \App\Http\Controllers\Scm\DailyPlanController::class);
         Route::resource('dispatches', \App\Http\Controllers\Scm\DispatchController::class);
         Route::resource('handovers', \App\Http\Controllers\Scm\HandoverController::class);
         Route::get('reports/target-vs-actual', [\App\Http\Controllers\Scm\ReportController::class, 'targetVsActual'])
             ->name('reports.target-actual');
+
+        // ⚠️ HAPUS baris trips duplikat yang ada di bawah sebelumnya
     });
 
 Route::resource('breakdowns', BreakdownController::class)
