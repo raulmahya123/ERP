@@ -2,144 +2,166 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\HrDailyEntry;
+use App\Models\SiteConfig;
+use App\Models\User;
+use Illuminate\Auth\Access\HandlesAuthorization;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class HrDailyEntryPolicy
 {
-    /**
-     * GM auto-allow semua ability (kecuali return null untuk fallback ke rule spesifik).
-     */
-    public function before(User $user, string $ability)
+    use HandlesAuthorization;
+
+    /* =========================
+     | Helpers role
+     |=========================*/
+    protected function roleKey(User $user): string
     {
-        $key = strtolower($user->role->key ?? '');
-        if ($key === 'gm') {
-            return true;
-        }
-        return null;
+        $raw = $user->role_key
+            ?? ($user->role->key ?? $user->role->slug ?? $user->role->name ?? '');
+        $norm = Str::of((string)$raw)->lower()->replace(['_', '-'], ' ')->squish()->toString();
+        return $norm;
     }
 
-    /** =========================
-     *  Helper kecil
-     * ========================= */
-    protected function roleIn(User $user, array $allowed): bool
+    protected function isGm(User $u): bool
     {
-        $key = strtolower($user->role->key ?? '');
-        return in_array($key, $allowed, true);
+        return $this->roleKey($u) === 'gm';
     }
 
-    /** =========================
-     *  Listing / akses umum
-     * ========================= */
+    protected function isGmHrMgr(User $u): bool
+    {
+        return in_array($this->roleKey($u), ['gm', 'hr', 'manager'], true);
+    }
+
+    protected function isGmHrMgrHse(User $u): bool
+    {
+        $rk = $this->roleKey($u);
+        return in_array($rk, ['gm', 'hr', 'manager', 'hse officer', 'hse', 'health safety environment'], true);
+    }
+
+    /* =========================
+     | Load HR params dari SiteConfig
+     |=========================*/
+    protected function hrParams(?string $siteId = null): array
+    {
+        if (!Schema::hasTable('site_configs')) return [];
+        $q = SiteConfig::query();
+        if ($siteId) $q->where('site_id', $siteId);
+        $row = $q->oldest('created_at')->first();
+        if (!$row) return [];
+        $params = (array)($row->params ?? []);
+        return (array)($params['hr'] ?? []);
+    }
+
+    protected function configKey(string $suffix, array $hr): string
+    {
+        $map = (array)($hr['config_keys'] ?? []);
+        $fallback = [
+            'approval_schemas' => 'entry_approval_schemas',
+        ];
+        return (string)($map[$suffix] ?? $fallback[$suffix] ?? ('entry_' . $suffix));
+    }
+
+    /** Ambil approval flow (array stages) untuk type & site */
+    protected function approvalFlowFor(?string $type, ?string $siteId): array
+    {
+        $hr   = $this->hrParams($siteId);
+        $key  = $this->configKey('approval_schemas', $hr);
+        $all  = (array)($hr[$key] ?? []);
+        $cfg  = (array)($all[(string)$type] ?? []);
+        $stages = array_values((array)($cfg['stages'] ?? []));
+        // minimal normalisasi
+        return array_map(function ($s) {
+            return [
+                'key'              => (string)($s['key'] ?? ''),
+                'label'            => (string)($s['label'] ?? ''),
+                'roles'            => array_values((array)($s['roles'] ?? [])), // role_id list
+                'all_must_approve' => (bool)($s['all_must_approve'] ?? false),
+            ];
+        }, $stages);
+    }
+
+    /* =========================
+     | Abilities
+     |=========================*/
+
+    /** Bisa lihat daftar (index) */
     public function viewAny(User $user): bool
     {
-        // Boleh lihat index untuk HR & Manager (GM sudah auto via before)
-        return $this->roleIn($user, ['hr','manager']);
+        // GM, HR, Manager, HSE boleh melihat
+        return $this->isGmHrMgrHse($user);
     }
 
+    /** Lihat satu entry */
     public function view(User $user, HrDailyEntry $entry): bool
     {
-        // Lihat detail/attachment: pemilik atau HR/Manager
-        if ($entry->user_id && $entry->user_id === $user->id) {
-            return true;
-        }
-        return $this->roleIn($user, ['hr','manager']);
+        // sama dengan viewAny; optionally tambahkan pembatasan site
+        return $this->viewAny($user);
     }
 
-    /** =========================
-     *  Config & Meta (menu HR Config)
-     * ========================= */
+    /** CRUD konfigurasi HR (schema, print, dll) */
     public function manage(User $user): bool
     {
-        return $this->roleIn($user, ['hr','manager']);
+        // batasi untuk GM & HR saja (manager tidak)
+        return in_array($this->roleKey($user), ['gm', 'hr'], true);
     }
 
-    /** =========================
-     *  Export / Print (class-based ability)
-     *  Dipakai: can:export, App\Models\HrDailyEntry
-     * ========================= */
-    public function export(User $user): bool
-    {
-        return $this->roleIn($user, ['hr','manager']);
-    }
-
-    /** =========================
-     *  Flow Approval
-     *  Dipakai: can:submit,entry ; can:approve,entry ; can:reject,entry
-     * ========================= */
+    /** Kirim untuk approval */
     public function submit(User $user, HrDailyEntry $entry): bool
     {
-        // Pemilik boleh submit, HR/Manager juga boleh submitkan (misal proxy)
-        if ($entry->user_id && $entry->user_id === $user->id) {
-            return true;
-        }
-        return $this->roleIn($user, ['hr','manager']);
+        // siapa pun yang punya akses modul, boleh submit (sesuaikan jika ingin hanya HR)
+        return $this->isGmHrMgrHse($user);
     }
 
+    /** Approve: cek apakah role user termasuk role stage aktif */
     public function approve(User $user, HrDailyEntry $entry): bool
     {
-        return $this->roleIn($user, ['manager','hr']);
+        // GM selalu boleh
+        if ($this->isGm($user)) return true;
+
+        $flow = $this->approvalFlowFor($entry->type, $entry->site_id);
+        if (empty($flow)) {
+            // jika belum ada schema, fallback: HR & Manager boleh approve
+            return in_array($this->roleKey($user), ['hr', 'manager'], true);
+        }
+
+        $trail = (array)($entry->meta['_approval'] ?? []);
+        $idx   = (int)($trail['current_index'] ?? 0);
+        $stage = (array)($flow[$idx] ?? []);
+
+        $userRoleId = (string)($user->role_id ?? '');
+        if ($userRoleId === '') return false;
+
+        $roles = array_map('strval', (array)($stage['roles'] ?? []));
+        return in_array($userRoleId, $roles, true);
     }
 
+    /** Reject mengikuti syarat yang sama dengan approve */
     public function reject(User $user, HrDailyEntry $entry): bool
     {
-        return $this->roleIn($user, ['manager','hr']);
+        return $this->approve($user, $entry);
     }
 
-    /** =========================
-     *  Bulk actions
-     *  Dipakai: can:bulkAction, App\Models\HrDailyEntry
-     * ========================= */
-    public function bulkAction(User $user): bool
+    /** Update entry */
+    public function update(User $user, HrDailyEntry $entry): bool
     {
-        return $this->roleIn($user, ['hr','manager']);
+        return in_array($this->roleKey($user), ['gm', 'hr', 'manager'], true);
     }
 
-    /** =========================
-     *  Soft delete / trash
-     *  Dipakai: can:viewTrashed, App\Models\HrDailyEntry
-     * ========================= */
-    public function viewTrashed(User $user): bool
+    /** Hapus entry */
+    public function delete(User $user, HrDailyEntry $entry): bool
     {
-        return $this->roleIn($user, ['hr','manager']);
+        return in_array($this->roleKey($user), ['gm', 'hr'], true);
     }
 
-    /** =========================
-     *  Restore & Force Delete (instance-based)
-     *  Dipakai: can:restore,entry ; can:forceDelete,entry
-     * ========================= */
     public function restore(User $user, HrDailyEntry $entry): bool
     {
-        return $this->roleIn($user, ['hr','manager']);
+        return in_array($this->roleKey($user), ['gm', 'hr'], true);
     }
 
     public function forceDelete(User $user, HrDailyEntry $entry): bool
     {
-        return $this->roleIn($user, ['hr','manager']);
-    }
-
-    /** =========================
-     *  Create / Update / Delete (opsional, jika dipakai)
-     * ========================= */
-    public function create(User $user): bool
-    {
-        // Karyawan boleh buat untuk dirinya, HR/Manager juga boleh
-        return true;
-    }
-
-    public function update(User $user, HrDailyEntry $entry): bool
-    {
-        if ($entry->user_id && $entry->user_id === $user->id) {
-            return true;
-        }
-        return $this->roleIn($user, ['hr','manager']);
-    }
-
-    public function delete(User $user, HrDailyEntry $entry): bool
-    {
-        if ($entry->user_id && $entry->user_id === $user->id) {
-            return true;
-        }
-        return $this->roleIn($user, ['hr','manager']);
+        return $this->isGm($user);
     }
 }

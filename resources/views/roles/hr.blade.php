@@ -306,10 +306,8 @@
         <h2 class="text-sm font-semibold text-slate-700">Aksi Cepat</h2>
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
-        @if (Route::has('admin.hr-entries.create'))
           <a class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:opacity-90"
              href="{{ route('admin.hr-entries.create') }}">+ Buat HR Entry</a>
-        @endif
         @if (Route::has('admin.attendance.index'))
           <a class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:opacity-90"
              href="{{ route('admin.attendance.index') }}">Absensi Harian</a>

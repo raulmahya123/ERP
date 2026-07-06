@@ -36,14 +36,14 @@ class User extends Authenticatable
         'employee_code',     // dipakai di UI dropdown
     ];
 
-    protected $hidden = ['password','remember_token'];
+    protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
 
     /** ikut terserialisasi ke json (berguna untuk UI dropdown, dll.) */
-    protected $appends = ['display_label','role_key','role_name'];
+    protected $appends = ['display_label', 'role_key', 'role_name'];
 
     /* =========================
      | Relationships
@@ -78,10 +78,9 @@ class User extends Authenticatable
     }
 
     /** Multi-site (opsional) via pivot `site_user` */
-    public function sites(): BelongsToMany
+    public function sites()
     {
-        return $this->belongsToMany(Site::class, 'site_user', 'user_id', 'site_id')
-                    ->withTimestamps();
+        return $this->belongsToMany(Site::class);
     }
 
     /* =========================
@@ -91,16 +90,20 @@ class User extends Authenticatable
     /** Filter user pada site tertentu (default_site_id, plus pivot kalau ada) */
     public function scopeInSite($q, $siteId)
     {
-        if (!$siteId) return $q;
+        // kalau ada kolom users.site_id → pakai itu
+        if (Schema::hasColumn($this->getTable(), 'site_id')) {
+            return $q->where('site_id', $siteId);
+        }
 
-        return $q->where(function ($qq) use ($siteId) {
-            $qq->where('default_site_id', $siteId);
+        // fallback: jika ada pivot site_user → pakai whereHas
+        if (Schema::hasTable('site_user')) {
+            return $q->whereHas('sites', fn($qq) => $qq->where('sites.id', $siteId));
+        }
 
-            if (Schema::hasTable('site_user')) {
-                $qq->orWhereHas('sites', fn($s) => $s->where('sites.id', $siteId));
-            }
-        });
+        // kalau dua-duanya tidak ada → jangan filter apa-apa
+        return $q;
     }
+
 
     /** Cari berdasarkan nama / email / employee_code */
     public function scopeSearch($q, ?string $term)
@@ -108,11 +111,11 @@ class User extends Authenticatable
         $term = trim((string) $term);
         if ($term === '') return $q;
 
-        $like = '%'.str_replace(['%','_'], ['\%','\_'], $term).'%';
+        $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
         return $q->where(function ($qq) use ($like) {
             $qq->where('name', 'like', $like)
-               ->orWhere('email', 'like', $like)
-               ->orWhere('employee_code', 'like', $like);
+                ->orWhere('email', 'like', $like)
+                ->orWhere('employee_code', 'like', $like);
         });
     }
 
@@ -168,7 +171,7 @@ class User extends Authenticatable
                 'hr'         => 'HR',
                 'pelamar'    => 'Pelamar',
                 'gm'         => 'General Manager',
-                default      => ucwords(str_replace(['_','-'], ' ', $this->role_key)),
+                default      => ucwords(str_replace(['_', '-'], ' ', $this->role_key)),
             };
         }
         $this->loadMissing('role');
@@ -209,7 +212,7 @@ class User extends Authenticatable
     {
         $name = $this->name ?: $this->email;
         $tag  = $this->employee_code ?: $this->email; // sudah fallback ke payroal
-        return trim($name.' — '.$tag);
+        return trim($name . ' — ' . $tag);
     }
 
     /* =========================
@@ -219,7 +222,7 @@ class User extends Authenticatable
     protected function email(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) => is_string($value) ? mb_strtolower($value) : $value,
+            set: fn($value) => is_string($value) ? mb_strtolower($value) : $value,
         );
     }
 
@@ -245,7 +248,7 @@ class User extends Authenticatable
             try {
                 // Ambil dari SiteConfig.params->default_for_users = true
                 $siteId = SiteConfig::whereJsonContains('params->default_for_users', true)->value('site_id')
-                       ?? Site::orderBy('name')->value('id');
+                    ?? Site::orderBy('name')->value('id');
 
                 if ($siteId) {
                     $user->default_site_id = $siteId;

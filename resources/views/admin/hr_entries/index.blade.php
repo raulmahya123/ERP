@@ -1,4 +1,4 @@
-﻿{{-- resources/views/admin/hr_entries/index.blade.php --}}
+{{-- resources/views/admin/hr_entries/index.blade.php --}}
 @extends('layouts.app')
 @section('title', 'HR Daily Entries')
 
@@ -113,61 +113,62 @@
 >
 
   {{-- HERO --}}
-  <div class="relative overflow-hidden rounded-3xl text-white shadow ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
+  <div class="relative overflow-hidden text-white shadow rounded-3xl ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(110%_70%_at_-10%_-30%,rgba(255,255,255,.85)_0%,transparent_60%)]"></div>
-    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
+    <div class="absolute w-48 h-48 rounded-full -right-16 -top-10 bg-amber-400/25 blur-2xl"></div>
 
-    <div class="relative px-6 md:px-8 py-6 flex items-center justify-between gap-4">
+    <div class="relative flex items-center justify-between gap-4 px-6 py-6 md:px-8">
       <div class="space-y-1">
-        <h1 class="text-2xl md:text-3xl font-extrabold leading-tight">HR Daily Entries</h1>
-        <p class="text-white/85 text-sm">Kelola pengajuan leave / permit / sick / shift change / GA / MCU.</p>
+        <h1 class="text-2xl font-extrabold leading-tight md:text-3xl">HR Daily Entries</h1>
+        <p class="text-sm text-white/85">Kelola pengajuan leave / permit / sick / shift change / GA / MCU.</p>
       </div>
       <div class="flex items-center gap-2">
         <a href="{{ route('admin.hr-entries.create') }}"
            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 ring-1 ring-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-300">
-          <svg class="h-4 w-4"><use href="#i-plus"/></svg> Create
+          <svg class="w-4 h-4"><use href="#i-plus"/></svg> Create
         </a>
         <a href="{{ route('admin.hr-entries.export.csv', request()->query()) }}"
            class="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white text-slate-700 hover:bg-slate-50 ring-1 ring-slate-200">
-          <svg class="h-4 w-4"><use href="#i-download"/></svg> Export CSV
+          <svg class="w-4 h-4"><use href="#i-download"/></svg> Export CSV
         </a>
         <a href="{{ route('admin.hr-entries.print', request()->query()) }}" target="_blank"
            class="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-500 text-white hover:bg-amber-600 ring-1 ring-amber-500/60">
-          <svg class="h-4 w-4"><use href="#i-printer"/></svg> Print
+          <svg class="w-4 h-4"><use href="#i-printer"/></svg> Print
         </a>
         <a href="{{ route('admin.hr-entries.trashed') }}"
            class="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl bg-rose-100 text-rose-700 hover:bg-rose-200 ring-1 ring-rose-200">
-          <svg class="h-4 w-4"><use href="#i-trash"/></svg> Recycle Bin
+          <svg class="w-4 h-4"><use href="#i-trash"/></svg> Recycle Bin
         </a>
       </div>
     </div>
 
     {{-- SITE LOCK CHIP --}}
-    <div class="relative px-6 md:px-8 pb-6">
+    <div class="relative px-6 pb-6 md:px-8">
       <div class="inline-flex items-center gap-2 rounded-2xl bg-white/10 ring-1 ring-white/40 px-3 py-1.5 text-sm">
-        <svg class="h-4 w-4"><use href="#i-map-pin"/></svg>
+        <svg class="w-4 h-4"><use href="#i-map-pin"/></svg>
         <span class="truncate">{{ $activeSiteLabel }}</span>
-        <span class="ml-2 inline-flex items-center gap-1 text-xs">
+        <span class="inline-flex items-center gap-1 ml-2 text-xs">
           <svg class="h-3.5 w-3.5"><use href="#i-lock"/></svg> terkunci
         </span>
       </div>
     </div>
   </div>
 
-  {{-- FLASH --}}
+  {{-- FLASH --}}
+
   {{-- ========== FILTERS ========== --}}
   @php
     $activeSiteText = $activeSiteLabel; // sudah dihitung di atas
   @endphp
 
-  <form method="get" class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6 grid md:grid-cols-12 gap-3 items-end">
+  <form method="get" class="grid items-end gap-3 p-4 bg-white shadow rounded-3xl ring-1 ring-emerald-200 md:p-6 md:grid-cols-12">
     {{-- SITE (LOCKED) --}}
     <div class="md:col-span-3">
-      <label class="block text-xs text-slate-600 mb-1">Site <span class="text-slate-400">(terkunci)</span></label>
+      <label class="block mb-1 text-xs text-slate-600">Site <span class="text-slate-400">(terkunci)</span></label>
       <div class="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 text-sm text-emerald-800">
-        <svg class="h-4 w-4"><use href="#i-map-pin"/></svg>
+        <svg class="w-4 h-4"><use href="#i-map-pin"/></svg>
         <span class="truncate">{{ $activeSiteText }}</span>
-        <span class="ml-auto inline-flex items-center gap-1 text-xs text-emerald-700">
+        <span class="inline-flex items-center gap-1 ml-auto text-xs text-emerald-700">
           <svg class="h-3.5 w-3.5"><use href="#i-lock"/></svg> Terkunci
         </span>
       </div>
@@ -175,20 +176,20 @@
     </div>
 
     {{-- DATE --}}
-    <div class="md:col-span-3 relative">
-      <label class="block text-xs text-slate-600 mb-1">Tanggal</label>
+    <div class="relative md:col-span-3">
+      <label class="block mb-1 text-xs text-slate-600">Tanggal</label>
       <span class="absolute left-3 top-9 text-emerald-600/80">
-        <svg class="h-4 w-4"><use href="#i-calendar"/></svg>
+        <svg class="w-4 h-4"><use href="#i-calendar"/></svg>
       </span>
       <input type="date" name="date" value="{{ request('date') }}"
             class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
     </div>
 
     {{-- TYPE --}}
-    <div class="md:col-span-2 relative">
-      <label class="block text-xs text-slate-600 mb-1">Type</label>
+    <div class="relative md:col-span-2">
+      <label class="block mb-1 text-xs text-slate-600">Type</label>
       <span class="absolute left-3 top-9 text-emerald-600/80">
-        <svg class="h-4 w-4"><use href="#i-tag"/></svg>
+        <svg class="w-4 h-4"><use href="#i-tag"/></svg>
       </span>
       <select name="type"
               class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500">
@@ -201,7 +202,7 @@
 
     {{-- STATUS --}}
     <div class="md:col-span-2">
-      <label class="block text-xs text-slate-600 mb-1">Status</label>
+      <label class="block mb-1 text-xs text-slate-600">Status</label>
       <select name="status"
               class="w-full border border-emerald-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500">
         <option value="">— Semua —</option>
@@ -212,10 +213,10 @@
     </div>
 
     {{-- USER (name / code) --}}
-    <div class="md:col-span-2 relative">
-      <label class="block text-xs text-slate-600 mb-1">User</label>
+    <div class="relative md:col-span-2">
+      <label class="block mb-1 text-xs text-slate-600">User</label>
       <span class="absolute left-3 top-9 text-emerald-600/80">
-        <svg class="h-4 w-4"><use href="#i-user"/></svg>
+        <svg class="w-4 h-4"><use href="#i-user"/></svg>
       </span>
       <input type="text" name="user" value="{{ request('user') }}"
             class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500"
@@ -223,10 +224,10 @@
     </div>
 
     {{-- KEYWORD --}}
-    <div class="md:col-span-4 relative">
-      <label class="block text-xs text-slate-600 mb-1">Cari</label>
+    <div class="relative md:col-span-4">
+      <label class="block mb-1 text-xs text-slate-600">Cari</label>
       <span class="absolute left-3 top-9 text-emerald-600/80">
-        <svg class="h-4 w-4"><use href="#i-search"/></svg>
+        <svg class="w-4 h-4"><use href="#i-search"/></svg>
       </span>
       <input type="text" name="q" value="{{ request('q') }}"
             class="w-full border border-emerald-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500"
@@ -234,25 +235,25 @@
     </div>
 
     {{-- ACTIONS --}}
-    <div class="md:col-span-12 flex gap-2 justify-end">
+    <div class="flex justify-end gap-2 md:col-span-12">
       <button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 ring-1 ring-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-300">
-        <svg class="h-4 w-4"><use href="#i-search"/></svg> Filter
+        <svg class="w-4 h-4"><use href="#i-search"/></svg> Filter
       </button>
       <a href="{{ route('admin.hr-entries.index') }}"
         class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 hover:bg-amber-50 bg-white">
-        <svg class="h-4 w-4"><use href="#i-rotate"/></svg> Reset
+        <svg class="w-4 h-4"><use href="#i-rotate"/></svg> Reset
       </a>
     </div>
   </form>
 
   {{-- ========== BULK BAR ========== --}}
-  <div x-show="selected.size > 0" x-cloak class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30">
+  <div x-show="selected.size > 0" x-cloak class="fixed z-30 -translate-x-1/2 bottom-6 left-1/2">
     <form method="POST" action="{{ route('admin.hr-entries.bulk') }}"
           @submit.prevent="$refs.ids.value = JSON.stringify(Array.from(selected)); $el.submit();"
-          class="flex items-center gap-2 rounded-2xl bg-white shadow-lg ring-1 ring-slate-200 px-3 py-2">
+          class="flex items-center gap-2 px-3 py-2 bg-white shadow-lg rounded-2xl ring-1 ring-slate-200">
       @csrf
       <input type="hidden" name="ids" x-ref="ids">
-      <span class="text-sm text-slate-700 px-2">Terpilih: <span class="font-semibold" x-text="selected.size"></span></span>
+      <span class="px-2 text-sm text-slate-700">Terpilih: <span class="font-semibold" x-text="selected.size"></span></span>
 
       <button name="act" value="approve" class="px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white hover:bg-emerald-700">Approve</button>
       <button name="act" value="reject"  class="px-3 py-1.5 rounded-lg text-sm bg-rose-600 text-white hover:bg-rose-700">Reject</button>
@@ -263,13 +264,13 @@
   </div>
 
   {{-- ========== TABLE ========== --}}
-  <div class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow overflow-hidden">
+  <div class="overflow-hidden bg-white shadow rounded-3xl ring-1 ring-emerald-200">
     <div class="overflow-x-auto">
       <table class="min-w-full text-[15px]">
         <thead class="sticky top-0 z-10 bg-white border-b border-emerald-100 text-slate-600 text-[11px] uppercase tracking-wide">
           <tr>
-            <th class="px-3 py-3 w-10">
-              <input type="checkbox" @change="toggleAll($event)" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+            <th class="w-10 px-3 py-3">
+              <input type="checkbox" @change="toggleAll($event)" class="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
             </th>
             <th class="px-4 py-3 text-left">Date</th>
             <th class="px-4 py-3 text-left">User</th>
@@ -278,7 +279,7 @@
             <th class="px-4 py-3 text-left">Reason</th>
             <th class="px-4 py-3 text-left">Status</th>
             <th class="px-4 py-3 text-left">Approver</th>
-            <th class="px-4 py-3 text-right w-48">Actions</th>
+            <th class="w-48 px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
 
@@ -292,11 +293,11 @@
             $tt = $typeTone[$typeKey] ?? ['bg'=>'bg-slate-50','fg'=>'text-slate-700','ring'=>'ring-slate-200'];
           @endphp
 
-          <tr class="hover:bg-emerald-50/40 transition">
+          <tr class="transition hover:bg-emerald-50/40">
             {{-- bulk check --}}
             <td class="px-3 py-2 align-top">
               <input type="checkbox"
-                    class="entry-checkbox h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    class="w-4 h-4 rounded entry-checkbox border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     value="{{ $e->id }}"
                     @change="select('{{ $e->id }}', $event.target.checked)">
             </td>
@@ -357,10 +358,35 @@
               @endif
             </td>
 
-            {{-- approver --}}
-            <td class="px-4 py-3 align-top text-slate-700">
-              {{ $e->approver->name ?? '—' }}
-            </td>
+            {{-- approver + approval progress --}}
+<td class="px-4 py-3 align-top">
+  @php
+    $ap  = (array) data_get($e->meta, '_approval', []);
+    $idx = (int) ($ap['current_index'] ?? 0);
+    $st  = array_values((array) ($ap['stages'] ?? []));
+  @endphp
+
+  @if(!empty($st))
+    <div class="flex flex-wrap gap-1.5 mb-1.5">
+      @foreach($st as $i=>$sg)
+        @php $done = !empty($sg['completed']); @endphp
+        <span class="px-2 py-0.5 rounded-full text-[11px] ring-1
+          {{ $done ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                   : ($i===$idx ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                                : 'bg-slate-50 text-slate-600 ring-slate-200') }}">
+          {{ $sg['label'] ?? $sg['key'] ?? ('Stage '.($i+1)) }}@if($done) ✓@endif
+        </span>
+      @endforeach
+    </div>
+  @else
+    <span class="text-xs text-slate-400">—</span>
+  @endif
+
+  <div class="text-[11px] text-slate-500">
+    {{ $e->approver->name ?? '—' }}
+  </div>
+</td>
+
 
             {{-- actions --}}
             <td class="px-4 py-3 align-top">
@@ -369,8 +395,8 @@
                 <form action="{{ route('admin.hr-entries.approve', $e) }}" method="POST" onsubmit="return confirm('Approve entry ini?')">
                   @csrf
                   <button type="submit"
-                          class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m5 12 4 4L19 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                          class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-white rounded-md bg-emerald-600 hover:bg-emerald-700">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m5 12 4 4L19 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     <span class="hidden sm:inline">Approve</span>
                   </button>
                 </form>
@@ -380,16 +406,16 @@
                 <form action="{{ route('admin.hr-entries.reject', $e) }}" method="POST" onsubmit="return confirm('Reject entry ini?')">
                   @csrf
                   <button type="submit"
-                          class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12" stroke-width="2" stroke-linecap="round"/></svg>
+                          class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-white rounded-md bg-rose-600 hover:bg-rose-700">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12" stroke-width="2" stroke-linecap="round"/></svg>
                     <span class="hidden sm:inline">Reject</span>
                   </button>
                 </form>
                 @endcan
 
                 <a href="{{ route('admin.hr-entries.edit', $e) }}"
-                  class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200">
-                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 20h9" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 20h9" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   <span class="hidden sm:inline">Edit</span>
                 </a>
 
@@ -397,8 +423,8 @@
                 <form action="{{ route('admin.hr-entries.destroy', $e) }}" method="POST" onsubmit="return confirm('Hapus entry ini?')">
                   @csrf @method('DELETE')
                   <button type="submit"
-                          class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold bg-white text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50">
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-white rounded-md text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path d="M3 6h18" stroke-width="2" stroke-linecap="round"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-width="2" stroke-linecap="round"/><path d="M7 6l1 14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2l1-14" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     <span class="hidden sm:inline">Delete</span>
@@ -412,12 +438,12 @@
           <tr>
             <td colspan="9" class="px-6 py-10">
               <div class="text-center">
-                <div class="mx-auto h-14 w-14 rounded-2xl grid place-content-center ring-1 ring-emerald-100 bg-white shadow mb-3">
+                <div class="grid mx-auto mb-3 bg-white shadow h-14 w-14 rounded-2xl place-content-center ring-1 ring-emerald-100">
                   <svg class="h-7 w-7 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M4 7h16M4 12h16M4 17h16" stroke-width="2" stroke-linecap="round"/>
                   </svg>
                 </div>
-                <p class="text-slate-600 text-sm">Belum ada data sesuai filter.</p>
+                <p class="text-sm text-slate-600">Belum ada data sesuai filter.</p>
               </div>
             </td>
           </tr>

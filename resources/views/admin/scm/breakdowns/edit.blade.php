@@ -1,83 +1,70 @@
+{{-- resources/views/admin/scm/breakdowns/edit.blade.php --}}
 @extends('layouts.app')
-@section('title','Edit Breakdown')
+@section('title','SCM — Edit Breakdown')
 
 @php
-    use Illuminate\Support\Facades\Route;
-
-    $rIndex  = Route::has('scm.breakdowns.index')  ? 'scm.breakdowns.index'  : 'breakdowns.index';
-    $rUpdate = Route::has('scm.breakdowns.update') ? 'scm.breakdowns.update' : 'breakdowns.update';
+  use Illuminate\Support\Facades\Route;
+  $rIndex  = Route::has('scm.breakdowns.index')  ? 'scm.breakdowns.index'  : 'breakdowns.index';
+  $rUpdate = Route::has('scm.breakdowns.update') ? 'scm.breakdowns.update' : 'breakdowns.update';
 @endphp
 
 @section('content')
-<div class="max-w-3xl space-y-6">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold">Edit Breakdown</h1>
-    <a href="{{ route($rIndex, ['site' => $siteId]) }}"
-       class="px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">Kembali</a>
+<div class="rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
+
+  {{-- HEADER (gradasi seragam) --}}
+  <div class="relative overflow-hidden rounded-t-3xl">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+    <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>
+
+    <div class="relative px-6 sm:px-10 py-6 text-white">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-white/10 grid place-items-center ring-1 ring-white/20 shadow-sm backdrop-blur">
+            <svg class="h-5 w-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7l9-4 9 4-9 4-9-4zM3 12l9 4 9-4M12 16v4"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">SCM — Breakdowns</h1>
+            <p class="text-white/90 text-sm mt-1">Ubah data downtime/kerusakan unit.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold ring-1 ring-white/30 backdrop-blur-sm">
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span> Mode: Edit
+          </span>
+          <a href="{{ route($rIndex, ['site' => $siteId]) }}"
+             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/20 transition">
+            Kembali
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 
+  {{-- FLASH ERRORS --}}
   @if ($errors->any())
-    <div class="rounded-md bg-rose-50 border border-rose-200 text-rose-800 px-4 py-3">
+    <div class="mx-6 my-4 px-4 py-3 rounded-xl bg-rose-50 text-rose-800 ring-1 ring-rose-200 text-sm">
       <div class="font-semibold mb-1">Ada kesalahan:</div>
-      <ul class="list-disc ml-5">
+      <ul class="list-disc pl-5 space-y-0.5">
         @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
       </ul>
     </div>
   @endif
 
-  <form method="POST" action="{{ route($rUpdate, $breakdown) }}" class="bg-white rounded-lg border p-4 space-y-4">
-    @csrf @method('PUT')
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <label class="block">
-        <span class="block text-sm text-slate-600">Start</span>
-        <input type="datetime-local" name="start_at"
-               value="{{ old('start_at', optional($breakdown->start_at)->format('Y-m-d\TH:i')) }}"
-               class="mt-1 w-full border rounded px-2 py-1" required>
-      </label>
-
-      <label class="block">
-        <span class="block text-sm text-slate-600">End (opsional)</span>
-        <input type="datetime-local" name="end_at"
-               value="{{ old('end_at', optional($breakdown->end_at)->format('Y-m-d\TH:i')) }}"
-               class="mt-1 w-full border rounded px-2 py-1">
-      </label>
-
-      <label class="block md:col-span-2">
-        <span class="block text-sm text-slate-600">Unit</span>
-        <select name="unit_id" class="mt-1 w-full border rounded px-2 py-1" required>
-          @foreach ($units as $u)
-            <option value="{{ $u->id }}" @selected(old('unit_id', $breakdown->unit_id)==$u->id)>{{ $u->code }} — {{ $u->name }}</option>
-          @endforeach
-        </select>
-      </label>
-
-      <label class="block">
-        <span class="block text-sm text-slate-600">Kategori</span>
-        <select name="category" class="mt-1 w-full border rounded px-2 py-1" required>
-          @foreach ($categories as $k => $v)
-            <option value="{{ $k }}" @selected(old('category', $breakdown->category)==$k)>{{ $v }}</option>
-          @endforeach
-        </select>
-      </label>
-
-      <label class="block">
-        <span class="block text-sm text-slate-600">Kode Sebab (opsional)</span>
-        <input type="text" name="cause_code" value="{{ old('cause_code', $breakdown->cause_code) }}"
-               class="mt-1 w-full border rounded px-2 py-1">
-      </label>
-    </div>
-
-    <label class="block">
-      <span class="block text-sm text-slate-600">Catatan</span>
-      <textarea name="notes" rows="3" class="mt-1 w-full border rounded px-3 py-2">{{ old('notes', $breakdown->notes) }}</textarea>
-    </label>
-
-    <div class="flex items-center gap-3">
-      <button type="submit" class="px-4 py-2 rounded bg-indigo-600 text-white">Update</button>
-      <a href="{{ route($rIndex, ['site' => $siteId]) }}"
-         class="px-4 py-2 rounded border border-slate-300 hover:bg-slate-50">Batal</a>
-    </div>
-  </form>
+  {{-- FORM CARD --}}
+  <div class="p-6">
+    @include('admin.scm.breakdowns._form', [
+      'action'    => route($rUpdate, $breakdown),
+      'method'    => 'PUT',
+      'mode'      => 'edit',
+      'breakdown' => $breakdown,
+      'siteId'    => $siteId,
+      'sites'     => $sites ?? null,
+      'units'     => $units ?? [],
+      'categories'=> $categories ?? [],
+    ])
+  </div>
 </div>
 @endsection

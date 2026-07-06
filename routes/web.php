@@ -350,7 +350,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'site.sele
 /* --------------------------------------------------------------------------
 | Admin HR Suite (GM/HR) — attendance, timesheet, shift, GA, contracts, crew
 |-------------------------------------------------------------------------- */
-Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:gm|hr', 'site.selected'])->group(function () {
+Route::prefix('admin')->as('admin.')->middleware(['auth','verified','site.selected'])->group(function () {
     Route::resource('attendance', AttendanceController::class)->parameters(['attendance' => 'attendance'])->except(['show']);
     Route::resource('timesheets', TimesheetController::class)->parameters(['timesheets' => 'timesheet'])->except(['show']);
     Route::resource('shift-rosters', ShiftRosterController::class)->parameters(['shift-rosters' => 'shiftRoster'])->except(['show']);
@@ -377,7 +377,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:g
     });
 
     // HR Daily Entry: meta form config
-    Route::prefix('hr-entries/meta-form-config')->name('hr-entries.meta-form.')->middleware('can:manage,App\\Models\\HrDailyEntry')->group(function () {
+    Route::prefix('hr-entries/meta-form-config')->name('hr-entries.meta-form.')->middleware('auth', 'verified')->group(function () {
         Route::get('/', [HrDailyEntryController::class, 'metaFormConfigIndex'])->name('index');
         Route::get('/manage/{type?}', [HrDailyEntryController::class, 'metaFormConfigManage'])->name('manage')->where('type', '[A-Za-z0-9_\-]+');
         Route::get('/{type}', [HrDailyEntryController::class, 'metaFormConfigShow'])->name('show')->where('type', '^(?!manage$)[A-Za-z0-9_\-]+');
@@ -395,7 +395,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:g
     });
 
     // HR Daily Entry: approval schemas
-    Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')->middleware('can:manage,App\\Models\\HrDailyEntry')->group(function () {
+    Route::prefix('hr-entries/approval/schemas')->name('hr-entries.approval.schemas.')->middleware('can:viewAny,App\Models\HrDailyEntry')->group(function () {
         Route::get('/', [HrDailyEntryController::class, 'approvalSchemasIndex'])->name('index');
         Route::get('/{type}', [HrDailyEntryController::class, 'approvalSchemasShow'])->name('show')->where('type', '[A-Za-z0-9_\-]+');
         Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'approvalSchemasUpsert'])->name('upsert')->where('type', '[A-Za-z0-9_\-]+');
@@ -732,7 +732,7 @@ Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])
 Route::post('/reset-password', [NewPasswordController::class, 'store'])
     ->middleware('guest')
     ->name('password.store');
- 
+
 require __DIR__ . '/auth.php';
 
 /* --------------------------------------------------------------------------

@@ -59,7 +59,9 @@
     $canManageHrConfig = Gate::check('manage', \App\Models\HrDailyEntry::class);
 
     /* Menu visibility */
-    $canPeopleMenu = $isGM || $isHR; // HCM & Manpower
+    $canViewHrEntries = Gate::check('viewAny', \App\Models\HrDailyEntry::class); // pakai policy
+    $canPeopleMenu = $isGM || $isHR || $isManager || $isHSEOfficer || $canViewHrEntries;
+
     $canAdminMenu = $isGM || $isManager; // Admin
     $canHseMenu = $isGM || $isManager || $isHR || $isHSEOfficer; // HSE Suite
     $canScmMenu = $isGM || $isManager || $roleKey === 'scm';
@@ -256,11 +258,11 @@
 
     {{-- Brand Header --}}
     <div class="relative">
-        <div class="absolute inset-0 bg-gradient-to-r from-teal-50 via-emerald-50 to-amber-50 pointer-events-none"></div>
+        <div class="absolute inset-0 pointer-events-none bg-gradient-to-r from-teal-50 via-emerald-50 to-amber-50"></div>
         <div class="relative px-5 py-4 border-b border-slate-200">
             <div class="flex items-center gap-3">
                 <div
-                    class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-600 text-white grid place-items-center shadow-sm">
+                    class="grid text-white shadow-sm w-9 h-9 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-600 place-items-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
                         aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round"
@@ -294,9 +296,9 @@
                 </div>
             </div>
             @if (!$isVerified)
-                <div class="mt-3 text-xs text-rose-700 bg-rose-50 ring-1 ring-rose-200 rounded-lg px-3 py-2">
+                <div class="px-3 py-2 mt-3 text-xs rounded-lg text-rose-700 bg-rose-50 ring-1 ring-rose-200">
                     Akun kamu belum terverifikasi. Masukkan OTP di halaman
-                    <a href="{{ route('verification.notice') }}" class="underline font-semibold">Verify Code</a>
+                    <a href="{{ route('verification.notice') }}" class="font-semibold underline">Verify Code</a>
                     untuk membuka semua menu.
                 </div>
             @endif
@@ -304,7 +306,7 @@
     </div>
 
     {{-- Nav --}}
-    <nav class="flex-1 overflow-y-auto py-3" x-data='{!! $navStateJson !!}'>
+    <nav class="flex-1 py-3 overflow-y-auto" x-data='{!! $navStateJson !!}'>
         {{-- Quick Shortcuts --}}
         @php
             $canSiteSelect = Route::has('sites.select');
@@ -313,7 +315,7 @@
             $canAssetsV = Route::has('admin.assets.index');
             $canPayroalMe = Route::has('me.payroal.edit');
 
-            $approvalsClickable = $isVerified && $canApprovalsV && ($isGM || $isHR);
+            $approvalsClickable = $isVerified && $canApprovalsV && $canViewHrEntries;
             $assetsClickable = $isVerified && $canAssetsV && ($isGM || $isManager);
             $siteClickable = $isVerified && $canSiteSelect;
             $tapClickable = $isVerified && $canTap;
@@ -361,7 +363,7 @@
                     @if ($canApprovalsV)
                         {!! $quickCard(
                             $approvalsClickable,
-                            $approvalsClickable ? route('admin.hr-entries.index', ['status' => 'pending']) : '#',
+                            $approvalsClickable ? route('admin.hr-entries.index', ['status' => 'pending', 'my_approvals' => 1]) : '#',
                             'ring-amber-200 hover:bg-amber-50',
                             '<svg class="w-5 h-5 text-amber-600 group-hover:text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12l2 2 4-4M7 4h10a2 2 0 012 2v6.5a8.5 8.5 0 11-17 0V6a2 2 0 012-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
                             'Approvals',
@@ -440,7 +442,7 @@
         {{-- Dashboard --}}
         <a href="{{ $isVerified ? route('dashboard') : route('verification.notice') }}"
             class="group mt-1 mx-3 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('dashboard') && $isVerified) }} {{ $isVerified ? '' : 'opacity-70' }}">
-            <svg class="w-5 h-5 flex-shrink-0 text-yellow-500 group-hover:text-yellow-600" fill="none"
+            <svg class="flex-shrink-0 w-5 h-5 text-yellow-500 group-hover:text-yellow-600" fill="none"
                 stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10" />
             </svg>
@@ -479,7 +481,7 @@
                         </svg>
                         Master Data
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openMaster ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openMaster ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -533,28 +535,28 @@
                         </svg>
                         HCM & Manpower
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openPeople ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openPeople ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
 
                 <div x-show="openPeople" x-transition.origin.top.left class="mt-2 space-y-1">
-                    @if (Route::has('admin.attendance.index'))
+                    @if (Route::has('admin.attendance.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.attendance.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.attendance.*')) }}">
                             Absensi Harian
                         </a>
                     @endif
 
-                    @if (Route::has('admin.timesheets.index'))
+                    @if (Route::has('admin.timesheets.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.timesheets.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.timesheets.*') && !request()->routeIs('admin.overtime.*')) }}">
                             Timesheet &amp; Lembur
                         </a>
                     @endif
 
-                    @if (Route::has('admin.overtime.index'))
+                    @if (Route::has('admin.overtime.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.overtime.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.overtime.*')) }}">
                             Overtime Queue
@@ -565,24 +567,31 @@
                         </a>
                     @endif
 
-                    @if (Route::has('admin.locations.index'))
+                    @if (Route::has('admin.locations.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.locations.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.locations.*')) }}">
                             Lokasi &amp; Geofence
                         </a>
                     @endif
 
-                    @if (Route::has('admin.shift-rosters.index'))
+                    @if (Route::has('admin.shift-rosters.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.shift-rosters.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shift-rosters.*')) }}">
                             Shift Roster
                         </a>
                     @endif
 
-                    @if (Route::has('admin.shifts.index'))
+                    @if (Route::has('admin.shifts.index') && ($isGM || $isHR || $isManager))
                         <a href="{{ route('admin.shifts.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shifts.*')) }}">
                             Shifts Master
+                        </a>
+                    @endif
+
+                    @if (Route::has('admin.manpower.dashboard'))
+                        <a href="{{ route('admin.manpower.dashboard') }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower.dashboard')) }}">
+                            Manpower Dashboard
                         </a>
                     @endif
 
@@ -616,7 +625,7 @@
                                     </svg>
                                     HR Suite
                                 </span>
-                                <svg class="w-4 h-4 text-slate-500 transform transition"
+                                <svg class="w-4 h-4 transition transform text-slate-500"
                                     :class="openHR ? 'rotate-180' : ''" fill="none" stroke="currentColor"
                                     stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -624,7 +633,7 @@
                             </button>
 
                             <div x-show="openHR" x-transition.origin.top.left class="mt-1 space-y-1">
-                                @if (Route::has('admin.hr-entries.index'))
+                                @if (Route::has('admin.hr-entries.index') && $canViewHrEntries)
                                     <a href="{{ route('admin.hr-entries.index') }}"
                                         class="group block mx-3 pl-12 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hrDailyActive) }}">
                                         <span class="inline-flex items-center gap-2">
@@ -646,7 +655,7 @@
 
                                 {{-- Payslip Bulanan (HR) --}}
                                 @if (($isHR || $isGM) && (Route::has('admin.payroal_history.index') || Route::has('admin.payroal_history.create')))
-                                    <div class="mx-3 pl-12 pr-3 mt-1">
+                                    <div class="pl-12 pr-3 mx-3 mt-1">
                                         <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Payslip
                                             Bulanan</div>
 
@@ -670,7 +679,7 @@
                                             Route::has('admin.hr-entries.approval.schemas.index') ||
                                             Route::has('admin.hr-entries.print-templates.index') ||
                                             Route::has('admin.hr-entries.types.index')))
-                                    <div class="mx-3 pl-12 pr-3 mt-2">
+                                    <div class="pl-12 pr-3 mx-3 mt-2">
                                         <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">HR Config
                                         </div>
                                         @if (Route::has('admin.hr-entries.meta-form.index'))
@@ -742,7 +751,7 @@
                         </svg>
                         HSE Suite
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openHse ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openHse ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -813,7 +822,7 @@
                         <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l-2 2m0 0l-2-2m2 2l2-2m7 13v-6l-2 2m0 0l-2-2m2 2l2-2"/></svg>
                         Production Control
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openProd ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openProd ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openProd" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.production.monthly-plans.index'))<a href="{{ route('admin.production.monthly-plans.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($prodPlanActive) }}">Monthly Plan</a>@endif
@@ -848,7 +857,7 @@
                         <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>
                         Human Resource
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openHcm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openHcm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openHcm" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.hcm.candidates.index'))<a href="{{ route('admin.hcm.candidates.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hcmCandActive) }}">Recruitment</a>@endif
@@ -879,7 +888,7 @@
                         <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                         Asset Management
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openAssetMgmt ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openAssetMgmt ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openAssetMgmt" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.asset-mgmt.arr.index'))<a href="{{ route('admin.asset-mgmt.arr.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($assetArrActive) }}">ARR Master</a>@endif
@@ -916,7 +925,7 @@
                         <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         Plant
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openPlant ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openPlant ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openPlant" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.plant.standard-jobs.index'))<a href="{{ route('admin.plant.standard-jobs.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantSjActive) }}">Standard Job</a>@endif
@@ -943,15 +952,15 @@
                         <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Raw Data Reports
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openReports ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openReports ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openReports" x-transition.origin.top.left class="mt-2 space-y-1">
-                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">ARR Raw Data</a>
-                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">PCS Raw Data</a>
-                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">RPT PM Report</a>
-                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">SCM Report</a>
-                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">PCS Report</a>
-                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">Plant Report</a>
+                    <a href="#" class="block py-2 pr-3 mx-3 text-sm font-medium transition rounded-lg cursor-not-allowed pl-9 text-slate-600 hover:bg-slate-50 opacity-60">ARR Raw Data</a>
+                    <a href="#" class="block py-2 pr-3 mx-3 text-sm font-medium transition rounded-lg cursor-not-allowed pl-9 text-slate-600 hover:bg-slate-50 opacity-60">PCS Raw Data</a>
+                    <a href="#" class="block py-2 pr-3 mx-3 text-sm font-medium transition rounded-lg cursor-not-allowed pl-9 text-slate-600 hover:bg-slate-50 opacity-60">RPT PM Report</a>
+                    <a href="#" class="block py-2 pr-3 mx-3 text-sm font-medium transition rounded-lg cursor-not-allowed pl-9 text-slate-600 hover:bg-slate-50 opacity-60">SCM Report</a>
+                    <a href="#" class="block py-2 pr-3 mx-3 text-sm font-medium transition rounded-lg cursor-not-allowed pl-9 text-slate-600 hover:bg-slate-50 opacity-60">PCS Report</a>
+                    <a href="#" class="block py-2 pr-3 mx-3 text-sm font-medium transition rounded-lg cursor-not-allowed pl-9 text-slate-600 hover:bg-slate-50 opacity-60">Plant Report</a>
                 </div>
             </div>
         @endif
@@ -969,6 +978,7 @@
             $scmHmActive = request()->routeIs('scm.hour_meters.*');
             $scmFuelActive = request()->routeIs('scm.fuel_logs.*');
             $scmWbActive = request()->routeIs('scm.wb_tickets.*');
+            $scmPitsActive = request()->routeIs('scm.pits.*');
             $scmBdActive = request()->routeIs('scm.breakdowns.*') || request()->routeIs('breakdowns.*');
 
             $scmRoutesActive =
@@ -981,7 +991,8 @@
                 $scmPlanActive ||
                 $scmDispatchActive ||
                 $scmHandoverActive ||
-                $scmReportActive;
+                $scmReportActive ||
+                 $scmPitsActive;
 
         @endphp
         @php
@@ -997,7 +1008,8 @@
                 Route::has('scm.daily-plans.index') ||
                 Route::has('scm.dispatches.index') ||
                 Route::has('scm.handovers.index') ||
-                Route::has('scm.reports.target-actual');
+                Route::has('scm.reports.target-actual') ||
+                Route::has('scm.pits.index');
 
         @endphp
        @if ($hasScmRoutes && $canScmMenu)
@@ -1010,7 +1022,7 @@
         </svg>
         SCM
       </span>
-      <svg class="w-4 h-4 text-slate-500 transform transition" :class="openScm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <svg class="w-4 h-4 transition transform text-slate-500" :class="openScm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
       </svg>
     </button>
@@ -1042,7 +1054,7 @@
 
       {{-- REPORTS --}}
       @if (Route::has('scm.reports.target-actual'))
-        <div class="mx-3 pl-9 pr-3 mt-1">
+        <div class="pr-3 mx-3 mt-1 pl-9">
           <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Reports</div>
           <a href="{{ route('scm.reports.target-actual') }}"
              class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-semibold transition {{ $activeClasses($scmReportActive) }}">
@@ -1080,6 +1092,13 @@
           Breakdowns
         </a>
       @endif
+      {{-- pits --}}
+   @if (Route::has('scm.pits.index'))
+  <a href="{{ route('scm.pits.index') }}"
+     class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($scmPitsActive) }}">
+    Pits
+  </a>
+@endif
     </div>
   </div>
 @endif
@@ -1109,7 +1128,7 @@
                         </svg>
                         Fuel Management
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openFuel ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openFuel ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
@@ -1185,7 +1204,7 @@
                         </svg>
                         Admin
                     </span>
-                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openAdmin ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openAdmin ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -1279,7 +1298,7 @@
                         <a href="{{ route($link['route']) }}"
                             class="group mx-3 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($link['route'])) }}">
                             <span
-                                class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">{{ $link['emoji'] }}</span>
+                                class="grid w-5 h-5 text-yellow-500 place-items-center group-hover:text-yellow-600">{{ $link['emoji'] }}</span>
                             <span>{{ $link['label'] }}</span>
                         </a>
                     @endif
@@ -1288,7 +1307,7 @@
                 <a href="{{ route($roleRoute) }}"
                     class="group mx-3 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($roleRoute)) }}">
                     <span
-                        class="w-5 h-5 grid place-items-center text-yellow-500 group-hover:text-yellow-600">{{ $roleLinks[$roleKey]['emoji'] ?? '📌' }}</span>
+                        class="grid w-5 h-5 text-yellow-500 place-items-center group-hover:text-yellow-600">{{ $roleLinks[$roleKey]['emoji'] ?? '📌' }}</span>
                     <span>{{ $roleLinks[$roleKey]['label'] ?? Str::headline($roleKey) }}</span>
                 </a>
             @endif
@@ -1302,19 +1321,19 @@
             $initial = strtoupper(mb_substr($user->name ?? 'G', 0, 1));
         @endphp
 
-        <div class="px-5 py-3 flex items-center gap-3">
+        <div class="flex items-center gap-3 px-5 py-3">
             @if ($avatar)
                 <img src="{{ $avatar }}" alt="Avatar"
-                    class="w-10 h-10 rounded-full object-cover border border-teal-200 shadow-sm">
+                    class="object-cover w-10 h-10 border border-teal-200 rounded-full shadow-sm">
             @else
                 <div
-                    class="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white font-bold shadow-sm">
+                    class="flex items-center justify-center w-10 h-10 font-bold text-white rounded-full shadow-sm bg-gradient-to-br from-teal-600 to-emerald-600">
                     {{ $initial }}</div>
             @endif
 
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                    <div class="text-sm font-semibold text-slate-800 truncate">{{ $user->name ?? 'Guest User' }}
+                    <div class="text-sm font-semibold truncate text-slate-800">{{ $user->name ?? 'Guest User' }}
                     </div>
                     @if ($roleKey)
                         <span
@@ -1322,10 +1341,10 @@
                     @endif
                 </div>
                 @if (!empty($user->role?->name))
-                    <div class="text-xs text-slate-500 truncate">{{ $user->role->name }}</div>
+                    <div class="text-xs truncate text-slate-500">{{ $user->role->name }}</div>
                 @endif
                 @if (!empty($user->email))
-                    <div class="text-xs text-slate-400 truncate">{{ $user->email }}</div>
+                    <div class="text-xs truncate text-slate-400">{{ $user->email }}</div>
                 @endif
             </div>
         </div>
@@ -1333,7 +1352,7 @@
         <div class="px-4 pb-3">
             @if (!$isVerified && Route::has('verification.notice'))
                 <a href="{{ route('verification.notice') }}"
-                    class="mb-2 inline-flex items-center gap-2 w-full justify-center px-3 py-2 rounded-lg text-sm font-semibold text-rose-700 bg-rose-50 ring-1 ring-rose-200 hover:bg-rose-100">
+                    class="inline-flex items-center justify-center w-full gap-2 px-3 py-2 mb-2 text-sm font-semibold rounded-lg text-rose-700 bg-rose-50 ring-1 ring-rose-200 hover:bg-rose-100">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path d="M12 15v2M12 9v2m-7 9h14a2 2 0 002-2V7l-7-5-7 5v12a2 2 0 002 2z" stroke-linecap="round"
                             stroke-linejoin="round" />
@@ -1345,8 +1364,8 @@
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit"
-                    class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition">
-                    <svg class="w-5 h-5 flex-shrink-0 text-yellow-500" fill="none" stroke="currentColor"
+                    class="flex items-center w-full gap-3 px-3 py-2 text-sm font-medium transition rounded-lg text-slate-600 hover:bg-red-50 hover:text-red-600">
+                    <svg class="flex-shrink-0 w-5 h-5 text-yellow-500" fill="none" stroke="currentColor"
                         stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 11-4 0v-1m0-10V5a2 2 0 114 0v1" />
