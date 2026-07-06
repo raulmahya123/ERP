@@ -1,4 +1,4 @@
-{{-- resources/views/admin/payroal/form.blade.php --}}
+﻿{{-- resources/views/admin/payroal/form.blade.php --}}
 @extends('layouts.app')
 
 @section('title', ($isEdit ?? false) ? 'Edit Payroal' : 'Tambah Payroal')
@@ -54,13 +54,7 @@
   {{-- =========================
        ALERTS
   ========================== --}}
-  <div class="">
-    @if (session('status'))
-      <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
-        {{ session('status') }}
-      </div>
-    @endif
-
+  <div class="">
     @if ($errors->any())
       <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
         <div class="font-semibold mb-1">Periksa kembali:</div>

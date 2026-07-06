@@ -1,16 +1,10 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Ubah Absensi')
 
 @section('content')
 <div class="max-w-2xl mx-auto space-y-6">
   <h1 class="text-2xl font-bold text-slate-800">Ubah Absensi</h1>
-
-  @if(session('success'))
-    <div class="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-
+
   @if ($errors->any())
     <div class="rounded-lg bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 text-sm">
       <ul class="list-disc list-inside">

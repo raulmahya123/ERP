@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hse/environmental-samples/edit.blade.php --}}
+﻿{{-- resources/views/admin/hse/environmental-samples/edit.blade.php --}}
 @extends('layouts.app')
 
 @section('title','Edit Environmental Sample')
@@ -52,14 +52,7 @@
 
   {{-- BODY --}}
   <div class="p-6 bg-white">
-    {{-- Flash --}}
-    @if (session('success'))
-      <div role="status" aria-live="polite"
-           class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 text-sm">
-        {{ session('success') }}
-      </div>
-    @endif
-    @if ($errors->any())
+    {{-- Flash --}}    @if ($errors->any())
       <div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 text-sm">
         <ul class="list-disc pl-5">
           @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
@@ -320,7 +313,7 @@
 
 @push('scripts')
   @once
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   @endonce
   <script>
   function envSampleEditForm(){

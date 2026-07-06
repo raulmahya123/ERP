@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title','Edit User')
 
@@ -37,24 +37,7 @@
   {{-- Body --}}
   <div class="p-6">
 
-    {{-- Alerts --}}
-    @if (session('success'))
-      <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 flex items-center gap-2">
-        <svg class="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <span class="text-sm font-medium">{{ session('success') }}</span>
-      </div>
-    @endif
-    @if (session('error'))
-      <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 flex items-center gap-2">
-        <svg class="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-        <span class="text-sm font-medium">{{ session('error') }}</span>
-      </div>
-    @endif
-    @if ($errors->any())
+    {{-- Alerts --}}    @if ($errors->any())
       <div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3">
         <ul class="list-disc list-inside text-sm">
           @foreach ($errors->all() as $error)
@@ -172,7 +155,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 function editUserForm(){
   return {

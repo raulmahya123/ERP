@@ -1,17 +1,11 @@
-{{-- resources/views/admin/shift_rosters/edit.blade.php --}}
+﻿{{-- resources/views/admin/shift_rosters/edit.blade.php --}}
 @extends('layouts.app')
 @section('title','Ubah Shift Roster')
 
 @section('content')
 <div class="max-w-3xl mx-auto space-y-6">
 
-  {{-- ALERTS --}}
-  @if(session('success'))
-    <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if ($errors->any())
+  {{-- ALERTS --}}  @if ($errors->any())
     <div class="rounded-xl bg-rose-50 ring-1 ring-rose-200 text-rose-700 px-4 py-3 text-sm">
       <div class="font-semibold mb-1">Periksa kembali isian kamu:</div>
       <ul class="list-disc list-inside">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>

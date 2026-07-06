@@ -1,4 +1,4 @@
-
+﻿
 {{-- resources/views/admin/master/permissions.blade.php --}}@extends('layouts.app')
 
 @section('content')
@@ -37,11 +37,7 @@
     </div>
   </div>
 
-  {{-- FLASH / VALIDATION --}}
-  @if (session('status'))
-    <div class="p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200">{{ session('status') }}</div>
-  @endif
-  @if ($errors->any())
+  {{-- FLASH / VALIDATION --}}  @if ($errors->any())
     <div class="p-3 rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200">
       <div class="font-semibold mb-1">Gagal menyimpan:</div>
       <ul class="list-disc list-inside space-y-0.5 text-sm">

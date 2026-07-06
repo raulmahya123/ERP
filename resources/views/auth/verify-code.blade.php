@@ -1,4 +1,4 @@
-{{-- resources/views/auth/verify-code.blade.php --}}
+﻿{{-- resources/views/auth/verify-code.blade.php --}}
 @php
   $user   = auth()->user();
   $email  = $user?->email ?? 'your@email.com';
@@ -35,13 +35,7 @@
             Kode baru sudah dikirim. Cek inbox/spam.
           </div>
         @endif
-
-        @if (session('success'))
-          <div class="mt-4 rounded-lg bg-teal-50 text-teal-800 ring-1 ring-teal-200 px-3 py-2 text-sm">
-            {{ session('success') }}
-          </div>
-        @endif
-
+
         @if ($errors->any())
           <div class="mt-4 rounded-lg bg-rose-50 text-rose-800 ring-1 ring-rose-200 px-3 py-2 text-sm">
             @foreach ($errors->all() as $err)

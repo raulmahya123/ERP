@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Trips')
 
 @section('content')
@@ -12,10 +12,6 @@
       Tambah
     </a>
   </div>
-
-  @if (session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded mb-3">{{ session('success') }}</div>
-  @endif
 
   <div class="bg-white shadow-sm ring-1 ring-slate-200 rounded-xl overflow-hidden">
     <table class="w-full text-sm">

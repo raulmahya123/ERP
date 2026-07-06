@@ -1,4 +1,4 @@
-{{-- resources/views/admin/site_config/index.blade.php (UI diseragamkan hijau–emas–biru) --}}
+﻿{{-- resources/views/admin/site_config/index.blade.php (UI diseragamkan hijau–emas–biru) --}}
 @extends('layouts.app')
 
 @section('title', 'Konfigurasi Site')
@@ -55,14 +55,6 @@
     {{-- =========================
          FLASH
     ========================== --}}
-    @if (session('success'))
-      <div class="px-4 sm:px-10">
-        <div class="my-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
-          {{ session('success') }}
-        </div>
-      </div>
-    @endif
-
     {{-- =========================
          FILTER CARD
     ========================== --}}
@@ -292,7 +284,7 @@
 @endsection
 
 @push('scripts')
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
   <script>
     function confirmDeleteCfg(el) {
       const id   = el.dataset.id;

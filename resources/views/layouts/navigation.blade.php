@@ -62,7 +62,11 @@
     $canPeopleMenu = $isGM || $isHR; // HCM & Manpower
     $canAdminMenu = $isGM || $isManager; // Admin
     $canHseMenu = $isGM || $isManager || $isHR || $isHSEOfficer; // HSE Suite
-    $canScmMenu = $isGM || $isManager || in_array($roleKey, ['scm', 'foreman', 'operator']);
+    $canScmMenu = $isGM || $isManager || $roleKey === 'scm';
+
+    /* Fuel Management */
+    $fuelRoutesActive = request()->routeIs('fuel.*');
+    $canFuelMenu = $isGM || $isManager || $roleKey === 'scm';
 
     /* =========================
 | Active state helpers
@@ -178,7 +182,7 @@
         'hse_officer' => ['label' => 'Dashboard HSE', 'route' => 'hse.dashboard', 'emoji' => '🛡'],
         'hr' => ['label' => 'Dashboard HR', 'route' => 'hr.dashboard', 'emoji' => '👤'],
         'finance' => ['label' => 'Dashboard Finance', 'route' => 'finance.dashboard', 'emoji' => '💰'],
-        'scm' => ['label' => 'Dashboard SCM', 'route' => 'scm.dashboard', 'emoji' => '🚚'],
+        'scm' => ['label' => 'Dashboard SCM', 'route' => 'scm.trips.index', 'emoji' => '🚚'],
     ];
 
     /* Badge class utk chip role */
@@ -242,6 +246,7 @@
         'openMaster' => (bool) $masterRoutesActive,
         'openHse' => (bool) $hseRoutesActive,
         'openScm' => false,
+        'openFuel' => (bool) $fuelRoutesActive,
     ];
     $navStateJson = json_encode($navState, JSON_UNESCAPED_UNICODE);
 @endphp
@@ -507,7 +512,6 @@
                 Route::has('admin.overtime.index') ||
                 Route::has('admin.locations.index') ||
                 Route::has('admin.shift-rosters.index') ||
-                Route::has('admin.manpower.dashboard') ||
                 Route::has('admin.hr-entries.index') ||
                 Route::has('admin.contracts.index') ||
                 Route::has('admin.crew-assignments.index') ||
@@ -579,13 +583,6 @@
                         <a href="{{ route('admin.shifts.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.shifts.*')) }}">
                             Shifts Master
-                        </a>
-                    @endif
-
-                    @if (Route::has('admin.manpower.dashboard'))
-                        <a href="{{ route('admin.manpower.dashboard') }}"
-                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.manpower.dashboard')) }}">
-                            Manpower Dashboard
                         </a>
                     @endif
 
@@ -719,13 +716,19 @@
 
         {{-- HSE SUITE --}}
         @php
+            $hseHazardAreaActive = request()->routeIs('admin.hse.hazard-areas.*');
+            $hseRtpActive = request()->routeIs('admin.hse.rtp.*');
+            $hseInspActive = request()->routeIs('admin.hse.inspection-reports.*');
             $hasHseRoutes =
                 Route::has('admin.hse.incidents.index') ||
                 Route::has('admin.hse.investigations.index') ||
                 Route::has('admin.hse.hazards.index') ||
                 Route::has('admin.hse.picas.index') ||
                 Route::has('admin.hse.environmental-samples.index') ||
-                Route::has('admin.hse.kpi-indicators.index');
+                Route::has('admin.hse.kpi-indicators.index') ||
+                Route::has('admin.hse.hazard-areas.index') ||
+                Route::has('admin.hse.rtp.index') ||
+                Route::has('admin.hse.inspection-reports.index');
         @endphp
         @if ($hasHseRoutes && $canHseMenu)
             <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
@@ -746,6 +749,10 @@
                 </button>
 
                 <div x-show="openHse" x-transition.origin.top.left class="mt-2 space-y-1">
+                    @if (Route::has('admin.hse.hazard-areas.index'))
+                        <a href="{{ route('admin.hse.hazard-areas.index') }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hseHazardAreaActive) }}">Hazard Area</a>
+                    @endif
                     @if (Route::has('admin.hse.incidents.index'))
                         <a href="{{ route('admin.hse.incidents.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.incidents.*')) }}">Incidents</a>
@@ -756,8 +763,15 @@
                     @endif
                     @if (Route::has('admin.hse.hazards.index'))
                         <a href="{{ route('admin.hse.hazards.index') }}"
-                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.hazards.*')) }}">Hazard
-                            Reports</a>
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.hazards.*')) }}">Hazard Reports</a>
+                    @endif
+                    @if (Route::has('admin.hse.rtp.index'))
+                        <a href="{{ route('admin.hse.rtp.index') }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hseRtpActive) }}">RTP Hazard Report</a>
+                    @endif
+                    @if (Route::has('admin.hse.inspection-reports.index'))
+                        <a href="{{ route('admin.hse.inspection-reports.index') }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hseInspActive) }}">Inspeksi Report</a>
                     @endif
                     @if (Route::has('admin.hse.picas.index'))
                         <a href="{{ route('admin.hse.picas.index') }}"
@@ -765,18 +779,183 @@
                     @endif
                     @if (Route::has('admin.hse.environmental-samples.index'))
                         <a href="{{ route('admin.hse.environmental-samples.index') }}"
-                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.environmental-samples.*')) }}">Environmental
-                            Samples</a>
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hse.environmental-samples.*')) }}">Environmental Samples</a>
                     @endif
                     @if (Route::has('admin.hse.kpi-indicators.index'))
                         <a href="{{ route('admin.hse.kpi-indicators.index') }}"
-                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hseKpiActive) }}">KPI
-                            Indicators</a>
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hseKpiActive) }}">KPI Indicators</a>
                     @endif
                 </div>
             </div>
         @endif
         {{-- /HSE SUITE --}}
+
+        {{-- PRODUCTION CONTROL --}}
+        @php
+            $prodPlanActive = request()->routeIs('admin.production.monthly-plans.*');
+            $prodShiftActive = request()->routeIs('admin.production.shift-plans.*');
+            $prodActualActive = request()->routeIs('admin.production.actuals.*');
+            $prodReconcileActive = request()->routeIs('admin.production.reconciles.*');
+            $prodClosingActive = request()->routeIs('admin.production.shift-closings.*') || request()->routeIs('admin.production.monthly-closings.*');
+            $hasProdRoutes =
+                Route::has('admin.production.monthly-plans.index') ||
+                Route::has('admin.production.shift-plans.index') ||
+                Route::has('admin.production.actuals.index') ||
+                Route::has('admin.production.reconciles.index') ||
+                Route::has('admin.production.shift-closings.index') ||
+                Route::has('admin.production.monthly-closings.index');
+        @endphp
+        @if ($hasProdRoutes && ($isGM || $isManager))
+            <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}" x-data="{ openProd: {{ ($prodPlanActive || $prodShiftActive || $prodActualActive || $prodReconcileActive || $prodClosingActive) ? 'true' : 'false' }} }">
+                <button type="button" @click="openProd=!openProd"
+                    class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l-2 2m0 0l-2-2m2 2l2-2m7 13v-6l-2 2m0 0l-2-2m2 2l2-2"/></svg>
+                        Production Control
+                    </span>
+                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openProd ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="openProd" x-transition.origin.top.left class="mt-2 space-y-1">
+                    @if (Route::has('admin.production.monthly-plans.index'))<a href="{{ route('admin.production.monthly-plans.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($prodPlanActive) }}">Monthly Plan</a>@endif
+                    @if (Route::has('admin.production.shift-plans.index'))<a href="{{ route('admin.production.shift-plans.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($prodShiftActive) }}">Shift Plan</a>@endif
+                    @if (Route::has('admin.production.actuals.index'))<a href="{{ route('admin.production.actuals.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($prodActualActive) }}">Actual Production</a>@endif
+                    @if (Route::has('admin.production.reconciles.index'))<a href="{{ route('admin.production.reconciles.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($prodReconcileActive) }}">Production Reconcile</a>@endif
+                    @if (Route::has('admin.production.shift-closings.index'))<a href="{{ route('admin.production.shift-closings.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.production.shift-closings.*')) }}">Shift Closing</a>@endif
+                    @if (Route::has('admin.production.monthly-closings.index'))<a href="{{ route('admin.production.monthly-closings.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.production.monthly-closings.*')) }}">Monthly Closing</a>@endif
+                </div>
+            </div>
+        @endif
+        {{-- /PRODUCTION CONTROL --}}
+
+        {{-- HCM --}}
+        @php
+            $hcmCandActive = request()->routeIs('admin.hcm.candidates.*');
+            $hcmMpActive = request()->routeIs('admin.hcm.manpower-requests.*');
+            $hcmMvActive = request()->routeIs('admin.hcm.movement-requests.*');
+            $hcmBnActive = request()->routeIs('admin.hcm.benefits.*') || request()->routeIs('admin.hcm.benefit-claims.*');
+            $hasHcmRoutes =
+                Route::has('admin.hcm.candidates.index') ||
+                Route::has('admin.hcm.manpower-requests.index') ||
+                Route::has('admin.hcm.movement-requests.index') ||
+                Route::has('admin.hcm.benefits.index') ||
+                Route::has('admin.hcm.benefit-claims.index');
+        @endphp
+        @if ($hasHcmRoutes && ($isGM || $isHR))
+            <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}" x-data="{ openHcm: {{ ($hcmCandActive || $hcmMpActive || $hcmMvActive || $hcmBnActive) ? 'true' : 'false' }} }">
+                <button type="button" @click="openHcm=!openHcm"
+                    class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>
+                        Human Resource
+                    </span>
+                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openHcm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="openHcm" x-transition.origin.top.left class="mt-2 space-y-1">
+                    @if (Route::has('admin.hcm.candidates.index'))<a href="{{ route('admin.hcm.candidates.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hcmCandActive) }}">Recruitment</a>@endif
+                    @if (Route::has('admin.hcm.manpower-requests.index'))<a href="{{ route('admin.hcm.manpower-requests.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hcmMpActive) }}">Manpower Request</a>@endif
+                    @if (Route::has('admin.hcm.movement-requests.index'))<a href="{{ route('admin.hcm.movement-requests.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hcmMvActive) }}">Employee Movement</a>@endif
+                    @if (Route::has('admin.hcm.benefits.index'))<a href="{{ route('admin.hcm.benefits.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hcm.benefits.*')) }}">Benefit Master</a>@endif
+                    @if (Route::has('admin.hcm.benefit-claims.index'))<a href="{{ route('admin.hcm.benefit-claims.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.hcm.benefit-claims.*')) }}">Benefit Claim</a>@endif
+                </div>
+            </div>
+        @endif
+        {{-- /HCM --}}
+
+        {{-- ASSET MANAGEMENT (ARR/AER/DI) --}}
+        @php
+            $assetArrActive = request()->routeIs('admin.asset-mgmt.arr.*');
+            $assetAerActive = request()->routeIs('admin.asset-mgmt.aer.*');
+            $assetDiActive = request()->routeIs('admin.asset-mgmt.delivery-instructions.*');
+            $hasAssetMgmtRoutes =
+                Route::has('admin.asset-mgmt.arr.index') ||
+                Route::has('admin.asset-mgmt.aer.index') ||
+                Route::has('admin.asset-mgmt.delivery-instructions.index');
+        @endphp
+        @if ($hasAssetMgmtRoutes && ($isGM || $isManager))
+            <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}" x-data="{ openAssetMgmt: {{ ($assetArrActive || $assetAerActive || $assetDiActive) ? 'true' : 'false' }} }">
+                <button type="button" @click="openAssetMgmt=!openAssetMgmt"
+                    class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                        Asset Management
+                    </span>
+                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openAssetMgmt ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="openAssetMgmt" x-transition.origin.top.left class="mt-2 space-y-1">
+                    @if (Route::has('admin.asset-mgmt.arr.index'))<a href="{{ route('admin.asset-mgmt.arr.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($assetArrActive) }}">ARR Master</a>@endif
+                    @if (Route::has('admin.asset-mgmt.aer.index'))<a href="{{ route('admin.asset-mgmt.aer.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($assetAerActive) }}">AER Master</a>@endif
+                    @if (Route::has('admin.asset-mgmt.delivery-instructions.index'))<a href="{{ route('admin.asset-mgmt.delivery-instructions.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($assetDiActive) }}">Delivery Instruction</a>@endif
+                </div>
+            </div>
+        @endif
+        {{-- /ASSET MANAGEMENT --}}
+
+        {{-- PLANT --}}
+        @php
+            $plantSjActive = request()->routeIs('admin.plant.standard-jobs.*');
+            $plantStActive = request()->routeIs('admin.plant.strategi-tasks.*');
+            $plantNotifActive = request()->routeIs('admin.plant.notifications.*');
+            $plantWoActive = request()->routeIs('admin.plant.work-orders.*');
+            $plantLtpActive = request()->routeIs('admin.plant.long-term-plannings.*');
+            $plantBdActive = request()->routeIs('admin.plant.breakdown-statuses.*');
+            $plantPlActive = request()->routeIs('admin.plant.picklists.*');
+            $hasPlantRoutes =
+                Route::has('admin.plant.standard-jobs.index') ||
+                Route::has('admin.plant.strategi-tasks.index') ||
+                Route::has('admin.plant.notifications.index') ||
+                Route::has('admin.plant.work-orders.index') ||
+                Route::has('admin.plant.long-term-plannings.index') ||
+                Route::has('admin.plant.breakdown-statuses.index') ||
+                Route::has('admin.plant.picklists.index');
+        @endphp
+        @if ($hasPlantRoutes && ($isGM || $isManager))
+            <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}" x-data="{ openPlant: {{ ($plantSjActive || $plantStActive || $plantNotifActive || $plantWoActive || $plantLtpActive || $plantBdActive || $plantPlActive) ? 'true' : 'false' }} }">
+                <button type="button" @click="openPlant=!openPlant"
+                    class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Plant
+                    </span>
+                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openPlant ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="openPlant" x-transition.origin.top.left class="mt-2 space-y-1">
+                    @if (Route::has('admin.plant.standard-jobs.index'))<a href="{{ route('admin.plant.standard-jobs.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantSjActive) }}">Standard Job</a>@endif
+                    @if (Route::has('admin.plant.strategi-tasks.index'))<a href="{{ route('admin.plant.strategi-tasks.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantStActive) }}">Strategi Task</a>@endif
+                    @if (Route::has('admin.plant.work-orders.index'))<a href="{{ route('admin.plant.work-orders.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantWoActive) }}">Work Order</a>@endif
+                    @if (Route::has('admin.plant.notifications.index'))<a href="{{ route('admin.plant.notifications.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantNotifActive) }}">Notification</a>@endif
+                    @if (Route::has('admin.plant.long-term-plannings.index'))<a href="{{ route('admin.plant.long-term-plannings.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantLtpActive) }}">Long Term Planning</a>@endif
+                    @if (Route::has('admin.plant.breakdown-statuses.index'))<a href="{{ route('admin.plant.breakdown-statuses.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantBdActive) }}">Breakdown Status</a>@endif
+                    @if (Route::has('admin.plant.picklists.index'))<a href="{{ route('admin.plant.picklists.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantPlActive) }}">Picklist</a>@endif
+                </div>
+            </div>
+        @endif
+        {{-- /PLANT --}}
+
+        {{-- RAW DATA REPORTS --}}
+        @php
+            $hasReportRoutes = false; // report views, routes handled inside
+        @endphp
+        @if ($isGM || $isManager)
+            <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}" x-data="{ openReports: false }">
+                <button type="button" @click="openReports=!openReports"
+                    class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Raw Data Reports
+                    </span>
+                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openReports ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="openReports" x-transition.origin.top.left class="mt-2 space-y-1">
+                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">ARR Raw Data</a>
+                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">PCS Raw Data</a>
+                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">RPT PM Report</a>
+                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">SCM Report</a>
+                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">PCS Report</a>
+                    <a href="#" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-50 opacity-60 cursor-not-allowed">Plant Report</a>
+                </div>
+            </div>
+        @endif
+        {{-- /RAW DATA REPORTS --}}
 
         {{-- SCM SUITE --}}
         @php
@@ -906,6 +1085,82 @@
 @endif
         {{-- /SCM SUITE --}}
 
+        {{-- FUEL MANAGEMENT --}}
+        @php
+            $hasFuelRoutes =
+                Route::has('fuel.tanks.index') ||
+                Route::has('fuel.flow-meters.index') ||
+                Route::has('fuel.consumes.index') ||
+                Route::has('fuel.receives.index') ||
+                Route::has('fuel.stock-checks.index') ||
+                Route::has('fuel.inventory-balances.index') ||
+                Route::has('fuel.postings.index') ||
+                Route::has('fuel.adjustments.index') ||
+                Route::has('fuel.adjustment-approvals.index') ||
+                Route::has('fuel.tank-histories.index');
+        @endphp
+        @if ($hasFuelRoutes && $canFuelMenu)
+            <div class="mt-3 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
+                <button type="button" @click="openFuel=!openFuel"
+                    class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10"/>
+                        </svg>
+                        Fuel Management
+                    </span>
+                    <svg class="w-4 h-4 text-slate-500 transform transition" :class="openFuel ? 'rotate-180' : ''"
+                        fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+
+                <div x-show="openFuel" x-transition.origin.top.left class="mt-2 space-y-1">
+                    @if (Route::has('fuel.consumes.index'))
+                        <a href="{{ route('fuel.consumes.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.consumes.*')) }}">Fuel Consume</a>
+                    @endif
+                    @if (Route::has('fuel.tanks.index'))
+                        <a href="{{ route('fuel.tanks.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.tanks.*')) }}">Fuel Tank Register</a>
+                    @endif
+                    @if (Route::has('fuel.flow-meters.index'))
+                        <a href="{{ route('fuel.flow-meters.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.flow-meters.*')) }}">Flow Meter Register</a>
+                    @endif
+                    @if (Route::has('fuel.receives.index'))
+                        <a href="{{ route('fuel.receives.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.receives.*')) }}">Fuel Receive</a>
+                    @endif
+                    @if (Route::has('fuel.stock-checks.index'))
+                        <a href="{{ route('fuel.stock-checks.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.stock-checks.*')) }}">Fuel Stock Check</a>
+                    @endif
+                    @if (Route::has('fuel.inventory-balances.index'))
+                        <a href="{{ route('fuel.inventory-balances.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.inventory-balances.*')) }}">Fuel Inventory Balance</a>
+                    @endif
+                    @if (Route::has('fuel.postings.index'))
+                        <a href="{{ route('fuel.postings.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.postings.*')) }}">Fuel Posting</a>
+                    @endif
+                    @if (Route::has('fuel.adjustments.index'))
+                        <a href="{{ route('fuel.adjustments.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.adjustments.*')) }}">Fuel Adjustment</a>
+                    @endif
+                    @if (Route::has('fuel.adjustment-approvals.index'))
+                        <a href="{{ route('fuel.adjustment-approvals.index') }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.adjustment-approvals.*')) }}">Fuel Adjustment Approval</a>
+                    @endif
+                    @if (Route::has('fuel.tank-histories.index'))
+                        <a href="{{ route('fuel.tank-histories.index', ['site' => $currentSite?->id]) }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('fuel.tank-histories.*')) }}">Fuel Tank History</a>
+                    @endif
+                </div>
+            </div>
+        @endif
+        {{-- /FUEL MANAGEMENT --}}
+
         {{-- ADMIN --}}
         @php
             $hasAdminRoutes =
@@ -916,7 +1171,6 @@
                 Route::has('admin.sites.index') ||
                 Route::has('admin.settings.index') ||
                 Route::has('admin.audit_logs.index') ||
-                Route::has('admin.access.users.index') ||
                 Route::has('admin.access.users.sites') ||
                 Route::has('admin.assets.index');
         @endphp
@@ -951,12 +1205,12 @@
                         @endif
                     @endforeach
 
-                    @if (Route::has('admin.sites.index'))
+                    @if ($isGM && Route::has('admin.sites.index'))
                         <a href="{{ route('admin.sites.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.sites.*')) }}">Sites</a>
                     @endif
 
-                    @if (Route::has('admin.settings.index'))
+                    @if ($isGM && Route::has('admin.settings.index'))
                         <a href="{{ route('admin.settings.index') }}"
                             class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.settings.*')) }}">Konfigurasi
                             Site</a>
@@ -978,7 +1232,7 @@
                         </a>
                     @endif
 
-                    @if (Route::has('admin.audit_logs.index'))
+                    @if ($isGM && Route::has('admin.audit_logs.index'))
                         <div class="mx-3 mt-1">
                             <a href="{{ route('admin.audit_logs.index') }}"
                                 class="block pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.audit_logs.*')) }}">Audit
@@ -999,8 +1253,8 @@
                     @endif
                 </div>
 
-                {{-- OPTIONAL: Re-sync Site Context via controller --}}
-                @if ($isVerified && Route::has('admin.sites.context.switch') && $currentSite?->id)
+                {{-- OPTIONAL: Re-sync Site Context via controller (GM only) --}}
+                @if ($isGM && $isVerified && Route::has('admin.sites.context.switch') && $currentSite?->id)
                     <form method="POST" action="{{ route('admin.sites.context.switch') }}" class="mx-3 mt-2">
                         @csrf
                         <input type="hidden" name="site_id" value="{{ $currentSite->id }}">

@@ -1,4 +1,4 @@
-{{-- resources/views/admin/master/create.blade.php --}}
+﻿{{-- resources/views/admin/master/create.blade.php --}}
 @extends('layouts.app')
 @php use Illuminate\Support\Str; @endphp
 @section('title', 'Create ' . Str::headline($entity))
@@ -36,12 +36,6 @@
 
 <div class="max-w-3xl mx-auto p-0 sm:p-2">
   {{-- FLASH --}}
-  @if (session('status'))
-    <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
-      {{ session('status') }}
-    </div>
-  @endif
-
   {{-- ERRORS --}}
   @if ($errors->any())
     <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 ring-1 ring-red-200 text-sm">

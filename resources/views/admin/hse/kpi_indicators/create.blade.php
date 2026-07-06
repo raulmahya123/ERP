@@ -224,7 +224,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 function kpiCreateForm(){
   const isValidDate = (s)=> /^\d{4}-\d{2}-\d{2}$/.test(String(s||''));

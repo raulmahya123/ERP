@@ -1,4 +1,4 @@
-{{-- resources/views/admin/roles/index.blade.php (UI diseragamkan hijau–emas–biru) --}}
+﻿{{-- resources/views/admin/roles/index.blade.php (UI diseragamkan hijau–emas–biru) --}}
 @extends('layouts.app')
 
 @section('title', 'Daftar Role')
@@ -94,13 +94,7 @@
          BODY
     ========================== --}}
     <div class="p-0 sm:p-1">
-      {{-- Flash --}}
-      @if (session('success'))
-        <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 text-sm">
-          {{ session('success') }}
-        </div>
-      @endif
-
+      {{-- Flash --}}
       @if ($errors->any())
         <div class="mb-4 px-4 py-3 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 text-sm">
           <ul class="list-disc pl-5 space-y-0.5">
@@ -243,7 +237,6 @@
 
 @push('scripts')
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <script>
     function confirmDeleteRole(el) {

@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hse/investigations/edit.blade.php --}}
+﻿{{-- resources/views/admin/hse/investigations/edit.blade.php --}}
 @php
   /** @var \App\Models\IncidentInvestigation $investigation */
   use Illuminate\Support\Carbon;
@@ -158,11 +158,7 @@
 
   {{-- BODY --}}
   <div class="p-6 bg-white">
-
-    @if (session('success'))
-      <div class="mb-4 p-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 text-sm">{{ session('success') }}</div>
-    @endif
-    @if ($errors->any())
+    @if ($errors->any())
       <div class="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 text-sm">
         <ul class="list-disc pl-5">
           @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
@@ -323,7 +319,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 // SweetAlert confirm untuk mini workflow forms
 document.addEventListener('DOMContentLoaded', () => {

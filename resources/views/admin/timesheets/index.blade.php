@@ -1,4 +1,4 @@
-{{-- resources/views/admin/timesheets/index.blade.php --}}
+﻿{{-- resources/views/admin/timesheets/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Timesheets')
 
@@ -99,18 +99,7 @@
   </symbol>
 </svg>
 
-<div class="max-w-7xl mx-auto space-y-8">
-  @if (session('success'))
-    <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if (session('error'))
-    <div class="rounded-xl bg-rose-50 ring-1 ring-rose-200 text-rose-700 px-4 py-3">
-      {{ session('error') }}
-    </div>
-  @endif
-
+<div class="max-w-7xl mx-auto space-y-8">
   <div class="relative overflow-hidden rounded-3xl text-white shadow ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,rgba(255,255,255,.85)_0%,transparent_60%)]"></div>
     <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>

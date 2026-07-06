@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Breakdowns')
 
 @php
@@ -18,12 +18,6 @@
     <a href="{{ route($rCreate, ['site' => $siteId]) }}"
        class="px-3 py-1.5 rounded bg-indigo-600 text-white">+ Tambah</a>
   </div>
-
-  @if (session('success'))
-    <div class="rounded-md bg-green-50 border border-green-200 text-green-800 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
 
   {{-- Filters --}}
   <form method="GET" class="flex flex-wrap items-end gap-3">
@@ -113,7 +107,7 @@
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('.js-delete-btn');

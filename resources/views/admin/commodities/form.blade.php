@@ -1,4 +1,4 @@
-{{-- resources/views/admin/commodities/form.blade.php --}}
+﻿{{-- resources/views/admin/commodities/form.blade.php --}}
 @extends('layouts.app')
 @section('title', $mode === 'create' ? 'Tambah Komoditas' : 'Edit Komoditas')
 
@@ -44,12 +44,6 @@
       </ul>
     </div>
   @endif
-  @if (session('status'))
-    <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
-      {{ session('status') }}
-    </div>
-  @endif
-
   {{-- ===== FORM CARD ===== --}}
   <div class="bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">
     <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50">

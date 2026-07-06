@@ -1,4 +1,4 @@
-{{-- resources/views/admin/payroal_history/index.blade.php --}}
+﻿{{-- resources/views/admin/payroal_history/index.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Payslip Bulanan')
@@ -57,13 +57,7 @@
           @endforeach
         </ul>
       </div>
-    @endif
-    @if (session('success'))
-      <div class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
-        {{ session('success') }}
-      </div>
-    @endif
-  </div>
+    @endif  </div>
 
   {{-- FILTER BAR --}}
   <div class="px-6 sm:px-10 pb-5 bg-white border-b border-slate-100">
@@ -250,7 +244,7 @@
 </div>
 
 {{-- SweetAlert for nicer confirms (fallback to confirm() if blocked) --}}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
   const $  = (q, ctx=document) => ctx.querySelector(q);
   const $$ = (q, ctx=document) => Array.from(ctx.querySelectorAll(q));

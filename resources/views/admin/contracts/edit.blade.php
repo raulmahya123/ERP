@@ -1,4 +1,4 @@
-{{-- resources/views/admin/contracts/edit.blade.php --}}
+﻿{{-- resources/views/admin/contracts/edit.blade.php --}}
 @extends('layouts.app')
 @section('title','Ubah Kontrak')
 
@@ -75,13 +75,7 @@
     </div>
   </div>
 
-  {{-- Flash & Errors --}}
-  @if(session('success'))
-    <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if ($errors->any())
+  {{-- Flash & Errors --}}  @if ($errors->any())
     <div class="rounded-xl bg-amber-50 ring-1 ring-amber-200 text-amber-800 px-4 py-3 text-sm">
       <ul class="list-disc list-inside">
         @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach

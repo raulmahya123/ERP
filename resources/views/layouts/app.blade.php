@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ $title ?? config('app.name','BERKEMAH') }}</title>
   @vite(['resources/css/app.css','resources/js/app.js'])
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     [x-cloak]{ display:none !important; }
   </style>
@@ -62,11 +63,7 @@
       @endif
 
       <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
-        @if (session('status'))
-          <div class="mb-4 p-3 rounded-lg bg-green-50 text-green-700 border border-green-200">
-            {{ session('status') }}
-          </div>
-        @endif
+        <x-flash-messages />
 
         @isset($slot)
           {{ $slot }}

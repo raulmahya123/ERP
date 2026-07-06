@@ -53,6 +53,49 @@ use App\Http\Controllers\Auth\VerifyEmailCodeController;
 use App\Http\Controllers\Scm\{TripController, HourMeterController, FuelLogController, WbTicketController, BreakdownController};
 
 
+use App\Http\Controllers\Fuel\FuelTankController;
+use App\Http\Controllers\Fuel\FuelFlowMeterController;
+use App\Http\Controllers\Fuel\FuelConsumeController;
+use App\Http\Controllers\Fuel\FuelReceiveController;
+use App\Http\Controllers\Fuel\FuelStockCheckController;
+use App\Http\Controllers\Fuel\FuelInventoryBalanceController;
+use App\Http\Controllers\Fuel\FuelPostingController;
+use App\Http\Controllers\Fuel\FuelAdjustmentController;
+use App\Http\Controllers\Fuel\FuelAdjustmentApprovalController;
+use App\Http\Controllers\Fuel\FuelTankHistoryController;
+
+use App\Http\Controllers\Hse\HazardAreaController;
+use App\Http\Controllers\Hse\HseRtpController;
+use App\Http\Controllers\Hse\HseInspectionReportController;
+use App\Http\Controllers\Production\ProductionMonthlyPlanController;
+use App\Http\Controllers\Production\ProductionShiftPlanController;
+use App\Http\Controllers\Production\ProductionActualController;
+use App\Http\Controllers\Production\ProductionReconcileController;
+use App\Http\Controllers\Production\ProductionShiftClosingController;
+use App\Http\Controllers\Production\ProductionMonthlyClosingController;
+use App\Http\Controllers\Hcm\RecruitmentCandidateController;
+use App\Http\Controllers\Hcm\RecruitmentManpowerRequestController;
+use App\Http\Controllers\Hcm\EmployeeMovementRequestController;
+use App\Http\Controllers\Hcm\EmployeeBenefitController;
+use App\Http\Controllers\Hcm\EmployeeBenefitClaimController;
+use App\Http\Controllers\AssetMgmt\AssetArrMasterController;
+use App\Http\Controllers\AssetMgmt\AssetAerMasterController;
+use App\Http\Controllers\AssetMgmt\AssetDeliveryInstructionController;
+use App\Http\Controllers\Plant\PlantStandardJobController;
+use App\Http\Controllers\Plant\PlantStrategiTaskController;
+use App\Http\Controllers\Plant\PlantNotificationController;
+use App\Http\Controllers\Plant\PlantWorkOrderController;
+use App\Http\Controllers\Plant\PlantLongTermPlanningController;
+use App\Http\Controllers\Plant\PlantBreakdownStatusController;
+use App\Http\Controllers\Plant\PlantPicklistController;
+use App\Http\Controllers\Scm\PurchaseInfoRecordController;
+use App\Http\Controllers\Scm\MaterialMasterController;
+use App\Http\Controllers\Scm\PurchaseRequestController;
+use App\Http\Controllers\Scm\PurchaseOrderController;
+use App\Http\Controllers\Scm\ReservationController;
+use App\Http\Controllers\Scm\VhsSettlementController;
+use App\Http\Controllers\Scm\VendorEvaluationController;
+
 use App\Models\PayroalHistory;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -276,7 +319,7 @@ Route::prefix('admin/audit-logs')->as('admin.audit_logs.')->middleware(['auth', 
 /* --------------------------------------------------------------------------
 | Admin: commodities (policy-protected inside controllers)
 |-------------------------------------------------------------------------- */
-Route::prefix('admin/commodities')->as('admin.commodities.')->middleware(['auth', 'verified'])->group(function () {
+Route::prefix('admin/commodities')->as('admin.commodities.')->middleware(['auth', 'verified', 'hasrole:gm|manager'])->group(function () {
     Route::get('/',                   [CommodityController::class, 'index'])->name('index');
     Route::get('/create',             [CommodityController::class, 'create'])->name('create');
     Route::post('/',                  [CommodityController::class, 'store'])->name('store');
@@ -389,7 +432,7 @@ Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:g
 /* --------------------------------------------------------------------------
 | Print templates (separated to avoid admin prefix collision)
 |-------------------------------------------------------------------------- */
-Route::prefix('hr-entries/print-templates')->as('hr-entries.print-templates.')->middleware(['auth', 'verified', 'can:manage,App\\Models\\HrDailyEntry'])->group(function () {
+Route::prefix('hr-entries/print-templates')->as('hr-entries.print-templates.')->middleware(['auth', 'verified', 'hasrole:gm|hr', 'can:manage,App\\Models\\HrDailyEntry'])->group(function () {
     Route::get('/',        [HrDailyEntryController::class, 'printTemplatesIndex'])->name('index');
     Route::get('/{type}',  [HrDailyEntryController::class, 'printTemplatesShow'])->where('type', '[A-Za-z0-9_\-]+')->name('show');
     Route::match(['put', 'patch'], '/{type}', [HrDailyEntryController::class, 'printTemplatesUpsert'])->where('type', '[A-Za-z0-9_\-]+')->name('upsert');
@@ -423,7 +466,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('manpower/entries', ManpowerEntryController::class)->parameters(['entries' => 'entry'])->names('manpower.entries');
 });
 
-Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified'])->group(function () {
+Route::prefix('admin')->as('admin.')->middleware(['auth', 'verified', 'hasrole:gm|hr'])->group(function () {
     Route::resource('manpower/entries', ManpowerEntryController::class)->parameters(['entries' => 'entry'])->names('manpower.entries');
 });
 
@@ -486,7 +529,7 @@ Route::prefix('admin/payroal/history')->as('admin.payroal_history.')->middleware
 });
 
 
-Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
+Route::middleware(['auth', 'verified', 'site.selected', 'hasrole:gm|manager|scm'])
     ->prefix('scm')->name('scm.')
     ->group(function () {
         Route::resource('trips', TripController::class);
@@ -536,7 +579,7 @@ Route::middleware(['auth', 'site.context', 'hasrole:gm|manager|scm'])
             ->name('reports.target-actual');
     });
 
-Route::resource('breakdowns', BreakdownController::class)
+Route::middleware(['auth', 'verified', 'hasrole:gm|manager|scm'])->resource('breakdowns', BreakdownController::class)
     ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
     ->parameters(['breakdowns' => 'breakdown'])
     ->names([
@@ -558,6 +601,105 @@ Route::get('/me/payslip/{token}', function (string $token) {
 })->where('token', '[A-Za-z0-9_\-]{24,200}')
     ->middleware(['throttle:60,1', 'cache.headers:private;max_age=60;etag'])
     ->name('my.payslip.view');
+
+/* --------------------------------------------------------------------------
+| HSE Additional Features (GM/Manager/HR/HSE)
+|-------------------------------------------------------------------------- */
+Route::prefix('admin/hse')->as('admin.hse.')->middleware(['auth','verified','hasrole:gm|manager|hr|hse_officer','site.selected'])->group(function () {
+    Route::resource('hazard-areas', HazardAreaController::class)->parameters(['hazard-areas' => 'hazardArea'])->except(['show'])->whereUuid(['hazardArea']);
+    Route::resource('rtp', HseRtpController::class)->parameters(['rtp' => 'rtp'])->whereUuid(['rtp']);
+    Route::resource('inspection-reports', HseInspectionReportController::class)->parameters(['inspection-reports' => 'inspectionReport'])->except(['show'])->whereUuid(['inspectionReport']);
+});
+
+/* --------------------------------------------------------------------------
+| Production Control (GM/Manager)
+|-------------------------------------------------------------------------- */
+Route::prefix('admin/production')->as('admin.production.')->middleware(['auth','verified','site.selected','hasrole:gm|manager'])->group(function () {
+    Route::resource('monthly-plans', ProductionMonthlyPlanController::class)->parameters(['monthly-plans' => 'monthlyPlan'])->except(['show'])->whereUuid(['monthlyPlan']);
+    Route::resource('shift-plans', ProductionShiftPlanController::class)->parameters(['shift-plans' => 'shiftPlan'])->except(['show'])->whereUuid(['shiftPlan']);
+    Route::resource('actuals', ProductionActualController::class)->parameters(['actuals' => 'actual'])->except(['show'])->whereUuid(['actual']);
+    Route::resource('reconciles', ProductionReconcileController::class)->parameters(['reconciles' => 'reconcile'])->only(['index','store'])->whereUuid(['reconcile']);
+    Route::resource('shift-closings', ProductionShiftClosingController::class)->parameters(['shift-closings' => 'closing'])->except(['show'])->whereUuid(['closing']);
+    Route::post('shift-closings/{closing}/unlock', [ProductionShiftClosingController::class, 'unlock'])->name('shift-closings.unlock')->whereUuid('closing');
+    Route::resource('monthly-closings', ProductionMonthlyClosingController::class)->parameters(['monthly-closings' => 'closing'])->except(['show'])->whereUuid(['closing']);
+    Route::post('monthly-closings/{closing}/unlock', [ProductionMonthlyClosingController::class, 'unlock'])->name('monthly-closings.unlock')->whereUuid('closing');
+});
+
+/* --------------------------------------------------------------------------
+| HCM / Human Resource (GM/HR)
+|-------------------------------------------------------------------------- */
+Route::prefix('admin/hcm')->as('admin.hcm.')->middleware(['auth','verified','hasrole:gm|hr','site.selected'])->group(function () {
+    Route::resource('candidates', RecruitmentCandidateController::class)->parameters(['candidates' => 'candidate'])->except(['show'])->whereUuid(['candidate']);
+    Route::resource('manpower-requests', RecruitmentManpowerRequestController::class)->parameters(['manpower-requests' => 'manpowerRequest'])->except(['show'])->whereUuid(['manpowerRequest']);
+    Route::resource('movement-requests', EmployeeMovementRequestController::class)->parameters(['movement-requests' => 'movementRequest'])->except(['show'])->whereUuid(['movementRequest']);
+    Route::post('movement-requests/{movementRequest}/approve', [EmployeeMovementRequestController::class, 'approve'])->name('movement-requests.approve')->whereUuid('movementRequest');
+    Route::post('movement-requests/{movementRequest}/reject', [EmployeeMovementRequestController::class, 'reject'])->name('movement-requests.reject')->whereUuid('movementRequest');
+    Route::resource('benefits', EmployeeBenefitController::class)->parameters(['benefits' => 'benefit'])->except(['show'])->whereUuid(['benefit']);
+    Route::resource('benefit-claims', EmployeeBenefitClaimController::class)->parameters(['benefit-claims' => 'claim'])->except(['show'])->whereUuid(['claim']);
+});
+
+/* --------------------------------------------------------------------------
+| Asset Management (ARR/AER/DI) — GM/Manager
+|-------------------------------------------------------------------------- */
+Route::prefix('admin/asset-mgmt')->as('admin.asset-mgmt.')->middleware(['auth','verified','site.selected','hasrole:gm|manager'])->group(function () {
+    Route::resource('arr', AssetArrMasterController::class)->parameters(['arr' => 'arr'])->except(['show'])->whereUuid(['arr']);
+    Route::post('arr/{arr}/approve', [AssetArrMasterController::class, 'approve'])->name('arr.approve')->whereUuid('arr');
+    Route::resource('aer', AssetAerMasterController::class)->parameters(['aer' => 'aer'])->except(['show'])->whereUuid(['aer']);
+    Route::post('aer/{aer}/approve', [AssetAerMasterController::class, 'approve'])->name('aer.approve')->whereUuid('aer');
+    Route::resource('delivery-instructions', AssetDeliveryInstructionController::class)->parameters(['delivery-instructions' => 'di'])->except(['show'])->whereUuid(['di']);
+    Route::post('delivery-instructions/{di}/approve', [AssetDeliveryInstructionController::class, 'approve'])->name('delivery-instructions.approve')->whereUuid('di');
+    Route::post('delivery-instructions/{di}/finalize', [AssetDeliveryInstructionController::class, 'finalize'])->name('delivery-instructions.finalize')->whereUuid('di');
+});
+
+/* --------------------------------------------------------------------------
+| Plant Module (GM/Manager)
+|-------------------------------------------------------------------------- */
+Route::prefix('admin/plant')->as('admin.plant.')->middleware(['auth','verified','site.selected','hasrole:gm|manager'])->group(function () {
+    Route::resource('standard-jobs', PlantStandardJobController::class)->parameters(['standard-jobs' => 'standardJob'])->except(['show'])->whereUuid(['standardJob']);
+    Route::resource('strategi-tasks', PlantStrategiTaskController::class)->parameters(['strategi-tasks' => 'strategiTask'])->except(['show'])->whereUuid(['strategiTask']);
+    Route::get('notifications', [PlantNotificationController::class, 'index'])->name('notifications.index');
+    Route::resource('work-orders', PlantWorkOrderController::class)->parameters(['work-orders' => 'workOrder'])->whereUuid(['workOrder']);
+    Route::post('work-orders/{workOrder}/approve', [PlantWorkOrderController::class, 'approve'])->name('work-orders.approve')->whereUuid('workOrder');
+    Route::post('work-orders/{workOrder}/process', [PlantWorkOrderController::class, 'process'])->name('work-orders.process')->whereUuid('workOrder');
+    Route::resource('long-term-plannings', PlantLongTermPlanningController::class)->parameters(['long-term-plannings' => 'planning'])->except(['show'])->whereUuid(['planning']);
+    Route::resource('breakdown-statuses', PlantBreakdownStatusController::class)->parameters(['breakdown-statuses' => 'breakdownStatus'])->except(['show'])->whereUuid(['breakdownStatus']);
+    Route::resource('picklists', PlantPicklistController::class)->parameters(['picklists' => 'picklist'])->except(['show'])->whereUuid(['picklist']);
+});
+
+/* --------------------------------------------------------------------------
+| SCM Additions (GM/Manager/SCM)
+|-------------------------------------------------------------------------- */
+Route::middleware(['auth','verified','site.selected','hasrole:gm|manager|scm'])->prefix('scm')->name('scm.')->group(function () {
+    Route::resource('purchase-info-records', PurchaseInfoRecordController::class)->parameters(['purchase-info-records' => 'purchaseInfoRecord'])->except(['show'])->whereUuid(['purchaseInfoRecord']);
+    Route::resource('material-masters', MaterialMasterController::class)->except(['show']);
+    Route::resource('purchase-requests', PurchaseRequestController::class)->parameters(['purchase-requests' => 'purchaseRequest'])->whereUuid(['purchaseRequest']);
+    Route::resource('purchase-orders', PurchaseOrderController::class)->parameters(['purchase-orders' => 'purchaseOrder'])->whereUuid(['purchaseOrder']);
+    Route::post('purchase-orders/{purchaseOrder}/approve', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve')->whereUuid('purchaseOrder');
+    Route::resource('reservations', ReservationController::class)->parameters(['reservations' => 'reservation'])->whereUuid(['reservation']);
+    Route::post('reservations/{reservation}/approve', [ReservationController::class, 'approve'])->name('reservations.approve')->whereUuid('reservation');
+    Route::resource('vhs-settlements', VhsSettlementController::class)->parameters(['vhs-settlements' => 'vhsSettlement'])->except(['show'])->whereUuid(['vhsSettlement']);
+    Route::post('vhs-settlements/{vhsSettlement}/post', [VhsSettlementController::class, 'post'])->name('vhs-settlements.post')->whereUuid('vhsSettlement');
+    Route::resource('vendor-evaluations', VendorEvaluationController::class)->parameters(['vendor-evaluations' => 'vendorEvaluation'])->except(['show'])->whereUuid(['vendorEvaluation']);
+    Route::post('vendor-evaluations/{vendorEvaluation}/approve', [VendorEvaluationController::class, 'approve'])->name('vendor-evaluations.approve')->whereUuid('vendorEvaluation');
+});
+
+/* --------------------------------------------------------------------------
+| Fuel Management (GM/Manager/SCM)
+|-------------------------------------------------------------------------- */
+Route::prefix('fuel')->as('fuel.')->middleware(['auth', 'verified', 'site.selected', 'hasrole:gm|manager|scm'])->group(function () {
+    Route::resource('tanks', FuelTankController::class)->parameters(['tanks' => 'tank'])->whereUuid(['tank']);
+    Route::resource('flow-meters', FuelFlowMeterController::class)->parameters(['flow-meters' => 'flowMeter'])->whereUuid(['flowMeter']);
+    Route::resource('consumes', FuelConsumeController::class)->parameters(['consumes' => 'consume'])->whereUuid(['consume']);
+    Route::resource('receives', FuelReceiveController::class)->parameters(['receives' => 'receive'])->whereUuid(['receive']);
+    Route::resource('stock-checks', FuelStockCheckController::class)->parameters(['stock-checks' => 'stockCheck'])->whereUuid(['stockCheck']);
+    Route::get('inventory-balances', [FuelInventoryBalanceController::class, 'index'])->name('inventory-balances.index');
+    Route::resource('postings', FuelPostingController::class)->parameters(['postings' => 'posting'])->except(['edit', 'update', 'destroy'])->whereUuid(['posting']);
+    Route::resource('adjustments', FuelAdjustmentController::class)->parameters(['adjustments' => 'adjustment'])->whereUuid(['adjustment']);
+    Route::post('adjustments/{adjustment}/approve', [FuelAdjustmentController::class, 'approve'])->name('adjustments.approve')->whereUuid('adjustment');
+    Route::post('adjustments/{adjustment}/reject', [FuelAdjustmentController::class, 'reject'])->name('adjustments.reject')->whereUuid('adjustment');
+    Route::get('adjustment-approvals', [FuelAdjustmentApprovalController::class, 'index'])->name('adjustment-approvals.index');
+    Route::get('tank-histories', [FuelTankHistoryController::class, 'index'])->name('tank-histories.index');
+});
 
 /* --------------------------------------------------------------------------
 | Dev-only SMTP test endpoint

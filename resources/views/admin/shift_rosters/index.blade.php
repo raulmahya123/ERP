@@ -1,4 +1,4 @@
-{{-- resources/views/admin/shift_rosters/index.blade.php (UI diseragamkan hijau–emas–biru) --}}
+﻿{{-- resources/views/admin/shift_rosters/index.blade.php (UI diseragamkan hijau–emas–biru) --}}
 @extends('layouts.app')
 @section('title','Shift Rosters')
 
@@ -82,13 +82,7 @@ $activeSiteLabel = $activeSite
 </style>
 <div class="max-w-7xl mx-auto space-y-8">
 
-  {{-- ALERT --}}
-  @if(session('success'))
-  <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-    {{ session('success') }}
-  </div>
-  @endif
-
+  {{-- ALERT --}}
   {{-- HERO / HEADER (konsisten hijau–emas–biru) --}}
 
   <div class="relative overflow-hidden rounded-3xl shadow-xl ring-1 ring-emerald-900/10">

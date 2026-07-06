@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Hour Meter')
 
 @section('content')
@@ -13,13 +13,7 @@
     </a>
   </div>
 
-  {{-- FLASH --}}
-  @if (session('success'))
-    <div class="rounded-md bg-green-50 border border-green-200 text-green-800 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if ($errors->any())
+  {{-- FLASH --}}  @if ($errors->any())
     <div class="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-3">
       <ul class="list-disc list-inside">
         @foreach ($errors->all() as $err) <li>{{ $err }}</li> @endforeach
@@ -128,7 +122,7 @@
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('.js-delete-btn');

@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hcm/roster/index.blade.php --}}
+﻿{{-- resources/views/admin/hcm/roster/index.blade.php --}}
 @extends('layouts.app')
 @section('title','HCM — Shift Roster')
 
@@ -101,13 +101,7 @@
     </div>
   </div>
 
-  <div class="p-6 space-y-6">
-    @if (session('success'))
-      <div class="p-3 rounded-lg bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 text-sm">
-        {{ session('success') }}
-      </div>
-    @endif
-
+  <div class="p-6 space-y-6">
     {{-- INPUT PANEL --}}
     <div class="p-4 rounded-2xl ring-1 ring-emerald-200 bg-white">
       <h2 class="font-semibold mb-3">➕ Set Roster</h2>

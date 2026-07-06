@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hse/environmental_samples/index.blade.php --}}
+﻿{{-- resources/views/admin/hse/environmental_samples/index.blade.php --}}
 @extends('layouts.app')
 
 @section('title','HSE — Environmental Samples')
@@ -137,13 +137,7 @@
     </form>
   </div>
 
-  {{-- FLASH --}}
-  @if (session('success'))
-    <div class="mx-6 my-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if ($errors->any())
+  {{-- FLASH --}}  @if ($errors->any())
     <div class="mx-6 my-4 px-4 py-3 rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200 text-sm">
       <ul class="list-disc pl-5 space-y-0.5">
         @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
@@ -263,7 +257,7 @@
 
 @push('scripts')
   @once
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   @endonce
   <script>
     function confirmDeleteSample(el){

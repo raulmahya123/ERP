@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hse/incidents/edit.blade.php --}}
+﻿{{-- resources/views/admin/hse/incidents/edit.blade.php --}}
 @php
   /** @var \App\Models\Incident $incident */
   use Illuminate\Support\Str;
@@ -110,19 +110,7 @@
   {{-- BODY --}}
   <div class="p-6 bg-white">
 
-    {{-- Flash / Errors --}}
-    @if (session('success'))
-      <div class="mb-4 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-900 px-4 py-3 text-sm">
-        {{ session('success') }}
-      </div>
-    @endif
-
-    @if (session('error'))
-      <div class="mb-4 rounded-xl bg-rose-50 ring-1 ring-rose-200 text-rose-700 px-4 py-3 text-sm">
-        {{ session('error') }}
-      </div>
-    @endif
-
+    {{-- Flash / Errors --}}
     @if ($errors->any())
       <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
         <div class="font-semibold mb-1">Periksa kembali:</div>
@@ -316,7 +304,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 @if (session('flash_error'))
 <script>
   window.addEventListener('DOMContentLoaded', () => {

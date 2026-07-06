@@ -1,4 +1,4 @@
-{{-- resources/views/admin/master/form.blade.php --}}
+﻿{{-- resources/views/admin/master/form.blade.php --}}
 @extends('layouts.app')
 @section('title', "Form — {$entityName}")
 
@@ -32,13 +32,7 @@
   </div>
 </div>
 
-{{-- ===== FLASH / ERRORS ===== --}}
-@if (session('status'))
-  <div class="max-w-7xl mx-auto mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200 text-sm">
-    {{ session('status') }}
-  </div>
-@endif
-@if ($errors->any())
+{{-- ===== FLASH / ERRORS ===== --}}@if ($errors->any())
   <div class="max-w-7xl mx-auto mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 ring-1 ring-red-200 text-sm">
     <div class="font-semibold mb-1">Gagal menyimpan:</div>
     <ul class="list-disc pl-5 space-y-0.5">

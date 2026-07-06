@@ -1,4 +1,4 @@
-{{-- resources/views/auth/forgot-password.blade.php --}}
+﻿{{-- resources/views/auth/forgot-password.blade.php --}}
 <!DOCTYPE html>
 <html lang="id" class="h-full bg-slate-50">
 
@@ -27,14 +27,7 @@
                     </div>
                 </div>
 
-                {{-- Status sukses --}}
-                @if (session('status'))
-                <div class="mt-4 rounded-lg bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 px-3 py-2 text-sm">
-                    {{ session('status') }}
-                    @if(old('email'))
-                    <div class="mt-1 text-emerald-700/80 text-xs">Jika tidak terlihat, cek folder <span class="font-semibold">Spam/Junk</span> untuk <span class="font-medium">{{ old('email') }}</span>.</div>
-                    @endif
-                </div>
+                {{-- Status sukses --}}                </div>
                 @endif
 
                 {{-- Errors global --}}
@@ -65,7 +58,6 @@
                         Kirim Tautan Reset
                     </button>
                 </form>
-
 
                 {{-- Bantuan: tidak terima email? --}}
                 <div class="mt-5 rounded-xl bg-slate-50 ring-1 ring-slate-200 px-3 py-3">

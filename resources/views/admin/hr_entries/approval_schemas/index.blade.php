@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hr_entries/approval_schemas/index.blade.php --}}
+﻿{{-- resources/views/admin/hr_entries/approval_schemas/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Approval Schemas')
 
@@ -50,18 +50,7 @@
     </div>
   </div>
 
-  {{-- ALERTS --}}
-  @if (session('success'))
-    <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if (session('error'))
-    <div class="rounded-xl bg-rose-50 ring-1 ring-rose-200 text-rose-700 px-4 py-3">
-      {{ session('error') }}
-    </div>
-  @endif
-
+  {{-- ALERTS --}}
   {{-- GRID LIST --}}
   <div class="rounded-3xl bg-white ring-1 ring-emerald-200 shadow p-4 md:p-6">
     <ul class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">

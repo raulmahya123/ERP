@@ -1,4 +1,4 @@
-{{-- resources/views/admin/payroal/index.blade.php (UI diseragamkan dgn hirau-emas-biru) --}}
+﻿{{-- resources/views/admin/payroal/index.blade.php (UI diseragamkan dgn hirau-emas-biru) --}}
 @extends('layouts.app')
 
 @section('content')
@@ -85,13 +85,7 @@ $pageUnlocked = $items->count() - $pageLocked;
 
     </div>
 
-    {{-- FLASH --}}
-    @if (session('success'))
-    <div class="px-4 py-3 rounded-xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200">
-        {{ session('success') }}
-    </div>
-    @endif
-
+    {{-- FLASH --}}
     {{-- FILTER BAR (seragam) --}}
 
     <div class="bg-white rounded-3xl shadow ring-1 ring-slate-200 overflow-hidden">

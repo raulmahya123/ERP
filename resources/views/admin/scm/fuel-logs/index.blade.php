@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title','Fuel Logs')
 
 @section('content')
@@ -9,12 +9,6 @@
     <a href="{{ route('scm.fuel_logs.create', ['site' => $siteId]) }}"
        class="px-3 py-1.5 rounded bg-indigo-600 text-white">+ Tambah</a>
   </div>
-
-  @if (session('success'))
-    <div class="rounded-md bg-green-50 border border-green-200 text-green-800 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
   @if ($errors->any())
     <div class="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-3">
       <ul class="list-disc list-inside">
@@ -123,7 +117,7 @@
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('.js-delete-btn');

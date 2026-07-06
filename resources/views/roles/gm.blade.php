@@ -1,4 +1,4 @@
-{{-- resources/views/roles/gm.blade.php --}}
+﻿{{-- resources/views/roles/gm.blade.php --}}
 @extends('layouts.app')
 @section('title','GM Dashboard')
 
@@ -135,12 +135,6 @@ $totalSum = max(1, array_sum($masterTotals));
 </div>
 
 {{-- ================= FLASH ================= --}}
-@if(session('success'))
-  <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3 mb-4">
-    {{ session('success') }}
-  </div>
-@endif
-
 {{-- ================= KPI CARDS (5 kolom) ================= --}}
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
 

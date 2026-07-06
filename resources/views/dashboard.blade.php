@@ -1,4 +1,4 @@
-{{-- resources/views/dashboard.blade.php --}}
+﻿{{-- resources/views/dashboard.blade.php --}}
 @extends('layouts.app')
 
 @section('title','Dashboard')
@@ -20,13 +20,7 @@
 
 <div x-data="{ showModal:false, submitting:false }" class="space-y-6">
 
-  {{-- ALERTS --}}
-  @if(session('success'))
-    <div class="rounded-xl bg-emerald-50 text-emerald-900 px-4 py-3 ring-1 ring-emerald-200">
-      <div class="text-sm font-medium">{{ session('success') }}</div>
-    </div>
-  @endif
-  @if ($errors->any())
+  {{-- ALERTS --}}  @if ($errors->any())
     <div class="rounded-xl bg-red-50 text-red-700 px-4 py-3 ring-1 ring-red-200">
       <div class="text-sm font-semibold mb-1">Gagal menyimpan:</div>
       <ul class="text-sm list-disc pl-5 space-y-0.5">

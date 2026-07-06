@@ -1,4 +1,4 @@
-{{-- resources/views/me/payroal/profile.blade.php --}}
+﻿{{-- resources/views/me/payroal/profile.blade.php --}}
 @extends('layouts.app')
 
 @section('title', 'Profil Payroal Saya')
@@ -83,13 +83,7 @@
     <div class="px-4 py-3 rounded-2xl bg-rose-50 text-rose-800 ring-1 ring-rose-200">
       {{ $errors->first('locked') }}
     </div>
-  @endif
-  @if (session('success'))
-    <div class="px-4 py-3 rounded-2xl bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200">
-      {{ session('success') }}
-    </div>
-  @endif
-  @if ($locked)
+  @endif  @if ($locked)
     <div class="px-4 py-3 rounded-2xl bg-amber-50 text-amber-800 ring-1 ring-amber-200">
       Data payroal Anda <strong>terkunci</strong> untuk perubahan mandiri. Rincian kepegawaian & penggajian disembunyikan sampai admin membuka kunci.
     </div>

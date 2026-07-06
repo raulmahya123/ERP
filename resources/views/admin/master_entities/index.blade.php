@@ -1,14 +1,8 @@
-{{-- resources/views/admin/master_entities/index.blade.php --}}
+﻿{{-- resources/views/admin/master_entities/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Master Entities')
 
 @section('content')
-  @if (session('status'))
-    <div class="mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200">
-      {{ session('status') }}
-    </div>
-  @endif
-
   {{-- HERO STRIP (serumpun hijau–emas–biru, match Dashboard/Profile) --}}
   <div class="relative overflow-hidden rounded-3xl shadow-xl ring-1 ring-emerald-900/10 mb-6">
     <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
@@ -179,7 +173,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
   document.addEventListener('click', function(e){
     const btn = e.target.closest('.js-del-entity');

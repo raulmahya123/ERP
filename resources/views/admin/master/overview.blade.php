@@ -1,4 +1,4 @@
-{{-- resources/views/admin/master/overview.blade.php --}}
+﻿{{-- resources/views/admin/master/overview.blade.php --}}
 @extends('layouts.app')
 @php use Illuminate\Support\Str; @endphp
 
@@ -70,12 +70,6 @@
 @endphp
 
 {{-- ALERT (konsisten) --}}
-@if(session('success'))
-  <div class="mb-4 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-    {{ session('success') }}
-  </div>
-@endif
-
 {{-- ===== HEADER / HERO (seragam) ===== --}}
 <div class="mb-6 overflow-hidden rounded-3xl shadow ring-1 ring-black/5 bg-gradient-to-r {{ $themeGrad['g1'] }} text-white">
   <div class="absolute -right-16 -top-10 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"></div>

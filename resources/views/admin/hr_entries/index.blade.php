@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hr_entries/index.blade.php --}}
+﻿{{-- resources/views/admin/hr_entries/index.blade.php --}}
 @extends('layouts.app')
 @section('title', 'HR Daily Entries')
 
@@ -154,13 +154,7 @@
     </div>
   </div>
 
-  {{-- FLASH --}}
-  @if(session('success'))
-    <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-
+  {{-- FLASH --}}
   {{-- ========== FILTERS ========== --}}
   @php
     $activeSiteText = $activeSiteLabel; // sudah dihitung di atas

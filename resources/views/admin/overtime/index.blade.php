@@ -1,4 +1,4 @@
-{{-- resources/views/admin/overtime/index.blade.php --}}
+﻿{{-- resources/views/admin/overtime/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Overtime Queue')
 
@@ -75,14 +75,7 @@
 
 <div class="max-w-7xl mx-auto space-y-8">
 
-  {{-- ALERTS --}}
-  @if (session('success'))
-    <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">{{ session('success') }}</div>
-  @endif
-  @if (session('error'))
-    <div class="rounded-xl bg-rose-50 ring-1 ring-rose-200 text-rose-700 px-4 py-3">{{ session('error') }}</div>
-  @endif
-
+  {{-- ALERTS --}}
   {{-- HEADER / HERO --}}
   <div class="relative overflow-hidden rounded-3xl text-white shadow ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,rgba(255,255,255,.85)_0%,transparent_60%)]"></div>

@@ -1,4 +1,4 @@
-{{-- resources/views/admin/hcm/attendance/index.blade.php --}}
+﻿{{-- resources/views/admin/hcm/attendance/index.blade.php --}}
 @extends('layouts.app')
 @section('title','HCM — Absensi Harian')
 
@@ -70,13 +70,7 @@
 </svg>
 
 <div class="max-w-7xl mx-auto space-y-8">
-  {{-- ALERT --}}
-  @if(session('success'))
-    <div class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 px-4 py-3">
-      {{ session('success') }}
-    </div>
-  @endif
-
+  {{-- ALERT --}}
   {{-- HEADER / HERO (emerald→teal→sky) --}}
   <div class="relative overflow-hidden rounded-3xl text-white shadow ring-1 ring-black/5 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700">
     <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,rgba(255,255,255,.85)_0%,transparent_60%)]"></div>
