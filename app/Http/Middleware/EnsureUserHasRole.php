@@ -90,7 +90,7 @@ class EnsureUserHasRole
         $userRoles = $userRoles->filter()->unique()->values();
 
         // 4) BYPASS: GM selalu boleh
-        if ($userRoles->contains('gm')) {
+        if ($userRoles->contains('gm') || $userRoles->contains('superadmin')) {
             return $next($request);
         }
 

@@ -17,6 +17,7 @@ class RoleSeeder extends Seeder
             ['key'=>'hr','name'=>'HR','description'=>'Human resources'],
             ['key'=>'finance','name'=>'Finance','description'=>'Finance team'],
             ['key'=>'superadmin','name'=>'Super Admin','description'=>'Super administrator'],
+            ['key'=>'scm','name'=>'Supply Chain','description'=>'Supply chain management'],
         ];
 
         foreach ($roles as $r) {

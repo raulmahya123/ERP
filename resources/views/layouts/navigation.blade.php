@@ -44,6 +44,10 @@
             'supply chain' => 'scm',
             'supplychain' => 'scm',
             'logistics' => 'scm',
+            'foreman' => 'foreman',
+            'operator' => 'operator',
+            'finance' => 'finance',
+            'superadmin' => 'superadmin',
         ][$norm] ?? $norm;
 
     $isGM = $roleKey === 'gm';
@@ -254,7 +258,8 @@
 @endphp
 
 <aside
-    class="bg-gradient-to-b from-white to-slate-50/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-r border-slate-200 h-screen sticky top-0 flex flex-col w-72 shrink-0 shadow-sm">
+    :class="sidebarCollapsed ? 'w-16 sidebar-collapsed' : 'w-72'"
+    class="bg-gradient-to-b from-white to-slate-50/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-r border-slate-200 h-screen sticky top-0 flex flex-col shrink-0 shadow-sm transition-all duration-300 ease-in-out overflow-x-hidden">
 
     {{-- Brand Header --}}
     <div class="relative">
@@ -269,7 +274,7 @@
                             d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 19l9 5 9-5" />
                     </svg>
                 </div>
-                <div class="min-w-0">
+                <div class="min-w-0 sidebar-label">
                     <div class="text-base font-extrabold tracking-wide text-slate-800">{{ $appName }}</div>
                     <div class="flex items-center gap-2">
                         <span
@@ -296,7 +301,7 @@
                 </div>
             </div>
             @if (!$isVerified)
-                <div class="px-3 py-2 mt-3 text-xs rounded-lg text-rose-700 bg-rose-50 ring-1 ring-rose-200">
+                <div class="px-3 py-2 mt-3 text-xs rounded-lg text-rose-700 bg-rose-50 ring-1 ring-rose-200 sidebar-label">
                     Akun kamu belum terverifikasi. Masukkan OTP di halaman
                     <a href="{{ route('verification.notice') }}" class="font-semibold underline">Verify Code</a>
                     untuk membuka semua menu.
@@ -329,7 +334,7 @@
                 Route::has('profile.edit') ||
                 $canPayroalMe ||
                 Route::has('admin.hse.kpi-indicators.index'))
-            <div class="mx-3 mb-2">
+            <div class="mx-3 mb-2 sidebar-label">
                 <div class="text-[10px] uppercase tracking-wider text-slate-400 mb-1">Quick</div>
                 <div class="grid grid-cols-3 gap-2">
 
@@ -446,9 +451,9 @@
                 stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10" />
             </svg>
-            <span>Dashboard</span>
+            <span class="sidebar-label">Dashboard</span>
             @unless ($isVerified)
-                <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200">Verify
+                <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200 sidebar-label">Verify
                     first</span>
             @endunless
         </a>
@@ -461,7 +466,7 @@
                     stroke-width="2" viewBox="0 0 24 24">
                     <path d="M9 12h6m-6 4h6M5 8h14" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <span>GM Dashboard</span>
+                <span class="sidebar-label">GM Dashboard</span>
             </a>
         @endif
 
@@ -479,9 +484,9 @@
                             <rect x="3" y="14" width="7" height="7" rx="2"></rect>
                             <rect x="14" y="14" width="7" height="7" rx="2"></rect>
                         </svg>
-                        Master Data
+                        <span class="sidebar-label">Master Data</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openMaster ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openMaster ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -533,6 +538,12 @@
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M16 11c1.657 0 3 1.79 3 4v1H5v-1c0-2.21 1.343-4 3-4m8-5a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
+                        <span class="sidebar-label">HCM &amp; Manpower</span>
+                    </span>
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openPeople ? 'rotate-180' : ''"
+                        fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
                         HCM & Manpower
                     </span>
                     <svg class="w-4 h-4 transition transform text-slate-500" :class="openPeople ? 'rotate-180' : ''"
@@ -623,9 +634,9 @@
                                         <path stroke-linecap="round" stroke-linejoin="round"
                                             d="M12 6a3 3 0 110-6 3 3 0 010 6zM6 22a6 6 0 1112 0H6z" />
                                     </svg>
-                                    HR Suite
+                                    <span class="sidebar-label">HR Suite</span>
                                 </span>
-                                <svg class="w-4 h-4 transition transform text-slate-500"
+                                <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label"
                                     :class="openHR ? 'rotate-180' : ''" fill="none" stroke="currentColor"
                                     stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -749,9 +760,9 @@
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M12 2l7 4v6c0 5-7 10-7 10S5 17 5 12V6l7-4z" />
                         </svg>
-                        HSE Suite
+                        <span class="sidebar-label">HSE Suite</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openHse ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openHse ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -820,9 +831,9 @@
                     class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     <span class="flex items-center gap-2">
                         <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l-2 2m0 0l-2-2m2 2l2-2m7 13v-6l-2 2m0 0l-2-2m2 2l2-2"/></svg>
-                        Production Control
+                        <span class="sidebar-label">Production Control</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openProd ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openProd ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openProd" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.production.monthly-plans.index'))<a href="{{ route('admin.production.monthly-plans.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($prodPlanActive) }}">Monthly Plan</a>@endif
@@ -855,9 +866,9 @@
                     class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     <span class="flex items-center gap-2">
                         <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>
-                        Human Resource
+                        <span class="sidebar-label">Human Resource</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openHcm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openHcm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openHcm" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.hcm.candidates.index'))<a href="{{ route('admin.hcm.candidates.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($hcmCandActive) }}">Recruitment</a>@endif
@@ -886,9 +897,9 @@
                     class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     <span class="flex items-center gap-2">
                         <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                        Asset Management
+                        <span class="sidebar-label">Asset Management</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openAssetMgmt ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openAssetMgmt ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openAssetMgmt" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.asset-mgmt.arr.index'))<a href="{{ route('admin.asset-mgmt.arr.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($assetArrActive) }}">ARR Master</a>@endif
@@ -923,9 +934,9 @@
                     class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     <span class="flex items-center gap-2">
                         <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Plant
+                        <span class="sidebar-label">Plant</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openPlant ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openPlant ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openPlant" x-transition.origin.top.left class="mt-2 space-y-1">
                     @if (Route::has('admin.plant.standard-jobs.index'))<a href="{{ route('admin.plant.standard-jobs.index') }}" class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses($plantSjActive) }}">Standard Job</a>@endif
@@ -950,9 +961,9 @@
                     class="w-[calc(100%-1.5rem)] mx-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     <span class="flex items-center gap-2">
                         <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        Raw Data Reports
+                        <span class="sidebar-label">Raw Data Reports</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openReports ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openReports ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div x-show="openReports" x-transition.origin.top.left class="mt-2 space-y-1">
                     <a href="#" class="block py-2 pr-3 mx-3 text-sm font-medium transition rounded-lg cursor-not-allowed pl-9 text-slate-600 hover:bg-slate-50 opacity-60">ARR Raw Data</a>
@@ -1020,9 +1031,9 @@
         <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7"/>
         </svg>
-        SCM
+        <span class="sidebar-label">SCM</span>
       </span>
-      <svg class="w-4 h-4 transition transform text-slate-500" :class="openScm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openScm ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
       </svg>
     </button>
@@ -1126,9 +1137,9 @@
                         <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10h14V10"/>
                         </svg>
-                        Fuel Management
+                        <span class="sidebar-label">Fuel Management</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openFuel ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openFuel ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
@@ -1202,9 +1213,9 @@
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 7h14M5 12h14M5 17h14" />
                         </svg>
-                        Admin
+                        <span class="sidebar-label">Admin</span>
                     </span>
-                    <svg class="w-4 h-4 transition transform text-slate-500" :class="openAdmin ? 'rotate-180' : ''"
+                    <svg class="w-4 h-4 transition transform text-slate-500 sidebar-label" :class="openAdmin ? 'rotate-180' : ''"
                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
@@ -1289,7 +1300,7 @@
 
         {{-- Role Dashboards --}}
         <div class="mt-4 {{ $isVerified ? '' : 'opacity-60 pointer-events-none' }}">
-            <div class="px-5 text-[10px] uppercase tracking-wider text-slate-400 mb-1">Role Dashboards</div>
+            <div class="px-5 text-[10px] uppercase tracking-wider text-slate-400 mb-1 sidebar-label">Role Dashboards</div>
             @php $roleRoute = $roleLinks[$roleKey]['route'] ?? null; @endphp
 
             @if ($isGM)
@@ -1299,7 +1310,7 @@
                             class="group mx-3 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($link['route'])) }}">
                             <span
                                 class="grid w-5 h-5 text-yellow-500 place-items-center group-hover:text-yellow-600">{{ $link['emoji'] }}</span>
-                            <span>{{ $link['label'] }}</span>
+                            <span class="sidebar-label">{{ $link['label'] }}</span>
                         </a>
                     @endif
                 @endforeach
@@ -1308,7 +1319,7 @@
                     class="group mx-3 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs($roleRoute)) }}">
                     <span
                         class="grid w-5 h-5 text-yellow-500 place-items-center group-hover:text-yellow-600">{{ $roleLinks[$roleKey]['emoji'] ?? '📌' }}</span>
-                    <span>{{ $roleLinks[$roleKey]['label'] ?? Str::headline($roleKey) }}</span>
+                    <span class="sidebar-label">{{ $roleLinks[$roleKey]['label'] ?? Str::headline($roleKey) }}</span>
                 </a>
             @endif
         </div>
@@ -1331,7 +1342,7 @@
                     {{ $initial }}</div>
             @endif
 
-            <div class="flex-1 min-w-0">
+            <div class="flex-1 min-w-0 sidebar-label">
                 <div class="flex items-center gap-2">
                     <div class="text-sm font-semibold truncate text-slate-800">{{ $user->name ?? 'Guest User' }}
                     </div>
@@ -1357,7 +1368,7 @@
                         <path d="M12 15v2M12 9v2m-7 9h14a2 2 0 002-2V7l-7-5-7 5v12a2 2 0 002 2z" stroke-linecap="round"
                             stroke-linejoin="round" />
                     </svg>
-                    Verify with OTP
+                    <span class="sidebar-label">Verify with OTP</span>
                 </a>
             @endif
 
@@ -1370,7 +1381,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round"
                             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 11-4 0v-1m0-10V5a2 2 0 114 0v1" />
                     </svg>
-                    <span>Logout</span>
+                    <span class="sidebar-label">Logout</span>
                 </button>
             </form>
         </div>

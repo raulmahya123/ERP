@@ -51,12 +51,14 @@ class GateServiceProvider extends ServiceProvider
         });
 
         Gate::before(function ($user, $ability) {
-            return (method_exists($user, 'hasRole') && $user->hasRole('super-admin')) ? true : null;
+            return (method_exists($user, 'hasRole') && $user->hasRole('superadmin')) ? true : null;
         });
     }
 
     private function isGm($user): bool
     {
+        if (isset($user->role_key) && $user->role_key === 'superadmin') return true;
+
         if (isset($user->role) && is_string($user->role) && mb_strtolower($user->role) === 'gm') return true;
 
         if (method_exists($user, 'role')) {

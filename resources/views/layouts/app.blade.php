@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ str_replace('_','-', app()->getLocale()) }}" x-data="{ sidebarOpen:false }">
+<html lang="{{ str_replace('_','-', app()->getLocale()) }}" x-data="{ sidebarOpen:false, sidebarCollapsed: (typeof localStorage !== 'undefined' && localStorage.getItem('sidebarCollapsed') === 'true') || false }">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -39,6 +39,7 @@
   </script>
   <style>
     [x-cloak]{ display:none !important; }
+    .sidebar-collapsed .sidebar-label { display: none; }
   </style>
 </head>
 <body class="font-sans antialiased bg-gray-100">
@@ -77,6 +78,18 @@
 
     {{-- MAIN CONTENT --}}
     <div class="flex-1 min-w-0 flex flex-col">
+      {{-- Sidebar toggle (desktop) --}}
+      <button @click="sidebarCollapsed = !sidebarCollapsed; if (typeof localStorage !== 'undefined') { localStorage.setItem('sidebarCollapsed', sidebarCollapsed); }"
+              class="hidden lg:inline-flex items-center justify-center w-8 h-8 ml-3 mt-3 mb-1 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+              title="Toggle sidebar">
+        <svg x-show="!sidebarCollapsed" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <svg x-show="sidebarCollapsed" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+
       {{-- Header untuk halaman yang pakai @section("header") --}}
       @hasSection('header')
         <header class="border-b bg-white">

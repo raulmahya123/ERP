@@ -115,8 +115,8 @@
     @else
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
-          <thead class="bg-slate-50">
-            <tr class="text-left text-slate-600 border-b border-slate-200">
+          <thead class="bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700">
+            <tr class="text-left border-b border-slate-200">
               <th class="py-2 px-4">Nama</th>
               <th class="py-2 px-4">Kategori</th>
               <th class="py-2 px-4">Site</th>
