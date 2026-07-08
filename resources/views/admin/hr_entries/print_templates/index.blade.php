@@ -90,7 +90,7 @@
 
           {{-- actions --}}
           <div class="mt-3 flex flex-wrap items-center gap-2">
-            <a href="{{ route('admin.hr-entries.print-templates.show', $k) }}"
+            <a href="{{ route('hr-entries.print-templates.show', $k) }}"
                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold ring-1 ring-emerald-600 hover:bg-emerald-700">
               <svg class="w-4 h-4" aria-hidden="true"><use href="#i-edit"/></svg>
               Configure
@@ -104,7 +104,7 @@
                 Preview
               </a>
 
-              <form method="POST" action="{{ route('admin.hr-entries.print-templates.destroy', $k) }}"
+              <form method="POST" action="{{ route('hr-entries.print-templates.destroy', $k) }}"
                     onsubmit="return confirm('Hapus print template untuk type {{ $k }}?')">
                 @csrf @method('DELETE')
                 <button type="submit"

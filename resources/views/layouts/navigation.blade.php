@@ -697,9 +697,9 @@
                                                 class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.approval.schemas.*')) }}">•
                                                 Approval Schemas</a>
                                         @endif
-                                        @if (Route::has('admin.hr-entries.print-templates.index'))
-                                            <a href="{{ route('admin.hr-entries.print-templates.index') }}"
-                                                class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('admin.hr-entries.print-templates.*')) }}">•
+                                        @if (Route::has('hr-entries.print-templates.index'))
+                                            <a href="{{ route('hr-entries.print-templates.index') }}"
+                                                class="block pl-3 pr-2 py-1.5 rounded-lg text-xs font-medium transition {{ $activeClasses(request()->routeIs('hr-entries.print-templates.*')) }}">•
                                                 Print Templates</a>
                                         @endif
                                         @if (Route::has('admin.hr-entries.types.index'))
@@ -1265,9 +1265,9 @@
                     @endif
 
                     {{-- Link akses user opsional --}}
-                    @if (Route::has('admin.access.users.index') && $canGrantAccess && $isGM)
-                        <a href="{{ route('admin.access.users.index') }}"
-                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.access.users.*')) }}">Kelola
+                    @if (Route::has('admin.users.index') && $canGrantAccess && $isGM)
+                        <a href="{{ route('admin.users.index') }}"
+                            class="block mx-3 pl-9 pr-3 py-2 rounded-lg text-sm font-medium transition {{ $activeClasses(request()->routeIs('admin.users.*')) }}">Kelola
                             Akses (GM)</a>
                     @endif
                 </div>

@@ -70,7 +70,7 @@
           </h1>
           <p class="text-sm text-white/90">Relasi <b>Site</b> ↔ <b>Komoditas</b> & parameter khusus (HBA, Ni Grade, Assay, Shift Roster).</p>
         </div>
-        <a href="{{ route('admin.site_config.index') }}"
+        <a href="{{ route('admin.settings.index') }}"
            class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-semibold ring-1 ring-white/30 hover:bg-white/15 transition">
           ← Kembali
         </a>
@@ -98,7 +98,7 @@
   {{-- FORM CARD --}}
   <div class="rounded-2xl bg-white ring-1 ring-slate-200 shadow-sm overflow-hidden">
     <form method="POST"
-          action="{{ $config->exists ? route('admin.site_config.update', $config) : route('admin.site_config.store') }}"
+          action="{{ route('admin.settings.upsert') }}"
           class="p-5 sm:p-6 grid gap-5">
       @csrf
       @if ($config->exists) @method('PUT') @endif
@@ -207,7 +207,7 @@
 
       {{-- Actions --}}
       <div class="pt-1 flex items-center justify-end gap-2">
-        <a href="{{ route('admin.site_config.index') }}"
+        <a href="{{ route('admin.settings.index') }}"
            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-700 text-sm ring-1 ring-slate-200 hover:bg-slate-50 transition">
           Batal
         </a>

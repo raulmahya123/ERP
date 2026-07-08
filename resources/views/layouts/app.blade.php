@@ -6,6 +6,37 @@
   <title>{{ $title ?? config('app.name','BERKEMAH') }}</title>
   @vite(['resources/css/app.css','resources/js/app.js'])
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+    document.addEventListener('confirm-delete', function (e) {
+      const { action, label } = e.detail;
+      Swal.fire({
+        title: 'Hapus?',
+        html: `Data <b>${label}</b> akan dihapus.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#0ea5e9',
+        confirmButtonText: 'Ya, hapus',
+        cancelButtonText: 'Batal',
+        reverseButtons: true,
+        focusCancel: true,
+        customClass: {
+          popup: 'rounded-2xl',
+          confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+          cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+        }
+      }).then((res) => {
+        if (res.isConfirmed) {
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = action;
+          form.innerHTML = '<input type="hidden" name="_token" value="' + document.querySelector('meta[name=csrf-token]')?.getAttribute('content') ?? '{{ csrf_token() }}' + '"><input type="hidden" name="_method" value="DELETE">';
+          document.body.appendChild(form);
+          form.submit();
+        }
+      });
+    });
+  </script>
   <style>
     [x-cloak]{ display:none !important; }
   </style>

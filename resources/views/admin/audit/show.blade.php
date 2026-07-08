@@ -9,7 +9,7 @@
   <div class="rounded-2xl overflow-hidden border shadow-sm">
     <div class="bg-gradient-to-r from-green-700 via-blue-700 to-yellow-600 px-6 py-5">
       <div class="text-xs text-white/80 flex items-center gap-1">
-        <a href="{{ route('admin.audit.index') }}" class="hover:text-white">Audit Logs</a>
+        <a href="{{ route('admin.audit_logs.index') }}" class="hover:text-white">Audit Logs</a>
         <span>/</span><span class="text-white">Detail</span>
       </div>
       <div class="mt-1 flex items-end justify-between gap-3">
@@ -21,7 +21,7 @@
           </p>
         </div>
         <div class="hidden sm:flex items-center gap-2">
-          <a href="{{ route('admin.audit.export') }}"
+          <a href="{{ route('admin.audit_logs.export') }}"
              class="inline-flex items-center gap-2 rounded-lg text-sm text-white px-3 py-2
                     bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 shadow-sm">
             Export CSV
@@ -30,11 +30,11 @@
       </div>
     </div>
     <div class="bg-white px-6 py-3 flex items-center justify-between">
-      <a href="{{ route('admin.audit.index') }}"
+      <a href="{{ route('admin.audit_logs.index') }}"
          class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
         ← Kembali
       </a>
-      <a href="{{ route('admin.audit.export') }}"
+      <a href="{{ route('admin.audit_logs.export') }}"
          class="sm:hidden inline-flex items-center gap-2 rounded-lg text-sm text-white px-3 py-2
                 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600">
         Export CSV
@@ -180,11 +180,11 @@
 
   {{-- BOTTOM BAR --}}
   <div class="flex items-center justify-between">
-    <a href="{{ url()->previous() ?: route('admin.audit.index') }}"
+    <a href="{{ url()->previous() ?: route('admin.audit_logs.index') }}"
        class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
       ← Kembali
     </a>
-    <a href="{{ route('admin.audit.export') }}"
+    <a href="{{ route('admin.audit_logs.export') }}"
        class="hidden md:inline-flex items-center gap-2 rounded-lg text-sm text-white px-3 py-2
               bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700">
       Export CSV

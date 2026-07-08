@@ -20,7 +20,7 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <a href="{{ route('admin.audit.export') }}"
+          <a href="{{ route('admin.audit_logs.export') }}"
              class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-400 text-slate-900 text-sm font-semibold shadow ring-1 ring-amber-300/40 hover:bg-amber-300 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
@@ -87,7 +87,7 @@
     {{-- Reset --}}
     <div class="mt-3">
       @if(request()->filled('q') || request()->filled('action') || request()->filled('user'))
-        <a href="{{ route('admin.audit.index') }}"
+        <a href="{{ route('admin.audit_logs.index') }}"
            class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
           Reset filter
         </a>

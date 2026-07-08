@@ -618,7 +618,7 @@ Route::prefix('admin/production')->as('admin.production.')->middleware(['auth','
     Route::resource('monthly-plans', ProductionMonthlyPlanController::class)->parameters(['monthly-plans' => 'monthlyPlan'])->except(['show'])->whereUuid(['monthlyPlan']);
     Route::resource('shift-plans', ProductionShiftPlanController::class)->parameters(['shift-plans' => 'shiftPlan'])->except(['show'])->whereUuid(['shiftPlan']);
     Route::resource('actuals', ProductionActualController::class)->parameters(['actuals' => 'actual'])->except(['show'])->whereUuid(['actual']);
-    Route::resource('reconciles', ProductionReconcileController::class)->parameters(['reconciles' => 'reconcile'])->only(['index','store'])->whereUuid(['reconcile']);
+    Route::resource('reconciles', ProductionReconcileController::class)->parameters(['reconciles' => 'reconcile'])->only(['create','index','store'])->whereUuid(['reconcile']);
     Route::resource('shift-closings', ProductionShiftClosingController::class)->parameters(['shift-closings' => 'closing'])->except(['show'])->whereUuid(['closing']);
     Route::post('shift-closings/{closing}/unlock', [ProductionShiftClosingController::class, 'unlock'])->name('shift-closings.unlock')->whereUuid('closing');
     Route::resource('monthly-closings', ProductionMonthlyClosingController::class)->parameters(['monthly-closings' => 'closing'])->except(['show'])->whereUuid(['closing']);

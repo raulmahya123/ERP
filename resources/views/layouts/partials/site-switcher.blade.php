@@ -6,7 +6,7 @@
 @endphp
 
 @if($isGM)
-  <form action="{{ route('admin.site.switch') }}" method="POST" class="flex items-center gap-2">
+  <form action="{{ route('admin.sites.context.switch') }}" method="POST" class="flex items-center gap-2">
     @csrf
     <select name="site" class="rounded-md border px-2 py-1 text-sm focus:outline-none focus:ring">
       @foreach($sites as $s)

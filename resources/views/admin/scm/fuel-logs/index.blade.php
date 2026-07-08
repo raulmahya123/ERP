@@ -4,6 +4,7 @@
 @php
   $rIndex   = 'scm.fuel_logs.index';
   $rCreate  = 'scm.fuel_logs.create';
+  $rShow    = 'scm.fuel_logs.show';
   $rEdit    = 'scm.fuel_logs.edit';
   $rDestroy = 'scm.fuel_logs.destroy';
 
@@ -17,21 +18,46 @@
 @endphp
 
 @section('content')
-<div class="max-w-6xl space-y-6">
+<div class="overflow-hidden shadow rounded-3xl ring-1 ring-slate-200">
 
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold">Fuel Logs</h1>
-    <a href="{{ route('scm.fuel_logs.create', ['site' => $siteId]) }}"
-       class="px-3 py-1.5 rounded bg-indigo-600 text-white">+ Tambah</a>
-  </div>
+  {{-- HEADER --}}
+  <div class="relative overflow-hidden rounded-t-3xl">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+    <div class="absolute w-48 h-48 rounded-full -right-16 -top-10 bg-amber-400/25 blur-2xl"></div>
 
-  @if ($errors->any())
-    <div class="px-4 py-3 text-red-700 border border-red-200 rounded-md bg-red-50">
-      <ul class="list-disc list-inside">
-        @foreach ($errors->all() as $err) <li>{{ $err }}</li> @endforeach
-      </ul>
+    <div class="relative px-6 py-6 text-white sm:px-10">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-start gap-3">
+          <div class="grid w-10 h-10 shadow-sm rounded-xl bg-white/10 place-items-center ring-1 ring-white/20 backdrop-blur" aria-hidden="true">
+            <svg class="w-5 h-5 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h1v7a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-4h2v4a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-7h1a1 1 0 0 0 .7-1.7l-5-5a1 1 0 0 0-1.4 0l-5 5A1 1 0 0 0 3 12Z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">SCM — Fuel Logs</h1>
+            <p class="mt-1 text-sm text-white/90">Pencatatan pengisian bahan bakar.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          @isset($items)
+            <span class="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full bg-white/10 ring-1 ring-white/30 backdrop-blur-sm">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
+              Total: {{ method_exists($items,'total') ? $items->total() : (is_countable($items) ? count($items) : '-') }}
+            </span>
+          @endisset
+          <a href="{{ route($rCreate, ['site' => $siteId]) }}"
+             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition rounded-xl bg-emerald-600 ring-1 ring-emerald-700/20 hover:bg-emerald-700">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Tambah
+          </a>
+        </div>
+      </div>
     </div>
-  @endif
+  </div>
 
   {{-- FILTER BAR --}}
   <div class="px-6 py-5 bg-white border-t sm:px-10 border-slate-100">
@@ -83,17 +109,17 @@
     </form>
   </div>
 
-  {{-- FLASH --}}
-  @if (session('ok') || session('success'))
-    <div class="px-4 py-3 mx-6 my-4 text-sm rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200">
-      {{ session('ok') ?? session('success') }}
-    </div>
-  @endif
   @if ($errors->any())
     <div class="px-4 py-3 mx-6 my-4 text-sm rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200">
       <ul class="list-disc pl-5 space-y-0.5">
         @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
       </ul>
+    </div>
+  @endif
+
+  @if (session('ok') || session('success'))
+    <div class="px-4 py-3 mx-6 my-4 text-sm rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200">
+      {{ session('ok') ?? session('success') }}
     </div>
   @endif
 
@@ -126,13 +152,15 @@
                 <td class="px-4 py-3">{{ $it->operator?->name ?? '—' }}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-center gap-2">
+                    @if (Route::has($rShow))
+                      <a href="{{ route($rShow, $it->id) }}"
+                         class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white ring-1 ring-slate-200 text-slate-700 hover:bg-slate-50">Detail</a>
+                    @endif
                     @if (Route::has($rEdit))
                       <a href="{{ route($rEdit, $it->id) }}"
                          class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white ring-1 ring-emerald-700/20 hover:bg-emerald-700">Edit</a>
                     @endif
-
                     @if (Route::has($rDestroy))
-                      {{-- PAKAI FORM LANGSUNG + INTERCEPT JS --}}
                       <form method="POST"
                             action="{{ route($rDestroy, $it->id) }}"
                             class="inline js-del"
@@ -140,7 +168,7 @@
                         @csrf
                         @method('DELETE')
                         <button type="submit"
-                                class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100 js-del-btn">
+                                class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100">
                           Hapus
                         </button>
                       </form>
@@ -164,16 +192,13 @@
 @endsection
 
 @push('scripts')
-
 <script>
-  // Delegasi: cegat submit pada form .js-del
   document.addEventListener('submit', function (e) {
     const f = e.target.closest('.js-del');
     if (!f) return;
     e.preventDefault();
 
     const label = f.dataset.label || 'item ini';
-
     if (typeof Swal === 'undefined' || !Swal?.fire) {
       if (confirm('Hapus Fuel Log: ' + label + ' ?')) f.submit();
       return;

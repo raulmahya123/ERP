@@ -8,6 +8,7 @@
     // Fallback route names (scm.* atau non-prefix)
     $rIndex   = \Illuminate\Support\Facades\Route::has('scm.breakdowns.index')   ? 'scm.breakdowns.index'   : 'breakdowns.index';
     $rCreate  = \Illuminate\Support\Facades\Route::has('scm.breakdowns.create')  ? 'scm.breakdowns.create'  : 'breakdowns.create';
+    $rShow    = \Illuminate\Support\Facades\Route::has('scm.breakdowns.show')    ? 'scm.breakdowns.show'    : 'breakdowns.show';
     $rEdit    = \Illuminate\Support\Facades\Route::has('scm.breakdowns.edit')    ? 'scm.breakdowns.edit'    : 'breakdowns.edit';
     $rDestroy = \Illuminate\Support\Facades\Route::has('scm.breakdowns.destroy') ? 'scm.breakdowns.destroy' : 'breakdowns.destroy';
 
@@ -50,48 +51,78 @@
 @endphp
 
 @section('content')
-<div class="space-y-6 max-w-7xl">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold">Unit Breakdowns</h1>
-    <a href="{{ route($rCreate, ['site' => $siteId]) }}"
-       class="px-3 py-1.5 rounded bg-indigo-600 text-white">+ Tambah</a>
+<div class="overflow-hidden shadow rounded-3xl ring-1 ring-slate-200">
+
+  {{-- HEADER --}}
+  <div class="relative overflow-hidden rounded-t-3xl">
+    <div class="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-600 to-sky-700"></div>
+    <div class="absolute inset-0 opacity-25 bg-[radial-gradient(100%_70%_at_0%_0%,_rgba(255,255,255,.85)_0%,_transparent_60%)]"></div>
+    <div class="absolute w-48 h-48 rounded-full -right-16 -top-10 bg-amber-400/25 blur-2xl"></div>
+
+    <div class="relative px-6 py-6 text-white sm:px-10">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-start gap-3">
+          <div class="grid w-10 h-10 shadow-sm rounded-xl bg-white/10 place-items-center ring-1 ring-white/20 backdrop-blur" aria-hidden="true">
+            <svg class="w-5 h-5 text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">SCM — Breakdowns</h1>
+            <p class="mt-1 text-sm text-white/90">Catatan kerusakan unit.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          @isset($items)
+            <span class="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold rounded-full bg-white/10 ring-1 ring-white/30 backdrop-blur-sm">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span>
+              Total: {{ method_exists($items,'total') ? $items->total() : (is_countable($items) ? count($items) : '-') }}
+            </span>
+          @endisset
+          <a href="{{ route($rCreate, ['site' => $siteId]) }}"
+             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition rounded-xl bg-emerald-600 ring-1 ring-emerald-700/20 hover:bg-emerald-700">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Tambah
+          </a>
+        </div>
+      </div>
+    </div>
   </div>
 
-  {{-- Filters --}}
-  <form method="GET" class="flex flex-wrap items-end gap-3">
-    <div>
-      <label class="block text-sm text-slate-600">Site</label>
-      <select name="site" class="px-2 py-1 border rounded">
+  {{-- FILTER BAR --}}
+  <div class="px-6 py-5 bg-white border-t sm:px-10 border-slate-100">
+    <form method="GET" action="{{ route($rIndex) }}" class="grid gap-3 lg:grid-cols-[240px_220px_200px_220px_220px_auto]">
+      <select name="site"
+              class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm px-3 focus:ring-emerald-600 focus:border-emerald-600">
         @foreach ($sites as $s)
           <option value="{{ $s->id }}" @selected($siteId===$s->id)>{{ $s->code }} — {{ $s->name }}</option>
         @endforeach
       </select>
 
-      {{-- Unit --}}
       <select name="unit_id"
-              class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm focus:ring-teal-600 focus:border-teal-600">
+              class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm px-3 focus:ring-emerald-600 focus:border-emerald-600">
         <option value="">— Semua Unit —</option>
         @foreach ($units as $u)
           <option value="{{ $u->id }}" @selected($unitId===$u->id)>{{ $u->code }} — {{ $u->name }}</option>
         @endforeach
       </select>
 
-      {{-- Category --}}
       <select name="category"
-              class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm focus:ring-teal-600 focus:border-teal-600">
+              class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm px-3 focus:ring-emerald-600 focus:border-emerald-600">
         <option value="">— Semua Kategori —</option>
         @foreach ($categories as $k => $v)
           <option value="{{ $k }}" @selected($category===$k)>{{ $v }}</option>
         @endforeach
       </select>
 
-      {{-- From / To --}}
       <input type="datetime-local" name="date_from" value="{{ $fromVal }}"
-             class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm focus:ring-teal-600 focus:border-teal-600">
+             class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm px-3 focus:ring-emerald-600 focus:border-emerald-600">
       <input type="datetime-local" name="date_to" value="{{ $toVal }}"
-             class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm focus:ring-teal-600 focus:border-teal-600">
+             class="w-full rounded-xl border-slate-300 bg-white shadow-sm py-2.5 text-sm px-3 focus:ring-emerald-600 focus:border-emerald-600">
 
-      {{-- Apply --}}
       <div class="flex items-center gap-2">
         <button class="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow-md ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition">
           Terapkan
@@ -168,24 +199,23 @@
                 <td class="px-4 py-3 break-words text-slate-700">{{ Str::limit($row->notes ?? '', 80) ?: '—' }}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-center gap-2">
+                    @if(\Illuminate\Support\Facades\Route::has($rShow))
+                      <a href="{{ route($rShow, $row) }}"
+                         class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white ring-1 ring-slate-200 text-slate-700 hover:bg-slate-50"
+                         aria-label="Detail breakdown">Detail</a>
+                    @endif
                     @if(\Illuminate\Support\Facades\Route::has($rEdit))
                       <a href="{{ route($rEdit, $row) }}"
                          class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white ring-1 ring-emerald-700/20 hover:bg-emerald-700"
-                         aria-label="Edit breakdown">
-                        Edit
-                      </a>
+                         aria-label="Edit breakdown">Edit</a>
                     @endif
                     @if(\Illuminate\Support\Facades\Route::has($rDestroy))
-                      <button type="button"
-                              onclick="confirmDeleteBreakdown(this)"
-                              data-id="{{ $row->id }}"
-                              data-code="{{ e(($row->unit?->code ?? 'Unit').' '.($st? $st->format('Y-m-d H:i'):'-')) }}"
-                              class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100"
-                              aria-label="Delete breakdown">
-                        Hapus
-                      </button>
-                      <form id="del-bd-{{ $row->id }}" action="{{ route($rDestroy, $row) }}" method="POST" class="hidden">
+                      <form action="{{ route($rDestroy, $row) }}" method="POST" class="inline js-del"
+                            data-label="{{ e(($row->unit?->code ?? 'Unit').' '.($st? $st->format('Y-m-d H:i'):'-')) }}">
                         @csrf @method('DELETE')
+                        <button type="submit"
+                                class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100"
+                                aria-label="Delete breakdown">Hapus</button>
                       </form>
                     @endif
                   </div>
@@ -219,39 +249,33 @@
 @endsection
 
 @push('scripts')
-
 <script>
-function confirmDeleteBreakdown(el){
-  const id   = el?.dataset?.id;
-  const code = el?.dataset?.code || '';
-  if (!id) return;
+  document.addEventListener('submit', function (e) {
+    const f = e.target.closest('.js-del');
+    if (!f) return;
+    e.preventDefault();
 
-  if (typeof Swal === 'undefined' || !Swal?.fire) {
-    if (confirm('Hapus breakdown: ' + code + ' ?')) {
-      const f = document.getElementById('del-bd-' + id);
-      if (f) f.submit();
+    const label = f.dataset.label || 'breakdown ini';
+    if (typeof Swal === 'undefined' || !Swal?.fire) {
+      if (confirm('Hapus breakdown: ' + label + ' ?')) f.submit();
+      return;
     }
-    return;
-  }
 
-  Swal.fire({
-    title: 'Hapus Breakdown?',
-    text: 'Apakah kamu yakin ingin menghapus: ' + code + ' ?',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#dc2626',
-    cancelButtonColor: '#0284c7',
-    confirmButtonText: 'Ya, hapus',
-    cancelButtonText: 'Batal',
-    customClass: {
-      popup: 'rounded-2xl',
-      confirmButton: 'rounded-lg px-4 py-2 font-semibold',
-      cancelButton: 'rounded-lg px-4 py-2 font-semibold'
-    }
-  }).then((r)=>{ if(r.isConfirmed){
-      const f = document.getElementById('del-bd-'+id);
-      if (f) f.submit();
-    }});
-}
+    Swal.fire({
+      title: 'Hapus Breakdown?',
+      text: 'Apakah kamu yakin ingin menghapus: ' + label + ' ?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#0284c7',
+      confirmButtonText: 'Ya, hapus',
+      cancelButtonText: 'Batal',
+      customClass: {
+        popup: 'rounded-2xl',
+        confirmButton: 'rounded-lg px-4 py-2 font-semibold',
+        cancelButton: 'rounded-lg px-4 py-2 font-semibold'
+      }
+    }).then((r)=>{ if(r.isConfirmed) f.submit(); });
+  });
 </script>
 @endpush

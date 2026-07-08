@@ -12,7 +12,7 @@
           <h1 class="text-2xl font-bold tracking-tight">Create Long Term Planning</h1>
           <p class="text-emerald-50/80 text-sm mt-1">Set up a new long-term maintenance plan</p>
         </div>
-        <a href="{{ route('admin.plant.plant-long-term-plannings.index') }}" class="inline-flex items-center gap-2 rounded-xl bg-white/20 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/30 transition-all duration-200 shadow-lg">
+        <a href="{{ route('admin.plant.long-term-plannings.index') }}" class="inline-flex items-center gap-2 rounded-xl bg-white/20 backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/30 transition-all duration-200 shadow-lg">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           Back
         </a>
@@ -26,7 +26,7 @@
     </div>
   @endif
   <div class="p-6 sm:p-10">
-    <form method="POST" action="{{ route('admin.plant.plant-long-term-plannings.store') }}" class="max-w-2xl">
+    <form method="POST" action="{{ route('admin.plant.long-term-plannings.store') }}" class="max-w-2xl">
       @csrf
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -92,7 +92,7 @@
       </div>
       <div class="mt-8 flex items-center gap-3">
         <button type="submit" class="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-2.5 text-sm font-semibold transition-colors duration-200 shadow-lg">Save Plan</button>
-        <a href="{{ route('admin.plant.plant-long-term-plannings.index') }}" class="rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-600 px-8 py-2.5 text-sm font-semibold transition-colors duration-200">Cancel</a>
+        <a href="{{ route('admin.plant.long-term-plannings.index') }}" class="rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-600 px-8 py-2.5 text-sm font-semibold transition-colors duration-200">Cancel</a>
       </div>
     </form>
   </div>

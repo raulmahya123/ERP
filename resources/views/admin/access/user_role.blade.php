@@ -26,7 +26,7 @@
       </div>
     </div>
 
-    <a href="{{ route('admin.access.users.index') }}"
+    <a href="{{ route('admin.users.index') }}"
        class="px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 ring-1 ring-white/30 hover:bg-white/15 transition">
       ← Kembali
     </a>
@@ -56,7 +56,7 @@
     </div>
 
     <div class="p-6">
-      <form method="post" action="{{ route('admin.access.users.role',$user) }}" class="grid gap-5">
+      <form method="post" action="{{ route('admin.access.users.sites',$user) }}" class="grid gap-5">
         @csrf
 
         {{-- Nama & Email --}}
@@ -101,7 +101,7 @@
                    hover:from-emerald-700 hover:to-sky-800 shadow">
             Simpan
           </button>
-          <a href="{{ route('admin.access.users.index') }}"
+          <a href="{{ route('admin.users.index') }}"
              class="px-4 py-2 rounded-xl bg-white ring-1 ring-slate-200 text-slate-700 hover:bg-slate-50">
             Batal
           </a>

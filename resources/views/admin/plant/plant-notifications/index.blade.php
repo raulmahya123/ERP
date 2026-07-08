@@ -50,7 +50,7 @@
         </label>
       </div>
       <button type="submit" class="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-semibold transition-colors duration-200">Filter</button>
-      <a href="{{ route('admin.plant.plant-notifications.index') }}" class="rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-600 px-5 py-2.5 text-sm font-semibold transition-colors duration-200">Reset</a>
+      <a href="{{ route('admin.plant.notifications.index') }}" class="rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-600 px-5 py-2.5 text-sm font-semibold transition-colors duration-200">Reset</a>
     </form>
     @if($items->count())
       <div class="overflow-x-auto">

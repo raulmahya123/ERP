@@ -39,7 +39,7 @@
             @endisset
 
             <a
-              href="{{ route('admin.site_config.create') }}"
+              href="{{ route('admin.settings.create') }}"
               class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-300 text-slate-900 font-semibold shadow ring-1 ring-amber-400/50 hover:bg-amber-200 transition"
             >
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -86,7 +86,7 @@
 
               @if (filled($uiSiteSearch))
                 <a
-                  href="{{ route('admin.site_config.index') }}"
+                  href="{{ route('admin.settings.index') }}"
                   class="absolute right-2 top-2 text-xs text-white bg-sky-700 px-2 py-0.5 rounded-lg ring-1 ring-white/30 hover:bg-sky-600"
                   title="Bersihkan"
                 >
@@ -112,7 +112,7 @@
             </button>
 
             <a
-              href="{{ route('admin.site_config.index') }}"
+              href="{{ route('admin.settings.index') }}"
               class="inline-flex w-full md:w-auto items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
             >
               Reset
@@ -130,7 +130,7 @@
               Site: “{{ request('site_q') }}”
             </span>
 
-            <a href="{{ route('admin.site_config.index') }}" class="text-xs text-slate-600 hover:text-slate-800 underline">
+            <a href="{{ route('admin.settings.index') }}" class="text-xs text-slate-600 hover:text-slate-800 underline">
               Bersihkan filter
             </a>
           </div>
@@ -220,7 +220,7 @@
                   <td class="px-3 py-2 align-top">
                     <div class="flex gap-1.5">
                       <a
-                        href="{{ route('admin.site_config.edit', $cfg) }}"
+                        href="{{ route('admin.settings.edit', $cfg) }}"
                         class="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-semibold ring-1 ring-emerald-700/20 hover:bg-emerald-700 transition"
                       >
                         Edit
@@ -240,7 +240,7 @@
                       <form
                         id="del-cfg-{{ $cfg->id }}"
                         method="POST"
-                        action="{{ route('admin.site_config.destroy', $cfg) }}"
+                        action="{{ route('admin.settings.destroy', $cfg) }}"
                         class="hidden"
                       >
                         @csrf
@@ -261,7 +261,7 @@
                       <div class="text-xs text-slate-400">Coba ubah kata kunci atau tambah konfigurasi baru.</div>
 
                       <a
-                        href="{{ route('admin.site_config.create') }}"
+                        href="{{ route('admin.settings.create') }}"
                         class="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition"
                       >
                         + Tambah Konfigurasi
