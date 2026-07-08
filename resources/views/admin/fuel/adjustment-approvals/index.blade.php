@@ -14,6 +14,6 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->adjustment?->tank?->code ?? '—' }} / {{ number_format($it->adjustment?->volume ?? 0,2) }}L</td><td class="px-3 py-2">{{ $it->approver?->name ?? '—' }}</td><td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs {{ $it->status === 'approved' ? 'bg-green-100 text-green-800' : ($it->status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">{{ $it->status }}</span></td><td class="px-3 py-2">{{ $it->notes ?? '—' }}</td><td class="px-3 py-2">{{ $it->action_at ? $it->action_at->format('Y-m-d H:i') : '—' }}</td></tr>@empty<tr><td colspan="5" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @endsection

@@ -16,7 +16,7 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->adjustment_at->format('Y-m-d H:i') }}</td><td class="px-3 py-2">{{ $it->tank?->code ?? '—' }}</td><td class="px-3 py-2 text-right">{{ number_format($it->volume,2) }}</td><td class="px-3 py-2 capitalize">{{ $it->adjustment_type }}</td><td class="px-3 py-2">{{ Str::limit($it->reason, 50) ?? '—' }}</td><td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs {{ $it->status === 'approved' ? 'bg-green-100 text-green-800' : ($it->status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') }}">{{ $it->status }}</span></td><td class="px-3 py-2"><div class="flex items-center gap-2">@if($it->status === 'pending')<form method="POST" action="{{ route('fuel.adjustments.approve', $it) }}" class="inline">@csrf<button class="px-2 py-1 rounded border border-green-300 text-green-700 hover:bg-green-50">Approve</button></form><form method="POST" action="{{ route('fuel.adjustments.reject', $it) }}" class="inline">@csrf<button class="px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50">Reject</button></form>@else<a href="{{ route('fuel.adjustments.edit', $it) }}" class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">Edit</a>@endif</div></td></tr>@empty<tr><td colspan="7" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @push('scripts')
 

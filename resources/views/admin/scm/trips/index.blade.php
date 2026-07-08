@@ -75,10 +75,6 @@
     </form>
   </div>
 
-  @if (session('success'))
-    <div class="px-3 py-2 mb-3 text-green-800 border border-green-200 rounded bg-green-50">{{ session('success') }}</div>
-  @endif
-
   {{-- TABLE --}}
   @php use Illuminate\Support\Str; @endphp
   <div class="p-6">

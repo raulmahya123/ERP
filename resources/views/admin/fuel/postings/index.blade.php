@@ -17,6 +17,6 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->posting_date->format('Y-m-d') }}</td><td class="px-3 py-2 capitalize">{{ $it->posting_type }}</td><td class="px-3 py-2">{{ Str::limit($it->description, 50) ?? '—' }}</td><td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs {{ $it->status === 'posted' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">{{ $it->status }}</span></td><td class="px-3 py-2">{{ $it->poster?->name ?? '—' }}</td><td class="px-3 py-2">—</td></tr>@empty<tr><td colspan="6" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @endsection

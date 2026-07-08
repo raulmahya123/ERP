@@ -254,7 +254,7 @@
       </div>
 
       <div class="p-4 border-t border-emerald-100">
-        {{ $rows->links() }}
+        {{ $rows->withQueryString()->onEachSide(1)->links() }}
       </div>
     </div>
   </div>

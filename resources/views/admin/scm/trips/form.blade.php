@@ -17,12 +17,6 @@
     <h1 class="mb-4 text-xl font-semibold">@yield('title')</h1>
 
     {{-- Flash --}}
-    @if (session('success'))
-      <div class="px-3 py-2 mb-4 text-green-800 border border-green-200 rounded bg-green-50">
-        {{ session('success') }}
-      </div>
-    @endif
-
     {{-- Error box --}}
     @if ($errors->any())
       <div class="px-4 py-3 mb-4 text-sm border rounded-xl bg-rose-50 border-rose-200 text-rose-700">

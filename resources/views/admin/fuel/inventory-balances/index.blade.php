@@ -18,6 +18,6 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->balance_date->format('Y-m-d') }}</td><td class="px-3 py-2">{{ $it->tank?->code ?? '—' }}</td><td class="px-3 py-2 text-right">{{ number_format($it->opening_balance,2) }}</td><td class="px-3 py-2 text-right">{{ number_format($it->receive_qty,2) }}</td><td class="px-3 py-2 text-right">{{ number_format($it->consume_qty,2) }}</td><td class="px-3 py-2 text-right">{{ number_format($it->adjustment_qty,2) }}</td><td class="px-3 py-2 text-right font-semibold">{{ number_format($it->closing_balance,2) }}</td></tr>@empty<tr><td colspan="7" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @endsection

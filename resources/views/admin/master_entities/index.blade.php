@@ -166,7 +166,7 @@
 
     @if(method_exists($rows,'links'))
       <div class="px-4 py-4 border-t bg-slate-50">
-        {{ $rows->links() }}
+        {{ $rows->withQueryString()->onEachSide(1)->links() }}
       </div>
     @endif
   </div>

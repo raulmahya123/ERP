@@ -18,7 +18,7 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->receive_at->format('Y-m-d H:i') }}</td><td class="px-3 py-2">{{ $it->supplier ?? '—' }}</td><td class="px-3 py-2">{{ $it->po_number ?? '—' }}</td><td class="px-3 py-2 text-right">{{ number_format($it->volume,2) }}</td><td class="px-3 py-2 capitalize">{{ $it->fuel_type }}</td><td class="px-3 py-2">{{ $it->vehicle_number ?? '—' }}</td><td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs {{ $it->status === 'posted' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">{{ $it->status }}</span></td><td class="px-3 py-2"><div class="flex items-center gap-2"><a href="{{ route('fuel.receives.edit', $it) }}" class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">Edit</a><form method="POST" action="{{ route('fuel.receives.destroy', $it) }}" class="inline js-delete-form" data-title="Receive {{ $it->receive_at->format('Y-m-d') }}">@csrf @method('DELETE')<button type="submit" class="px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50 js-delete-btn">Hapus</button></form></div></td></tr>@empty<tr><td colspan="8" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @push('scripts')
 

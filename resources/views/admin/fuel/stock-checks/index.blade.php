@@ -17,7 +17,7 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->check_at->format('Y-m-d H:i') }}</td><td class="px-3 py-2">{{ $it->tank?->code ?? '—' }}</td><td class="px-3 py-2 text-right">{{ number_format($it->book_volume,2) }}</td><td class="px-3 py-2 text-right">{{ number_format($it->actual_volume,2) }}</td><td class="px-3 py-2 text-right {{ $it->difference < 0 ? 'text-red-600' : 'text-green-600' }}">{{ number_format($it->difference,2) }}</td><td class="px-3 py-2">{{ $it->checker?->name ?? '—' }}</td><td class="px-3 py-2"><div class="flex items-center gap-2"><a href="{{ route('fuel.stock-checks.edit', $it) }}" class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">Edit</a><form method="POST" action="{{ route('fuel.stock-checks.destroy', $it) }}" class="inline js-delete-form">@csrf @method('DELETE')<button type="submit" class="px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50 js-delete-btn">Hapus</button></form></div></td></tr>@empty<tr><td colspan="7" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @push('scripts')
 

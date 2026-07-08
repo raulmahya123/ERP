@@ -405,7 +405,7 @@ $itemsAssign = $items->where('entry_type','ASSIGN');
 
   {{-- Paginator global --}}
 
-  <div class="px-1"> {{ $entries->links() }} </div>
+  <div class="px-1"> {{ $entries->withQueryString()->onEachSide(1)->links() }} </div>
 </div>
 
 {{-- Chart.js CDN + donut charts --}}

@@ -169,7 +169,7 @@
 
   {{-- ===== PAGINATION ===== --}}
   <div class="px-6 py-3 border-t border-slate-200 bg-slate-50">
-    {{ $assignments->links() }}
+    {{ $assignments->withQueryString()->onEachSide(1)->links() }}
   </div>
 
 </div>

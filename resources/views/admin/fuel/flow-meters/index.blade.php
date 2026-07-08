@@ -15,7 +15,7 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->code }}</td><td class="px-3 py-2">{{ $it->name }}</td><td class="px-3 py-2">{{ $it->tank?->code ?? '—' }}</td><td class="px-3 py-2 text-right">{{ number_format($it->meter_reading,2) }}</td><td class="px-3 py-2">{{ $it->uom }}</td><td class="px-3 py-2">{{ $it->location ?? '—' }}</td><td class="px-3 py-2">{{ $it->is_active ? 'Yes' : 'No' }}</td><td class="px-3 py-2"><div class="flex items-center gap-2"><a href="{{ route('fuel.flow-meters.edit', $it) }}" class="px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">Edit</a><form method="POST" action="{{ route('fuel.flow-meters.destroy', $it) }}" class="inline js-delete-form" data-title="Meter {{ $it->code }}">@csrf @method('DELETE')<button type="submit" class="px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50 js-delete-btn">Hapus</button></form></div></td></tr>@empty<tr><td colspan="8" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @push('scripts')
 

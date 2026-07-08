@@ -19,6 +19,6 @@
       <tbody>@forelse ($items as $it)<tr class="border-t"><td class="px-3 py-2">{{ $it->transaction_at->format('Y-m-d H:i') }}</td><td class="px-3 py-2">{{ $it->tank?->code ?? '—' }}</td><td class="px-3 py-2 capitalize">{{ $it->transaction_type }}</td><td class="px-3 py-2 text-right">{{ $it->volume_in > 0 ? number_format($it->volume_in,2) : '—' }}</td><td class="px-3 py-2 text-right">{{ $it->volume_out > 0 ? number_format($it->volume_out,2) : '—' }}</td><td class="px-3 py-2 text-right">{{ number_format($it->balance_before,2) }}</td><td class="px-3 py-2 text-right font-semibold">{{ number_format($it->balance_after,2) }}</td><td class="px-3 py-2">{{ Str::limit($it->description, 60) ?? '—' }}</td></tr>@empty<tr><td colspan="8" class="px-3 py-6 text-center text-slate-500">Belum ada data.</td></tr>@endforelse</tbody>
     </table>
   </div>
-  <div>{{ $items->links() }}</div>
+  <div>{{ $items->withQueryString()->onEachSide(1)->links() }}</div>
 </div>
 @endsection

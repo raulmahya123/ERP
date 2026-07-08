@@ -25,11 +25,6 @@
        class="px-3 py-1.5 rounded bg-indigo-600 text-white">+ Tambah</a>
   </div>
 
-  @if (session('success'))
-    <div class="px-4 py-3 text-green-800 border border-green-200 rounded-md bg-green-50">
-      {{ session('success') }}
-    </div>
-  @endif
   @if ($errors->any())
     <div class="px-4 py-3 text-red-700 border border-red-200 rounded-md bg-red-50">
       <ul class="list-disc list-inside">

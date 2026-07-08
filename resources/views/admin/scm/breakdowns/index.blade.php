@@ -57,12 +57,6 @@
        class="px-3 py-1.5 rounded bg-indigo-600 text-white">+ Tambah</a>
   </div>
 
-  @if (session('success'))
-    <div class="px-4 py-3 text-green-800 border border-green-200 rounded-md bg-green-50">
-      {{ session('success') }}
-    </div>
-  @endif
-
   {{-- Filters --}}
   <form method="GET" class="flex flex-wrap items-end gap-3">
     <div>
@@ -109,12 +103,6 @@
     </form>
   </div>
 
-  {{-- FLASH --}}
-  @if (session('success'))
-    <div class="px-4 py-3 mx-6 my-4 text-sm rounded-xl bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200">
-      {{ session('success') }}
-    </div>
-  @endif
   @if ($errors->any())
     <div class="px-4 py-3 mx-6 my-4 text-sm rounded-xl bg-rose-50 text-rose-700 ring-1 ring-rose-200">
       <ul class="list-disc pl-5 space-y-0.5">
